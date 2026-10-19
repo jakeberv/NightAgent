@@ -7,3 +7,7 @@ Josef Osumeje
 Ben Moseley
 
 Jake Berv — jacob.berv@gmail.com
+
+Guido Herrera-R - guidohero@hotmail.com
+
+
