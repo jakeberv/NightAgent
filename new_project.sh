@@ -2,12 +2,13 @@
 # Create a student project from a case definition.
 # Usage: ./new_project.sh <case_dir> [project_dir]
 #
-# project-template/ is the starting point of every project: the files the operator fills in
-# (QUESTION.md, supervisor-persona.md) plus the skeleton the agents work in. A case directory
-# holds filled-in versions of those two files, and optionally starting data/ or code; they are
-# copied over the template. The project is created at project_dir (default:
-# projects/<case name>, gitignored here) as its own git repository: the student's work is
-# committed there, never to this harness repo.
+# project-template/ is the starting point of every project: QUESTION.md for the operator to fill
+# in, plus the skeleton the agents work in. A case directory holds a filled-in QUESTION.md, and
+# optionally starting data/ or code; it is copied over the template. The supervisor (including
+# its persona) is the same for every project and comes from SUPERVISOR.md.
+#
+# The project is created at project_dir (default: projects/<case name>, gitignored here) as its
+# own git repository: the student's work is committed there, never to this harness repo.
 set -euo pipefail
 
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
@@ -20,9 +21,7 @@ CASE="$(cd "$1" && pwd)"
 NAME="$(basename "$CASE")"
 DEST="${2:-$CORE/projects/$NAME}"
 
-for f in QUESTION.md supervisor-persona.md; do
-  if [ ! -f "$CASE/$f" ]; then echo "Error: $CASE/$f not found" >&2; exit 1; fi
-done
+if [ ! -f "$CASE/QUESTION.md" ]; then echo "Error: $CASE/QUESTION.md not found" >&2; exit 1; fi
 if [ -e "$DEST" ]; then echo "Error: $DEST already exists" >&2; exit 1; fi
 
 # Project skeleton, then the case's own files (question, data, code) on top.
@@ -30,13 +29,13 @@ mkdir -p "$(dirname "$DEST")"
 cp -R "$CORE/project-template" "$DEST"
 cp -R "$CASE/." "$DEST/"
 DEST="$(cd "$DEST" && pwd)"
-rm -f "$DEST/supervisor-persona.md" "$DEST/.DS_Store"
+rm -f "$DEST/.DS_Store"
 
 # Path from the project to the core protocols, used by CLAUDE.md @imports.
 REL="$(python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$CORE" "$DEST")"
 sed -i '' "s|{{CORE}}|$REL|g" "$DEST/CLAUDE.md"
 
-# Build the supervisor subagent: frontmatter + generic protocol + private persona.
+# Build the supervisor subagent: frontmatter + SUPERVISOR.md (protocol and private persona).
 mkdir -p "$DEST/.claude/agents"
 {
   cat <<'MD'
@@ -48,17 +47,15 @@ tools: Read, Grep, Glob
 
 MD
   cat "$CORE/SUPERVISOR.md"
-  printf '\n## Your persona (private)\n\n'
-  cat "$CASE/supervisor-persona.md"
 } > "$DEST/.claude/agents/supervisor.md"
 
-# Hide the persona from the student: deny reads of the agent file and of the case definitions.
-python3 - "$DEST/.claude/settings.json" "$CORE/cases" <<'PY'
+# Hide the persona from the student: deny reads of the agent file and of SUPERVISOR.md.
+python3 - "$DEST/.claude/settings.json" "$CORE/SUPERVISOR.md" <<'PY'
 import json, sys
-p, cases = sys.argv[1], sys.argv[2]
+p, sup = sys.argv[1], sys.argv[2]
 s = json.load(open(p))
 for tool in ("Read", "Edit"):
-    rule = f"{tool}(/{cases}/**)"
+    rule = f"{tool}(/{sup})"
     if rule not in s["permissions"]["deny"]:
         s["permissions"]["deny"].append(rule)
 json.dump(s, open(p, "w"), indent=2)

@@ -22,10 +22,10 @@ Following [autoresearch](https://github.com/karpathy/autoresearch), the prototyp
 
 - [STUDENT.md](STUDENT.md): how the student works: running the project, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
 - [MEETING.md](MEETING.md): meeting protocol between student and supervisor agent: brief → present → feedback → clarification → agreed actions (about a week of student effort) → verbatim transcript, minutes and memory. Ends with a final meeting where the supervisor reviews the report.
-- [SUPERVISOR.md](SUPERVISOR.md): how the supervisor agent behaves: checks the evidence, gives concise feedback, confirms actions, reviews the final report, and signs off.
-- [project-template/](project-template/): the starting point of every project. Two files are for the operator to fill in: `QUESTION.md` (question, context, constraints) and `supervisor-persona.md` (the supervisor's private values). The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
-- [cases/](cases/): one folder per research case, containing only the filled-in `QUESTION.md` and `supervisor-persona.md` (plus any starting data or code). [cases/mnist/](cases/mnist/) asks "What is the best way to classify MNIST handwritten digits?"
-- [new_project.sh](new_project.sh): turns a case into a project. It builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md plus the case's private persona. The student is denied read access to it and to `cases/`, so it has to learn the supervisor's values through meetings.
+- [SUPERVISOR.md](SUPERVISOR.md): how the supervisor agent behaves (checks the evidence, gives concise feedback, confirms actions, reviews the final report, signs off), plus its private persona: what it values as good research. The same supervisor is used for every project.
+- [project-template/](project-template/): the starting point of every project. `QUESTION.md` (question, context, constraints) is for the operator to fill in. The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
+- [cases/](cases/): one folder per research case, containing only its filled-in `QUESTION.md` (plus any starting data or code). [cases/mnist/](cases/mnist/) asks "What is the best way to classify MNIST handwritten digits?"
+- [new_project.sh](new_project.sh): turns a case into a project. It builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md. The student is denied read access to both, so it has to learn the supervisor's values through meetings.
 
 This repository holds only the general harness and case definitions. Each project is its own git repository, created under `projects/` (gitignored here), and the student's work is committed only there.
 
@@ -44,7 +44,7 @@ To stop, interrupt the session. To resume, open a new session in the project fol
 
 The proof of concept is the record in the project's `meetings/` (briefs, verbatim transcripts and minutes: results, feedback, Q&A, agreed actions), the memory files showing what the student learned about its supervisor, and the final `REPORT.md`, written like a short paper.
 
-To add a case, create `cases/<name>/` with copies of `project-template/QUESTION.md` and `project-template/supervisor-persona.md`, and fill them in.
+To add a case, copy `project-template/QUESTION.md` to `cases/<name>/QUESTION.md` and fill it in.
 
 ## Workshop scope and goals
 
