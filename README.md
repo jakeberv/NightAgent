@@ -2,7 +2,45 @@
 
 NightAgent is a friendly AI apprentice that learns from our interactions and puts that learning into action.
 
-Team (5): 
+## What we are building
+
+A supervised research apprentice for scientists. The scientist sets the research direction, reviews results, and gives feedback; NightAgent performs bounded analyses with tools and carries confirmed lessons into later work. Learning changes its stored context, not its model weights.
+
+The workshop goal is to build a small, inspectable prototype and evaluate two things separately: whether it becomes a better research student, and whether its research produces useful, supported scientific insights.
+
+## How it works
+
+1. **Supervision meeting:** present results, receive feedback, clarify ambiguity, and agree on the next actions.
+2. **Research cycle:** choose approved analyses, run tools within limits, save reproducible results, and return for supervision.
+3. **Persistent memory:** retain confirmed lessons with their source and scope, so corrections influence later meetings and analyses.
+
+After feedback, extract at most three actions or lessons. Check each for unclear meaning, unclear scope, or conflicting instructions. Ask at most one consolidated clarification question per meeting; leave unresolved items pending and execute only agreed actions. This is an ambiguity check, not calibrated uncertainty about scientific truth.
+
+## Workshop scope and goals
+
+- Start with one scientist, one project, one model, a CLI, and editable JSON memory.
+- Provide four prewritten tools: `inspect_project`, `run_analysis`, `read_results`, and `save_report`.
+- Combine Tutorial 1's tool loop and traces with Tutorial 2's persistent memory and independent evaluation.
+- Compare memory off, unconditional memory updates, and checked memory updates on six two-meeting cases with two repeats per condition.
+- Score student behavior and scientific outcomes separately, alongside cost and runtime.
+- Demonstrate feedback, clarification, a confirmed memory update, and a fresh session that uses the lesson.
+
+The scientific task, dataset, analysis script, and role owners are still open. Candidate tasks belong in the notes. Generated tools, web/GitHub automation, multi-agent coordination, and a graphical interface are deferred.
+
+## Project documents and status
+
+- [SPEC.md](SPEC.md): approximately 400-word workshop proposal; a draft, not an implemented system.
+- [NOTES.md](NOTES.md): design rationale, evaluation details, candidate tasks, and open decisions.
+- [Shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z): collaborative spec draft.
+
+Status as of 19 October 2026: design documentation only; no agent implementation or evaluation results yet. Next, choose an accessible task and script, assign owners, and build the fixed baseline before adding the adaptive loop.
+
+## Name and guiding ideas
+
+Inspired by [Night Science](https://night-science.org/): explore before judging, improve the question, connect across fields, balance openness with structure, and return to evidence. These are adapted design principles, not claims that the agent already implements them.
+
+## Team 5
+
 Josef Osumeje - josumeje@umich.edu
 
 Ben Moseley
