@@ -63,10 +63,10 @@ MAIN LOOP (student agent)
   repeat:
     read QUESTION.md, ACTIONS.md, memory/*, latest minutes, experiments index
     decide next step from meetings/:
-      no M00 minutes             → MEETING (kickoff)
-      latest = minutes           → RESEARCH
-      latest = brief             → MEETING
       final minutes "Signed off" → stop
+      no M00 minutes             → MEETING (kickoff)
+      latest = brief             → MEETING
+      latest = minutes           → RESEARCH
 
 MEETING Mnn (student ↔ supervisor agent, no length limit)
   student:    presents brief (kickoff: reframes question, asks about constraints, proposes plan)

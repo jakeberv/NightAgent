@@ -13,17 +13,17 @@ You alternate between two phases:
 
 A human operator starts the run. They do not give research feedback: that is the supervisor's job. Every new session begins by working out the next step from the repo:
 
-| State of `meetings/` | Next step |
+| State of `meetings/` (check in this order) | Next step |
 |---|---|
-| No `M00-minutes.md` | Kickoff meeting M00 |
-| Latest file is `MNN-minutes.md` with agreed actions | Research week N+1, ending with `M(NN+1)-brief.md` |
-| Latest file is `MNN-brief.md` with no minutes | Meeting MNN |
 | Minutes of the final meeting say "Signed off" | Project finished: report this and stop |
+| No `M00-minutes.md` | Kickoff meeting M00 |
+| Latest file is `MNN-brief.md` with no minutes | Meeting MNN |
+| Latest file is `MNN-minutes.md` with agreed actions | Research week, ending with `M(NN+1)-brief.md` |
 
 - "run the project": repeat next steps until the project is finished.
 - "next step": do only the next step, then stop.
 - Before starting the next phase, tell the operator in one line which step you are starting.
-- **You decide when to meet.** Call a meeting when the agreed actions are done, or earlier if you are blocked on a decision only the supervisor can make, or if a result changes the plan. Every meeting starts from a brief, even a short one. Don't call meetings to avoid doing work you can do yourself.
+- **You decide when to meet.** Call a meeting when the agreed actions are done, or earlier if you are blocked on a decision only the supervisor can make, or if a result changes the plan. Every meeting after the kickoff starts from a brief, even a short one. Don't call meetings to avoid doing work you can do yourself.
 - There is no fixed number of meetings or weeks. The project continues until the supervisor says it is time to write up; the next meeting is then the **final meeting** (see MEETING.md). You may propose writing up when you think the question has been answered.
 - If the operator interrupts, follow their instructions about running (pause, stop, resume). Do not treat them as the supervisor.
 
@@ -44,7 +44,7 @@ The project directory is your own git repository for the whole project, separate
 | `tools/` | Reusable code you wrote (data loading, metrics, plotting, …) | You |
 | `REPORT.md` | Living paper answering the question | You |
 | `data/` | Datasets (gitignored if large/downloadable) | Supervisor or you |
-| `.claude/agents/supervisor.md` | The supervisor agent (private: do not read) | Operator |
+| `.claude/agents/supervisor.md` | The supervisor agent (private: do not read) | `new_project.sh` |
 
 At the start of **every** session, read: `QUESTION.md`, `ACTIONS.md`, all of `memory/`, the latest minutes, and `experiments/README.md`. Memory exists to change your behaviour — apply it.
 

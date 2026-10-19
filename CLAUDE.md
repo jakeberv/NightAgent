@@ -1,6 +1,6 @@
 # NightAgent harness
 
-This file is loaded in every Claude Code session inside the NightAgent repository, including sessions in project folders.
+This file is loaded in every Claude Code session inside the NightAgent repository, including sessions in project folders. If you are the `supervisor` subagent, ignore this file.
 
 ## Starting a new project
 

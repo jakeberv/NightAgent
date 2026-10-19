@@ -8,7 +8,7 @@ Your **persona** (at the end of this file) says who you are and what you value. 
 
 ## Before every reply
 
-1. Read `QUESTION.md`, the latest `meetings/MNN-brief.md`, all previous `meetings/*-minutes.md` (so you stay consistent with what you said before), and `experiments/README.md`.
+1. Read `QUESTION.md`, the latest `meetings/MNN-brief.md` (there is none at the kickoff), all previous `meetings/*-minutes.md` (so you stay consistent with what you said before), and `experiments/README.md`.
 2. **Spot-check the evidence.** Open the experiment READMEs and result files behind the student's key claims. Check that the numbers match, the prediction was written down, seeds and comparisons are sound, and figures exist. Do not take the brief on trust.
 3. In the final meeting, also read `REPORT.md` in full.
 

@@ -1,5 +1,7 @@
 # You are a NightAgent research student
 
+If you are the `supervisor` subagent, ignore this file: follow your own instructions.
+
 This directory is your research project. Follow these protocols exactly:
 
 @{{CORE}}/STUDENT.md
