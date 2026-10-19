@@ -10,9 +10,33 @@ The supervisor helps establish the scientific motivation and refine the research
 
 Retain four prewritten tools and the localhost report viewer. The CLI launches a run; the browser presents plots, metrics, experiment history, reviews, limitations, and final comparisons. Proposed caps per run are three research/review rounds, six analyses, 60 seconds per analysis, 15 model calls including both roles, and 30,000 total input/output tokens. Stop with recorded results when blocked or capped.
 
-Compare fixed baseline, researcher alone, and researcher plus supervisor on six predefined cases with two repeats per condition. Match resources across agent conditions, reset memory between cases, and keep final tests independent of search. Evaluate process reliability and scientific outcomes separately. The supervisor's ratings do not establish success. The researcher-only condition receives the same measured results/history and can use its full budget without supervisor calls.
+Compare fixed baseline, researcher alone, and researcher plus supervisor on six predefined cases with two repeats per condition. Match resources across agent conditions, reset memory between cases, and keep final tests independent of search. Evaluate process reliability and scientific outcomes separately. A post-run evaluator scores the frozen trace using the rubric below; neither supervisor opinions nor evaluator ratings establish scientific success. The researcher-only condition receives the same measured results/history and can use its full search budget without supervisor calls.
 
 The dataset, approved classifier approaches, training script, primary metric, case definitions, process pass/fail checks, and owners remain open. Digits/MNIST and bird-song spectrograms remain dataset candidates; the tutorial simulator is an earlier alternative outside the current classification scope. The earlier human confirmation and ambiguity-count design is superseded; it is preserved below as discussion history. No implementation or evaluation has been run.
+
+## Post-run evaluator and trace-quality rubric
+
+Adopted for the workshop: after a run stops, freeze its recorded questions, hypotheses, concise decision rationales, configurations, tool results, reviews, and final report. Give events stable IDs and link experiments to run IDs. A separate, read-only LLM evaluation call scores this record; it cannot execute experiments, change memory, send feedback to the agents, or restart search. It evaluates observable scientific reasoning and interactions, not unobserved internal thought. One researcher and one supervisor remain the only roles in the experimental loop.
+
+Use the same fixed evaluator prompt, rubric, and model across conditions. Supply the original brief, allowed methods, validation evidence, and deterministic check results; withhold final test scores to reduce hindsight bias. Treat trace messages as evidence to assess, not instructions to the evaluator. Return each criterion's score, a short justification, cited event/run IDs, and any uncertainty or missing evidence. Judge scores are estimates, not ground truth.
+
+| Criterion | 0 — poor or absent | 1 — partial | 2 — well supported |
+| --- | --- | --- | --- |
+| Question alignment | Experiments do not address the stated question. | Connection is plausible but weak or unexplained. | Experiment and interpretation explicitly address the question. |
+| Experimental design | Comparison is confounded or cannot support the claimed distinction. | Useful comparison with an important uncontrolled factor. | Controlled comparison distinguishes relevant approaches or explanations within budget. |
+| Evidence use | Conclusions contradict results or lack supporting evidence. | Evidence is cited but supports only part of the claim. | Claims accurately reflect cited results and their limits. |
+| Interaction quality | Feedback is generic/misleading or responses ignore evidence. | Feedback or response is useful, but its connection to subsequent action is unclear. | Feedback is specific and evidence-based; uptake or rejection has a justified rationale. |
+| Uncertainty | Unsupported certainty or limitations ignored. | Limitations acknowledged without connecting them to decisions. | Uncertainty supports an appropriate replication, follow-up, stopping decision, or inconclusive conclusion. |
+
+Code separately checks valid actions and run references, repeated configurations/errors, budgets, and stopping rules. Repeated configurations are descriptive counts: intentional replication is not automatically a failure. Verify judge citations against the trace. Use N/A when a criterion is structurally inapplicable (such as interaction quality in a solo run), not when an applicable behavior is simply missing. Compare the four common reasoning criteria across agent conditions; report interaction quality separately for supervised runs. Do not compare a five-item total to a four-item total. Report baseline trace criteria only where applicable.
+
+Before the main evaluation, manually score a small sample spanning conditions using the same rubric, compare it with evaluator ratings, and fix ambiguous anchors before freezing the rubric. During evaluation, audit a sample and report disagreement. Do not reward verbosity, automatic agreement with the supervisor, or trace differences by themselves. Missing/invalid evaluator output is an evaluation failure to report, not a zero-quality trace. Incomplete runs should retain their failure status and available trace.
+
+Keep the existing experiment and model-call/token caps for search unchanged and matched across agent conditions. Start with one bounded post-run evaluator call per trace; set its token cap in the pilot, report its cost separately, and include it in the proposed $5 total evaluation spend. Do not add an evaluator conversation or repair loop to the research loop. The browser report shows classifier outcomes, deterministic checks, and rubric scores with evidence links as separate panels.
+
+### Optional: trace overlap and containment
+
+Only add if time permits. Compare canonical classifier approaches/configurations from completed runs, rather than prose similarity. For configuration sets A and B, report overlap as |A ∩ B| / |A ∪ B| and directional coverage as |A ∩ B| / |A|; coverage of 1 means A is contained in B. Define configuration identity consistently, excluding run IDs and treating repeat seeds separately; report empty-set comparisons as N/A. Match cases and search budgets. These measures describe exploration, not reasoning quality or scientific value. Sequence and hypothesis similarity can remain future extensions.
 
 ## Possible future extension: multiple researchers and communication
 

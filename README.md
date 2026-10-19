@@ -15,6 +15,7 @@ The workshop question is whether an automated supervisor helps a researcher buil
 3. **Fixed evaluator:** compute validation metrics and validity checks during search; independently score the final validation-selected classifier on untouched test data after search ends.
 4. **Supervisor reviews:** assess what the evidence says about the question, cite run IDs, identify uncertainty, and recommend one next action or stopping. Record any refinement of the question within the original objective.
 5. **Harness:** record the framing and experiment/review, enforce limits, and continue or finish with a browser report. Framing calls count toward the shared budget; benchmark criteria remain fixed.
+6. **Post-run evaluator:** read the frozen trace and validation evidence, then score scientific reasoning and interactions with cited events. It cannot influence the agents or see final test scores. Display trace scores separately from classifier performance.
 
 The supervisor's opinion is not ground truth. Agents cannot modify the evaluator or access final test outcomes during search. Suggestions remain hypotheses until supported by evidence; saved lessons include their scope and source runs. Uncertainty can trigger replication within the budget or an inconclusive report.
 
@@ -26,9 +27,10 @@ The supervisor's opinion is not ground truth. Agents cannot modify the evaluator
 - Provide four prewritten tools: `inspect_project`, `run_analysis`, `read_results`, and `save_report`.
 - Combine Tutorial 1's tool loop and traces with Tutorial 2's persistent memory and independent evaluation.
 - Compare a fixed baseline, researcher alone, and researcher plus supervisor on six predefined cases with two repeats per condition. Match the two agent conditions' model, tools, data, starting history, and resource budgets.
-- Score valid actions, evidence use, correction uptake, and stopping separately from independently evaluated scientific outcomes; report cost and runtime.
+- Score question alignment, experimental design, evidence use, interaction quality, and uncertainty from 0–2 using a fixed post-run rubric. Compare common criteria across conditions; report interaction quality separately and mark it N/A for solo runs. Manually audit sample ratings.
+- Use code to check valid actions/references, duplicates, budgets, and stopping. Keep trace overlap/containment optional; differences alone do not imply quality.
 - Launch once and demonstrate experiments, automated review, revision, and final comparison without human intervention during execution.
-- Proposed per-run caps: three research/review rounds, six analyses, 60 seconds per analysis, 15 model calls, and 30,000 total input/output tokens across both roles. Pilot before the proposed $5 evaluation budget.
+- Proposed search caps: three research/review rounds, six analyses, 60 seconds per analysis, 15 model calls, and 30,000 total input/output tokens across both roles. Meter the bounded post-run evaluator separately, including its cost in the proposed $5 total evaluation budget; pilot before running the suite.
 
 The task family is classification; the dataset, classifier approaches, training script, primary metric, case definitions, and role owners remain open. Dataset candidates belong in the notes. Generated tools, web/GitHub automation, multiple researchers, parallel agents, and browser chat are deferred. The local results viewer is part of the minimum build.
 
