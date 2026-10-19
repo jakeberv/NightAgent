@@ -1,34 +1,28 @@
 #!/usr/bin/env bash
-# Create a student project from a case definition.
-# Usage: ./new_project.sh <case_dir> [project_dir]
+# Initialise a case folder as a NightAgent student project, in place.
+# Usage: ./new_project.sh <case_dir>
 #
-# project-template/ is the starting point of every project: QUESTION.md for the operator to fill
-# in, plus the skeleton the agents work in. A case directory holds a filled-in QUESTION.md, and
-# optionally starting data/ or code; it is copied over the template. The supervisor (including
-# its persona) is the same for every project and comes from SUPERVISOR.md.
-#
-# The project is created at project_dir (default: projects/<case name>, gitignored here) as its
-# own git repository: the student's work is committed there, never to this harness repo.
+# The human creates <case_dir> containing a QUESTION.md (start from project-template/QUESTION.md,
+# written in the supervisor's voice), plus any starting data/ or code. This script adds the rest
+# of project-template/ without overwriting anything already there, builds the supervisor agent
+# from SUPERVISOR.md, and makes the folder its own git repository: the student's work is committed
+# there, never to this harness repo (cases/ is gitignored here).
 set -euo pipefail
 
-if [ $# -lt 1 ] || [ $# -gt 2 ]; then
-  echo "Usage: $0 <case_dir> [project_dir]" >&2
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <case_dir>" >&2
   exit 1
 fi
 
 CORE="$(cd "$(dirname "$0")" && pwd)"
-CASE="$(cd "$1" && pwd)"
-NAME="$(basename "$CASE")"
-DEST="${2:-$CORE/projects/$NAME}"
+if [ ! -f "$1/QUESTION.md" ]; then echo "Error: $1/QUESTION.md not found: write the question first" >&2; exit 1; fi
+DEST="$(cd "$1" && pwd)"
+if [ -e "$DEST/.git" ] || [ -e "$DEST/.claude/agents/supervisor.md" ]; then
+  echo "Error: $DEST is already initialised" >&2; exit 1
+fi
 
-if [ ! -f "$CASE/QUESTION.md" ]; then echo "Error: $CASE/QUESTION.md not found" >&2; exit 1; fi
-if [ -e "$DEST" ]; then echo "Error: $DEST already exists" >&2; exit 1; fi
-
-# Project skeleton, then the case's own files (question, data, code) on top.
-mkdir -p "$(dirname "$DEST")"
-cp -R "$CORE/project-template" "$DEST"
-cp -R "$CASE/." "$DEST/"
-DEST="$(cd "$DEST" && pwd)"
+# Add the template skeleton around the human's files (never overwrite them).
+rsync -a --ignore-existing --exclude .DS_Store "$CORE/project-template/" "$DEST/"
 rm -f "$DEST/.DS_Store"
 
 # Path from the project to the core protocols, used by CLAUDE.md @imports.
@@ -65,7 +59,7 @@ PY
 # The project is its own repository.
 git -C "$DEST" init -q
 git -C "$DEST" add -A
-git -C "$DEST" commit -q -m "Project setup from case $NAME"
+git -C "$DEST" commit -q -m "Project setup"
 
-echo "Created $DEST (own git repo)"
+echo "Initialised $DEST (own git repo)"
 echo "Next: open Claude Code in $DEST (no worktree, auto mode) and say \"next step\" or \"run the project\"."

@@ -23,28 +23,32 @@ Following [autoresearch](https://github.com/karpathy/autoresearch), the prototyp
 - [STUDENT.md](STUDENT.md): how the student works: running the project, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
 - [MEETING.md](MEETING.md): meeting protocol between student and supervisor agent: brief → present → feedback → clarification → agreed actions (about a week of student effort) → verbatim transcript, minutes and memory. Ends with a final meeting where the supervisor reviews the report.
 - [SUPERVISOR.md](SUPERVISOR.md): how the supervisor agent behaves (checks the evidence, gives concise feedback, confirms actions, reviews the final report, signs off), plus its private persona: what it values as good research. The same supervisor is used for every project.
-- [project-template/](project-template/): the starting point of every project. `QUESTION.md` (question, context, constraints) is for the operator to fill in, written in the supervisor's voice: the supervisor agent treats it as its own. The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
-- [cases/](cases/): one folder per research case, containing only its filled-in `QUESTION.md` (plus any starting data or code). [cases/mnist/](cases/mnist/) asks "What is the best way to classify MNIST handwritten digits?"
-- [new_project.sh](new_project.sh): turns a case into a project. It builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md. The student is denied read access to both, so it has to learn the supervisor's values through meetings.
+- [project-template/](project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human to fill in, written in the supervisor's voice (the supervisor agent treats it as its own). The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
+- [new_project.sh](new_project.sh): initialises a case folder in place. It adds the template skeleton around the human's files (never overwriting them), builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md, and makes the folder its own git repository. The student is denied read access to the supervisor files, so it has to learn the supervisor's values through meetings.
+- [examples/mnist/QUESTION.md](examples/mnist/QUESTION.md): the MNIST case question, "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
 
-This repository holds only the general harness and case definitions. Each project is its own git repository, created under `projects/` (gitignored here), and the student's work is committed only there.
+This repository holds only the general harness and example questions. Case folders live in `cases/`, which is gitignored here; each one is its own git repository, and the student's work is committed only there.
 
-To run a case:
+To start a case, create its folder with a question, then initialise it:
+
+```bash
+mkdir -p cases/mnist && cp examples/mnist/QUESTION.md cases/mnist/
+```
 
 ```bash
 ./new_project.sh cases/mnist
 ```
 
-This creates `projects/mnist/`. Open Claude Code in that folder with no worktree (its `CLAUDE.md` imports the protocols). Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
+For a new question, copy `project-template/QUESTION.md` instead and fill it in. You can also put starting data or code in the folder before initialising.
+
+Then open Claude Code in the case folder with no worktree (its `CLAUDE.md` imports the protocols). Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
 
 - **"run the project"**: kickoff → research → meeting → … → final meeting, until the supervisor signs off; or
 - **"next step"**: one phase at a time, so you can inspect each one.
 
-To stop, interrupt the session. To resume, open a new session in the project folder and say "run the project": the student works out where it left off from `meetings/`.
+To stop, interrupt the session. To resume, open a new session in the case folder and say "run the project": the student works out where it left off from `meetings/`.
 
 The proof of concept is the record in the project's `meetings/` (briefs, verbatim transcripts and minutes: results, feedback, Q&A, agreed actions), the memory files showing what the student learned about its supervisor, and the final `REPORT.md`, written like a short paper.
-
-To add a case, copy `project-template/QUESTION.md` to `cases/<name>/QUESTION.md` and fill it in.
 
 ## Workshop scope and goals
 
