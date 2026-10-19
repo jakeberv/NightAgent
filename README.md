@@ -4,4 +4,6 @@ NightAgent is a friendly AI apprentice that learns from our interactions and put
 
 Josef Osumeje
 
+Ben Moseley
+
 Jake Berv — jacob.berv@gmail.com
