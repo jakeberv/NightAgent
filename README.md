@@ -26,13 +26,13 @@ Following [autoresearch](https://github.com/karpathy/autoresearch), the prototyp
 - [project-template/](project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human to fill in, written in the supervisor's voice (the supervisor agent treats it as its own). The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
 - [CLAUDE.md](CLAUDE.md): tells a student agent opened in a new project folder to initialise it with `new_project.sh` before starting.
 - [new_project.sh](new_project.sh): initialises a project folder in place (the student agent runs it; you can also run it yourself). It adds the template skeleton around the human's files (never overwriting them), builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md, and makes the folder its own git repository. The student is denied read access to the supervisor files, so it has to learn the supervisor's values through meetings.
-- [projects/mnist/](projects/mnist/): a ready-to-start project containing only its `QUESTION.md`: "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
+- [example-projects/mnist/](example-projects/mnist/): a ready-to-start project containing only its `QUESTION.md`: "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
 
-This repository holds the general harness plus project folders in `projects/`, each holding only a `QUESTION.md` (and any starting data or code). When a project is started, its folder becomes its own git repository, and the student's work is committed only there, never to this repository.
+This repository holds the general harness plus project folders in `example-projects/`, each holding only a `QUESTION.md` (and any starting data or code). When a project is started, its folder becomes its own git repository, and the student's work is committed only there, never to this repository.
 
-The MNIST project is ready to start. For a new question, create `projects/<name>/` with a copy of `project-template/QUESTION.md` and fill it in.
+The MNIST project is ready to start. For a new question, create `example-projects/<name>/` with a copy of `project-template/QUESTION.md` and fill it in.
 
-To start a project, open Claude Code in its folder (e.g. `projects/mnist`) with no worktree. Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
+To start a project, open Claude Code in its folder (e.g. `example-projects/mnist`) with no worktree. Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
 
 - **"run the project"**: kickoff → research → meeting → … → final meeting, until the supervisor signs off; or
 - **"next step"**: one phase at a time, so you can inspect each one.
@@ -47,9 +47,9 @@ The outer loop is supervision meetings, where the supervisor agent steers. The i
 
 ```
 SETUP (human, once per project)
-  mkdir projects/<name>; write QUESTION.md in the supervisor's voice
+  mkdir example-projects/<name>; write QUESTION.md in the supervisor's voice
       (question, context, what "best" means, constraints); optional data/code
-  open Claude Code in projects/<name> (no worktree, auto mode); say "run the project"
+  open Claude Code in example-projects/<name> (no worktree, auto mode); say "run the project"
 
 INITIALISE (student agent, first session only; from the root CLAUDE.md)
   if no .claude/agents/supervisor.md: run new_project.sh on this folder
