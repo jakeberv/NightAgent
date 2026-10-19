@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Initialise a case folder as a NightAgent student project, in place.
-# Usage: ./new_project.sh <case_dir>
+# Initialise a project folder as a NightAgent student project, in place.
+# Usage: ./new_project.sh <project_dir>
 #
-# The human creates <case_dir> containing a QUESTION.md (start from project-template/QUESTION.md,
+# The human creates <project_dir> containing a QUESTION.md (start from project-template/QUESTION.md,
 # written in the supervisor's voice), plus any starting data/ or code. This script adds the rest
 # of project-template/ without overwriting anything already there, builds the supervisor agent
 # from SUPERVISOR.md, and makes the folder its own git repository: the student's work is committed
@@ -10,7 +10,7 @@
 set -euo pipefail
 
 if [ $# -ne 1 ]; then
-  echo "Usage: $0 <case_dir>" >&2
+  echo "Usage: $0 <project_dir>" >&2
   exit 1
 fi
 
