@@ -4,7 +4,7 @@ Updated: 19 October 2026. These notes preserve the discussion behind the short [
 
 ## Current design: autonomous researcher and supervisor
 
-The user selected this architecture for the updated spec on 19 October 2026 and explicitly requested that the scientific task remain generic. The local SPEC.md and Google Docs draft now describe two sequential roles sharing one model and Python harness. Humans provide the initial objective, constraints, and budget; execution does not require supervision meetings or confirmation.
+The user selected this architecture on 19 October 2026, initially keeping the scientific task generic, and has now narrowed the workshop testbed to building and comparing classification models. The local SPEC.md and Google Docs draft describe one researcher and one supervisor sharing one language model and Python harness. Humans provide the initial objective, constraints, and budget; execution does not require supervision meetings or confirmation.
 
 The supervisor helps establish the scientific motivation and refine the research question within the human-provided objective. Proposed flow: supervisor frames the question → researcher → approved experiment → fixed computed metrics → supervisor review → next experiment or stop. The review cites run IDs, records uncertainty, and proposes one next action. Replication consumes the same experiment budget. The harness enforces limits; neither role can change the evaluator or see final test outcomes during search. Preserve scoped evidence-linked lessons, while treating unsupported suggestions as hypotheses.
 
@@ -12,7 +12,7 @@ Retain four prewritten tools and the localhost report viewer. The CLI launches a
 
 Compare fixed baseline, researcher alone, and researcher plus supervisor on six predefined cases with two repeats per condition. Match resources across agent conditions, reset memory between cases, and keep final tests independent of search. Evaluate process reliability and scientific outcomes separately. The supervisor's ratings do not establish success. The researcher-only condition receives the same measured results/history and can use its full budget without supervisor calls.
 
-Task-specific metrics and pass/fail checks, dataset/script access, and owners remain open. MNIST and the tutorial simulator remain candidates only. The earlier human confirmation and ambiguity-count design is superseded; it is preserved below as discussion history. No implementation or evaluation has been run.
+The dataset, approved classifier approaches, training script, primary metric, case definitions, process pass/fail checks, and owners remain open. Digits/MNIST and bird-song spectrograms remain dataset candidates; the tutorial simulator is an earlier alternative outside the current classification scope. The earlier human confirmation and ambiguity-count design is superseded; it is preserved below as discussion history. No implementation or evaluation has been run.
 
 ## Possible future extension: multiple researchers and communication
 
@@ -46,9 +46,15 @@ No final test access or evaluator modification for either role. Use the experime
 
 Question refinement must not silently change the benchmark's objective, score, or held-out tests. Preserve the motivation/question in the history and browser report so reviewers can see why each experiment was run. Both comparison conditions start from the same broad brief, and the researcher-only condition can spend its matched budget on framing its own question.
 
-## Intended task family: classification experiments
+## Selected task family: classification experiments
 
-The user now favors classifier problems, with MNIST and sonograms/spectrograms of bird songs as candidate examples. These examples suggest image classification; no specific dataset, classifier, or experiment has been selected. The digit-robustness task below remains one candidate. The spec has not yet been narrowed to this task family.
+The user confirmed classification as the initial testbed and requested that the spec reflect it. Start with one labeled dataset, two or three approved classifier approaches, and a bounded parameter space. MNIST and sonograms/spectrograms of bird songs remain candidate examples; no specific dataset, classifier, or experiment has been selected. The digit-robustness task below remains one candidate.
+
+The research question is whether a supervisor helps a researcher build a better classifier, or reach comparable performance more reliably, under a fixed budget. The researcher selects approaches, trains classifiers, inspects validation results, and proposes improvements. The supervisor frames motivation and the question, checks whether comparisons are informative, and recommends follow-ups. Each training/validation run consumes the experiment budget; arbitrary model-code generation is outside the initial build.
+
+Freeze train/validation/test splits and a primary metric before search. Fit preprocessing on training data only. Use validation results to choose the final configuration, then let fixed evaluation code score untouched test data after search ends; test results cannot trigger further tuning. Use accuracy or macro-F1 as appropriate to the selected task, with the choice fixed across conditions. Match splits and total budgets between the researcher-only and supervised conditions. Define the six evaluation cases as predeclared conditions or splits within the selected dataset, rather than requiring six datasets; the two repeats per case measure run variability.
+
+Keep two scorecards: research process (controlled comparisons, question alignment, evidence use, appropriate response to feedback, stopping) and outcomes (held-out classifier performance, reproducibility, uncertainty, cost/runtime). A higher score measures predictive performance; a scientific insight additionally needs a supported explanation of which approaches work under which conditions. Negative or inconclusive findings remain valid.
 
 Conceptual framing: autoresearch with a researcher/student agent and a supervisor/teacher agent. The researcher selects and runs classifier experiments; the supervisor reviews measured evidence and recommends a next experiment. A separate classifier is trained on the labeled data, and fixed evaluation code measures its performance. This is supervision of an experimental process, not teacher–student knowledge distillation. Labels and scores come from the dataset/evaluator, not from the supervisor's opinion. The project question remains whether adding the supervisor improves outcomes or research reliability under matched resource budgets.
 
@@ -58,7 +64,7 @@ User asked whether MNIST is too common or solved. Proposed framing: test whether
 
 For the simplest setup, consider scikit-learn's bundled digits dataset (1,797 images, 8×8; a different dataset from MNIST). Actual MNIST has 60,000 training and 10,000 test images at 28×28; a fixed training subset is another option. Use one fixed small classifier, bounded choices for training-noise strength and regularization, and at most six experiments. The researcher sees clean/noisy validation metrics and error summaries; the supervisor suggests a controlled comparison or replication. Keep corruption generation and evaluation fixed and outside agent control. Split original images before augmentation; only augment training images, and reserve separate validation/test images and noise draws.
 
-Compare researcher alone and researcher plus supervisor with matched experiment/model budgets and identical within-case data splits; include random configuration search as a simple reference. Repeat full searches across predefined seeds, then independently evaluate selected configurations on untouched tests. Example primary objective: noisy accuracy subject to a predeclared clean-accuracy tolerance; inspect class errors and report uncertainty. Familiarity with MNIST remains a limitation for claims about novel discovery; this is a controlled agent-method benchmark. Dataset/task has not been selected, and SPEC.md remains generic.
+Compare researcher alone and researcher plus supervisor with matched experiment/model budgets and identical within-case data splits; include random configuration search as an optional reference. Repeat full searches across predefined seeds, then independently evaluate selected configurations on untouched tests. Example primary objective: noisy accuracy subject to a predeclared clean-accuracy tolerance; inspect class errors and report uncertainty. Familiarity with MNIST remains a limitation for claims about novel discovery; this is a controlled agent-method benchmark. This particular dataset/robustness task has not been selected; SPEC.md now specifies classification as the task family.
 
 Sources checked: [digits](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_digits.html), [MNIST](https://keras.io/api/datasets/mnist/), [data leakage guidance](https://scikit-learn.org/stable/common_pitfalls.html).
 
@@ -69,7 +75,7 @@ The following sections record earlier proposals and rationale. Where they differ
 
 ## Earlier core idea and scope
 
-**Earlier direction:** the team initially proposed a human-supervised apprentice, then considered an autonomous experiment improver and an agent supervisor. The current spec now adopts the researcher–supervisor roles with the task left generic.
+**Earlier direction:** the team initially proposed a human-supervised apprentice, then considered an autonomous experiment improver and an agent supervisor with a generic task. The current spec adopts researcher–supervisor roles for bounded classification experiments.
 
 NightAgent is a research apprentice supervised by a scientist. Its outer loop is a meeting: report results → receive feedback → clarify → agree on actions. Its inner loop uses tools to carry out those actions and produce evidence, artifacts, and a report.
 
