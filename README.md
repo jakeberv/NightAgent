@@ -1,31 +1,34 @@
 # NightAgent
 
-NightAgent is a friendly AI apprentice that learns from our interactions and puts that learning into action.
+NightAgent is an autonomous research apprentice that learns from experiments and feedback from a supervisor agent.
 
 ## What we are building
 
-A supervised research apprentice for scientists. The scientist sets the research direction, reviews results, and gives feedback; NightAgent performs bounded analyses with tools and carries confirmed lessons into later work. Learning changes its stored context, not its model weights.
+Two sequential agent roles in one Python harness: a researcher runs bounded experiments, and a supervisor reviews measured evidence and recommends the next step. Humans define the objective, constraints, and budget before execution, then inspect the results. Learning changes stored context, not model weights.
 
-The workshop goal is to build a small, inspectable prototype and evaluate two things separately: whether it becomes a better research student, and whether its research produces useful, supported scientific insights.
+The workshop question is whether an automated supervisor improves research outcomes over a researcher working alone under the same resource limits. We evaluate process reliability and scientific outcomes separately.
 
 ## How it works
 
-1. **Supervision meeting:** present results, receive feedback, clarify ambiguity, and agree on the next actions.
-2. **Research cycle:** choose approved analyses, run tools within limits, save reproducible results, and return for supervision.
-3. **Persistent memory:** retain confirmed lessons with their source and scope, so corrections influence later meetings and analyses.
+1. **Researcher:** choose an approved analysis and parameters, execute tools, and save results.
+2. **Fixed evaluator:** compute metrics and validity checks from the experiment.
+3. **Supervisor:** review results, cite run IDs, identify uncertainty, and recommend one next action or stopping.
+4. **Harness:** record the experiment/review, enforce limits, and continue or finish with a browser report.
 
-After feedback, extract at most three actions or lessons. Check each for unclear meaning, unclear scope, or conflicting instructions. Ask at most one consolidated clarification question per meeting; leave unresolved items pending and execute only agreed actions. This is an ambiguity check, not calibrated uncertainty about scientific truth.
+The supervisor's opinion is not ground truth. Agents cannot modify the evaluator or access final test outcomes during search. Suggestions remain hypotheses until supported by evidence; saved lessons include their scope and source runs. Uncertainty can trigger replication within the budget or an inconclusive report.
 
 ## Workshop scope and goals
 
-- Start with one scientist, one project, one model, a CLI, and editable JSON memory.
+- Start with one project, one model used for both roles, a CLI launcher, and an experiment/review log.
+- Present results in a browser through a local web server: plots, metrics, supervisor reviews, findings, limitations, and reproducible artifacts.
 - Provide four prewritten tools: `inspect_project`, `run_analysis`, `read_results`, and `save_report`.
 - Combine Tutorial 1's tool loop and traces with Tutorial 2's persistent memory and independent evaluation.
-- Compare memory off, unconditional memory updates, and checked memory updates on six two-meeting cases with two repeats per condition.
-- Score student behavior and scientific outcomes separately, alongside cost and runtime.
-- Demonstrate feedback, clarification, a confirmed memory update, and a fresh session that uses the lesson.
+- Compare a fixed baseline, researcher alone, and researcher plus supervisor on six predefined cases with two repeats per condition. Match the two agent conditions' model, tools, data, starting history, and resource budgets.
+- Score valid actions, evidence use, correction uptake, and stopping separately from independently evaluated scientific outcomes; report cost and runtime.
+- Launch once and demonstrate experiments, automated review, revision, and final comparison without human intervention during execution.
+- Proposed per-run caps: three research/review rounds, six analyses, 60 seconds per analysis, 15 model calls, and 30,000 total input/output tokens across both roles. Pilot before the proposed $5 evaluation budget.
 
-The scientific task, dataset, analysis script, and role owners are still open. Candidate tasks belong in the notes. Generated tools, web/GitHub automation, multi-agent coordination, and a graphical interface are deferred.
+The scientific task, dataset, analysis script, evaluation metrics, and role owners remain open. Candidate tasks belong in the notes. Generated tools, web/GitHub automation, parallel agents, and browser chat are deferred. The local results viewer is part of the minimum build.
 
 ## Project documents and status
 
