@@ -1,6 +1,6 @@
 # Research question
 
-{{QUESTION}}
+<!-- Operator: the overarching research question, in one or two sentences. -->
 
 ## Context
 <!-- Operator: background, why this matters, what you already believe. -->

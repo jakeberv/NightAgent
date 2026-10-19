@@ -23,22 +23,29 @@ Following [autoresearch](https://github.com/karpathy/autoresearch), the prototyp
 - [STUDENT.md](STUDENT.md): how the student works: running the project, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
 - [MEETING.md](MEETING.md): meeting protocol between student and supervisor agent: brief → present → feedback → clarification → agreed actions (about a week of student effort) → verbatim transcript, minutes and memory. Ends with a final meeting where the supervisor reviews the report.
 - [SUPERVISOR.md](SUPERVISOR.md): how the supervisor agent behaves: checks the evidence, gives concise feedback, confirms actions, reviews the final report, and signs off.
-- [project-template/](project-template/): a question-agnostic project skeleton (`QUESTION.md`, `ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
-- [new_project.sh](new_project.sh): creates a project. It builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md plus a **private persona** (what this supervisor values). The student is denied read access to it, so it has to learn those values through meetings.
-- [cases/mnist/](cases/mnist/): the agent-supervised case study, "What is the best way to classify MNIST handwritten digits?"
+- [case-template/](case-template/): what defines a research case: `QUESTION.md` (question, context, constraints) and `supervisor-persona.md` (the supervisor's private values), plus optional starting data or code.
+- [cases/mnist/](cases/mnist/): the first case, "What is the best way to classify MNIST handwritten digits?"
+- [project-template/](project-template/): the question-agnostic skeleton of a student project (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
+- [new_project.sh](new_project.sh): turns a case into a project. It builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md plus the case's private persona. The student is denied read access to it and to `cases/`, so it has to learn the supervisor's values through meetings.
 
-To run a project, open Claude Code in its directory with no worktree (its `CLAUDE.md` imports the protocols). Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
+This repository holds only the general harness and case definitions. Each project is its own git repository, created under `projects/` (gitignored here), and the student's work is committed only there.
+
+To run a case:
+
+```bash
+./new_project.sh cases/mnist
+```
+
+This creates `projects/mnist/`. Open Claude Code in that folder with no worktree (its `CLAUDE.md` imports the protocols). Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
 
 - **"run the project"**: kickoff → research → meeting → … → final meeting, until the supervisor signs off; or
 - **"next step"**: one phase at a time, so you can inspect each one.
 
-The proof of concept is the record in `meetings/` (briefs, verbatim transcripts and minutes: results, feedback, Q&A, agreed actions), the memory files showing what the student learned about its supervisor, and the final `REPORT.md`, written like a short paper.
+To stop, interrupt the session. To resume, open a new session in the project folder and say "run the project": the student works out where it left off from `meetings/`.
 
-To start another project:
+The proof of concept is the record in the project's `meetings/` (briefs, verbatim transcripts and minutes: results, feedback, Q&A, agreed actions), the memory files showing what the student learned about its supervisor, and the final `REPORT.md`, written like a short paper.
 
-```bash
-./new_project.sh cases/<name> "<Title>" "<Overarching research question>" [persona.md]
-```
+To add a case, copy `case-template/` to `cases/<name>/` and fill in both files.
 
 ## Workshop scope and goals
 

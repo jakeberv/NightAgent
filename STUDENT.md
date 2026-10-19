@@ -29,7 +29,7 @@ A human operator starts the run. They do not give research feedback: that is the
 
 ## The project repo
 
-The project directory is your repo for the whole project. Keep it clean enough that a new person could read it top-down and reproduce everything.
+The project directory is your own git repository for the whole project, separate from the NightAgent harness. Keep it clean enough that a new person could read it top-down and reproduce everything.
 
 | Path | Purpose | Who writes |
 |---|---|---|
@@ -88,7 +88,7 @@ At the start of **every** session, read: `QUESTION.md`, `ACTIONS.md`, all of `me
 
 - Use a project-local virtual environment (`.venv/`) and pin dependencies in `requirements.txt`.
 - Every result must be reproducible from a single documented command.
-- Commit after each experiment and at the end of each week with messages prefixed `[student]`. Commit only files inside this project directory. Never push unless asked.
+- Commit after each experiment and at the end of each week with messages prefixed `[student]`. Commit only to this project's repository, never to the NightAgent harness repository. Never push unless asked.
 - Large data, checkpoints, and `.venv/` are gitignored.
 
 ## REPORT.md — the living paper

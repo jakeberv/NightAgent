@@ -1,4 +1,6 @@
-# {{TITLE}}
+# Untitled report
+
+<!-- Student: replace with a title once the project has a clear finding. -->
 
 _Living report. Every number and figure must trace to an experiment folder (see Appendix)._
 
