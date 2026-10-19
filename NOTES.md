@@ -14,6 +14,12 @@ Compare fixed baseline, researcher alone, and researcher plus supervisor on six 
 
 Task-specific metrics and pass/fail checks, dataset/script access, and owners remain open. MNIST and the tutorial simulator remain candidates only. The earlier human confirmation and ambiguity-count design is superseded; it is preserved below as discussion history. No implementation or evaluation has been run.
 
+## Possible future extension: multiple researchers and communication
+
+Workshop scope is one researcher and one supervisor, compared with a researcher-only condition under matched total budgets. Researcher count and communication are deferred experimental axes, not workshop requirements.
+
+A possible first extension is two researchers exploring independently, with one supervisor comparing their evidence and selecting follow-ups. Direct researcher-to-researcher communication could be tested later against this supervisor-mediated setup. This would help distinguish benefits from supervision, independent exploration, and exchanging ideas. Keep total experiment/model budgets and evaluation criteria matched across conditions; extra agents must share the budget. Coordination, shared-memory rules, and additional evaluation conditions make this too broad for the initial workshop build.
+
 ## Open decision: agent roles and interaction rules
 
 User explicitly flagged the need to decide how to control the nature of the agents' interactions and their individual roles. The broad researcher/supervisor split is chosen; the detailed interaction rules remain open.
