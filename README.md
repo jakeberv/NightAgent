@@ -4,16 +4,17 @@ NightAgent is an autonomous research apprentice that learns from experiments and
 
 ## What we are building
 
-Two sequential agent roles in one Python harness: a researcher runs bounded experiments, and a supervisor reviews measured evidence and recommends the next step. Humans define the objective, constraints, and budget before execution, then inspect the results. Learning changes stored context, not model weights.
+Two sequential agent roles in one Python harness: a researcher runs bounded experiments, and a supervisor helps articulate the motivation, refine the research question, review measured evidence, and recommend the next step. Humans define the objective, constraints, and budget before execution, then inspect the results. Learning changes stored context, not model weights.
 
 The workshop question is whether an automated supervisor improves research outcomes over a researcher working alone under the same resource limits. We evaluate process reliability and scientific outcomes separately.
 
 ## How it works
 
-1. **Researcher:** choose an approved analysis and parameters, execute tools, and save results.
-2. **Fixed evaluator:** compute metrics and validity checks from the experiment.
-3. **Supervisor:** review results, cite run IDs, identify uncertainty, and recommend one next action or stopping.
-4. **Harness:** record the experiment/review, enforce limits, and continue or finish with a browser report.
+1. **Supervisor frames the work:** explain why the question matters and turn the initial objective into a testable question and comparison.
+2. **Researcher:** choose an approved analysis and parameters that address the question, execute tools, and save results.
+3. **Fixed evaluator:** compute metrics and validity checks from the experiment.
+4. **Supervisor reviews:** assess what the evidence says about the question, cite run IDs, identify uncertainty, and recommend one next action or stopping. Record any refinement of the question within the original objective.
+5. **Harness:** record the framing and experiment/review, enforce limits, and continue or finish with a browser report. Framing calls count toward the shared budget; benchmark criteria remain fixed.
 
 The supervisor's opinion is not ground truth. Agents cannot modify the evaluator or access final test outcomes during search. Suggestions remain hypotheses until supported by evidence; saved lessons include their scope and source runs. Uncertainty can trigger replication within the budget or an inconclusive report.
 

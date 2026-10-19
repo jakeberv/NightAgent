@@ -6,7 +6,7 @@ Updated: 19 October 2026. These notes preserve the discussion behind the short [
 
 The user selected this architecture for the updated spec on 19 October 2026 and explicitly requested that the scientific task remain generic. The local SPEC.md and Google Docs draft now describe two sequential roles sharing one model and Python harness. Humans provide the initial objective, constraints, and budget; execution does not require supervision meetings or confirmation.
 
-Researcher → approved experiment → fixed computed metrics → supervisor review → next experiment or stop. The review cites run IDs, records uncertainty, and proposes one next action. Replication consumes the same experiment budget. The harness enforces limits; neither role can change the evaluator or see final test outcomes during search. Preserve scoped evidence-linked lessons, while treating unsupported suggestions as hypotheses.
+The supervisor helps establish the scientific motivation and refine the research question within the human-provided objective. Proposed flow: supervisor frames the question → researcher → approved experiment → fixed computed metrics → supervisor review → next experiment or stop. The review cites run IDs, records uncertainty, and proposes one next action. Replication consumes the same experiment budget. The harness enforces limits; neither role can change the evaluator or see final test outcomes during search. Preserve scoped evidence-linked lessons, while treating unsupported suggestions as hypotheses.
 
 Retain four prewritten tools and the localhost report viewer. The CLI launches a run; the browser presents plots, metrics, experiment history, reviews, limitations, and final comparisons. Proposed caps per run are three research/review rounds, six analyses, 60 seconds per analysis, 15 model calls including both roles, and 30,000 total input/output tokens. Stop with recorded results when blocked or capped.
 
@@ -14,7 +14,50 @@ Compare fixed baseline, researcher alone, and researcher plus supervisor on six 
 
 Task-specific metrics and pass/fail checks, dataset/script access, and owners remain open. MNIST and the tutorial simulator remain candidates only. The earlier human confirmation and ambiguity-count design is superseded; it is preserved below as discussion history. No implementation or evaluation has been run.
 
+## Open decision: agent roles and interaction rules
+
+User explicitly flagged the need to decide how to control the nature of the agents' interactions and their individual roles. The broad researcher/supervisor split is chosen; the detailed interaction rules remain open.
+
+- **Responsibilities and authority:** what each agent may propose, execute, critique, approve, or stop; whether supervisor feedback is advice or a binding instruction.
+- **Information and tools:** which results, history, memory, and tools each role can access, and what is shared between them.
+- **Exchange structure:** when reviews occur, whether messages are structured or conversational, and how much back-and-forth is allowed.
+- **Disagreement and uncertainty:** how the researcher can challenge feedback, how conflicts are resolved, and when to replicate, revise, or stop.
+- **Enforcement:** which rules live in role prompts and which the harness enforces in code; log exchanges so role adherence can be evaluated.
+
+These are decisions to resolve before implementation, not additional agreed requirements.
+
+### Recommended minimal interaction protocol — not yet adopted
+
+Use the same model with two distinct role prompts, separate calls, and a shared structured experiment history. Start with one supervisor framing step, then a fixed Python controller alternates researcher → experiment tool → supervisor; agents do not message each other outside that order. Start with three rounds and one experiment per round, within the spec's upper limits. A replication consumes one of those experiments; framing consumes the shared model-call/token budget.
+
+**Supervisor framing step:** turn the initial brief into a short motivation (why this matters), a concrete research question, a testable hypothesis, and the comparison that would address it. Connect these to the fixed evaluation criteria. User-confirmed responsibility: the supervisor helps with motivation and the research question, as well as reviewing completed experiments. The exact message format and turn rules remain proposed.
+
+- **Researcher:** given the objective, framed question, allowed configurations, history, and latest review, propose one experiment. Return a hypothesis, validated configuration/tool arguments, and a short explanation of how it addresses the question and review. It may reject a suggestion with an evidence-based reason in its next proposal; no extra debate turn.
+- **Supervisor:** receive the motivation/question, history, proposed hypothesis, measured result, and remaining budget. Check whether the experiment addresses the question and what the evidence means for it. Return evidence run IDs, one main concern, one suggested next experiment, and `continue` or `stop`. It may refine the question within the original objective, recording the reason and preserving the prior framing. It has no experiment-execution tools and does not assign the final success score. Treat experimental advice as advisory; honor a valid stop decision.
+- **Controller:** validate outputs and allowed parameters, run the approved analysis, compute metrics using fixed code, append actual results/reviews to history, and update the report. Enforce turn order, role access, budgets, and termination in code. Stop on invalid output after at most one repair attempt counted against the model budget.
+
+No final test access or evaluator modification for either role. Use the experiment log as the initial memory mechanism. Compare the supervisor design to a researcher-only condition with the same experiment and total model-call/token allowances; allow the solo researcher to use spare calls for its own reflection. A structured critique is not guaranteed to improve performance; evaluate that experimentally. The supervisor's framing responsibility is now included in the spec; detailed turn and authority rules remain proposed. No implementation has started.
+
+Question refinement must not silently change the benchmark's objective, score, or held-out tests. Preserve the motivation/question in the history and browser report so reviewers can see why each experiment was run. Both comparison conditions start from the same broad brief, and the researcher-only condition can spend its matched budget on framing its own question.
+
+## Intended task family: classification experiments
+
+The user now favors classifier problems, with MNIST and sonograms/spectrograms of bird songs as candidate examples. These examples suggest image classification; no specific dataset, classifier, or experiment has been selected. The digit-robustness task below remains one candidate. The spec has not yet been narrowed to this task family.
+
+Conceptual framing: autoresearch with a researcher/student agent and a supervisor/teacher agent. The researcher selects and runs classifier experiments; the supervisor reviews measured evidence and recommends a next experiment. A separate classifier is trained on the labeled data, and fixed evaluation code measures its performance. This is supervision of an experimental process, not teacher–student knowledge distillation. Labels and scores come from the dataset/evaluator, not from the supervisor's opinion. The project question remains whether adding the supervisor improves outcomes or research reliability under matched resource budgets.
+
+## Candidate benchmark: digit classification under noise
+
+User asked whether MNIST is too common or solved. Proposed framing: test whether an automated supervisor improves experiment selection and evidence quality, rather than claiming a new digit-recognition method. A small robustness experiment asks whether training with noisy images improves noisy-image accuracy while preserving clean-image performance.
+
+For the simplest setup, consider scikit-learn's bundled digits dataset (1,797 images, 8×8; a different dataset from MNIST). Actual MNIST has 60,000 training and 10,000 test images at 28×28; a fixed training subset is another option. Use one fixed small classifier, bounded choices for training-noise strength and regularization, and at most six experiments. The researcher sees clean/noisy validation metrics and error summaries; the supervisor suggests a controlled comparison or replication. Keep corruption generation and evaluation fixed and outside agent control. Split original images before augmentation; only augment training images, and reserve separate validation/test images and noise draws.
+
+Compare researcher alone and researcher plus supervisor with matched experiment/model budgets and identical within-case data splits; include random configuration search as a simple reference. Repeat full searches across predefined seeds, then independently evaluate selected configurations on untouched tests. Example primary objective: noisy accuracy subject to a predeclared clean-accuracy tolerance; inspect class errors and report uncertainty. Familiarity with MNIST remains a limitation for claims about novel discovery; this is a controlled agent-method benchmark. Dataset/task has not been selected, and SPEC.md remains generic.
+
+Sources checked: [digits](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_digits.html), [MNIST](https://keras.io/api/datasets/mnist/), [data leakage guidance](https://scikit-learn.org/stable/common_pitfalls.html).
+
 # Historical design discussion
+
 
 The following sections record earlier proposals and rationale. Where they differ, the current design above and SPEC.md take precedence.
 
