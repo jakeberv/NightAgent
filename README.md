@@ -22,21 +22,20 @@ Following [autoresearch](https://github.com/karpathy/autoresearch), the prototyp
 
 ### Repository layout
 
-This repository defines the agents and how they work. It does not store project work: the only project content kept here is the starting `QUESTION.md` of each example project (enforced by `.gitignore`).
+This repository defines the agents and how they work. It does not store project work: the only project content kept here is each example project's starting `QUESTION.md` and `CLAUDE.md` (enforced by `.gitignore`).
 
 - [nightagent/](nightagent/): the NightAgent application.
   - [STUDENT.md](nightagent/STUDENT.md): how the student works: running the project, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
   - [MEETING.md](nightagent/MEETING.md): meeting protocol between student and supervisor: brief → present → feedback → clarification → agreed actions (about a week of student effort) → verbatim transcript, minutes and memory. Ends with a final meeting where the supervisor reviews the report.
   - [SUPERVISOR.md](nightagent/SUPERVISOR.md): how the supervisor behaves: checks the evidence, gives concise feedback, confirms actions, reviews the final report, signs off. Both agents read it, so the student understands the whole process.
   - [supervisor-persona.md](nightagent/supervisor-persona.md): what the supervisor values as good research. **Private to the supervisor**: the student is denied access to it, so it has to learn these values through meetings. The same persona is used for every project.
-  - [project-template/](nightagent/project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human, written in the supervisor's voice (the supervisor treats it as its own). The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
-  - [new_project.sh](nightagent/new_project.sh): initialises a project folder in place. It copies in the template (never overwriting the human's files), builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md plus the private persona, and denies the student access to the persona.
-- [example-projects/](example-projects/): example projects. [mnist/](example-projects/mnist/) is ready to start: "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
-- [CLAUDE.md](CLAUDE.md): tells a student agent opened in a new project folder to initialise it before starting. It sits at the root so that sessions in `example-projects/` load it.
+  - [project-template/](nightagent/project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human, written in the supervisor's voice (the supervisor treats it as its own). `CLAUDE.md` makes a Claude Code session in the project folder the student: it loads the protocols and, on the first run, initialises the project. The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
+  - [new_project.sh](nightagent/new_project.sh): initialises a project folder in place; the student runs it on its first session. It copies in the rest of the template (never overwriting the human's files), builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md plus the private persona, and denies the student access to the persona.
+- [example-projects/](example-projects/): example projects, each starting with just `QUESTION.md` and `CLAUDE.md`. [mnist/](example-projects/mnist/) is ready to start: "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
 
 ### Running a project
 
-The MNIST example is ready to start. For a new question, create `example-projects/<name>/` with a copy of `nightagent/project-template/QUESTION.md` and fill it in. You can also add starting data or code.
+The MNIST example is ready to start. For a new question, create `example-projects/<name>/` with copies of `nightagent/project-template/QUESTION.md` (fill it in) and `nightagent/project-template/CLAUDE.md` (unchanged). Projects must sit two levels below the repo root, since `CLAUDE.md` refers to `../../nightagent`. You can also add starting data or code.
 
 Open Claude Code in the project folder (e.g. `example-projects/mnist`) with no worktree. Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
 
@@ -53,11 +52,13 @@ The outer loop is supervision meetings, where the supervisor steers. The inner l
 
 ```
 SETUP (human, once per project)
-  mkdir example-projects/<name>; write QUESTION.md in the supervisor's voice
+  mkdir example-projects/<name>; copy QUESTION.md and CLAUDE.md from the template
+  write QUESTION.md in the supervisor's voice
       (question, context, what "best" means, constraints); optional data/code
   open Claude Code in that folder (no worktree, auto mode); say "run the project"
+      → CLAUDE.md makes the session the student and loads the protocols
 
-INITIALISE (student agent, first session only; from the root CLAUDE.md)
+INITIALISE (student agent, first session only; from the project's CLAUDE.md)
   if no .claude/agents/supervisor.md: run nightagent/new_project.sh on this folder
       → copies template skeleton (memory/, meetings/, experiments/, tools/, REPORT.md, …)
       → builds supervisor agent: SUPERVISOR.md (public) + supervisor-persona.md (private)

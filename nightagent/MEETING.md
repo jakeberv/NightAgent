@@ -2,7 +2,7 @@
 
 Your supervisor is an agent: the `supervisor` subagent defined for this project. You hold a meeting by talking to it with the Agent tool (`subagent_type: "supervisor"`). Within one meeting, continue the **same** supervisor conversation with SendMessage (to the agent id the first call returns) so it remembers what was said. If you cannot continue it, start a new supervisor call and include the meeting transcript so far, verbatim.
 
-Meetings are numbered `M00` (kickoff), `M01`, `M02`, … Meeting `MNN` reviews the work done since `M(NN-1)`. You decide when to call a meeting (see STUDENT.md); meetings last as long as they need to. The supervisor sees only what you send it and what is in the repo. It cannot see your context.
+Meetings are numbered `M00` (kickoff), `M01`, `M02`, … Meeting `MNN` reviews the work done since `M(NN-1)`. You decide when to call a meeting (see STUDENT.md); meetings last as long as they need to. The supervisor sees only what you send it and what is in the project folder. It cannot see your context.
 
 Keep your messages conversational and short: a meeting, not a document dump. Point to files and figures by path; the supervisor can open them.
 

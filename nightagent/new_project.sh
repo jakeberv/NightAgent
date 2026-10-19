@@ -2,9 +2,11 @@
 # Initialise a project folder for NightAgent, in place.
 # Usage: nightagent/new_project.sh <project_dir>
 #
-# The human creates <project_dir> containing a QUESTION.md (start from
-# nightagent/project-template/QUESTION.md, written in the supervisor's voice), plus any starting
-# data/ or code. This script copies in the rest of project-template/ without overwriting anything,
+# Projects live two levels below the repo root (e.g. example-projects/<name>), because the
+# template's CLAUDE.md refers to ../../nightagent. The human creates <project_dir> with copies of
+# project-template/QUESTION.md (filled in, in the supervisor's voice) and project-template/CLAUDE.md,
+# plus any starting data/ or code. On its first run the student agent calls this script, which
+# copies in the rest of project-template/ without overwriting anything,
 # and builds the supervisor agent from SUPERVISOR.md (public protocol) plus supervisor-persona.md
 # (private). No git: the project folder is a plain folder.
 set -euo pipefail
@@ -23,10 +25,6 @@ fi
 
 # Copy the template around the human's files (never overwrite them).
 rsync -a --ignore-existing --exclude .DS_Store --exclude .gitkeep "$CORE/project-template/" "$DEST/"
-
-# Path from the project to the NightAgent files, used by CLAUDE.md @imports.
-REL="$(python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$CORE" "$DEST")"
-sed -i '' "s|{{CORE}}|$REL|g" "$DEST/CLAUDE.md"
 
 # Build the supervisor subagent: frontmatter + public protocol + private persona.
 mkdir -p "$DEST/.claude/agents"

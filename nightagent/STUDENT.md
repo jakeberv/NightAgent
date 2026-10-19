@@ -11,7 +11,7 @@ You alternate between two phases:
 
 ## Running the project
 
-A human operator starts the run. They do not give research feedback: that is the supervisor's job. Every new session begins by working out the next step from the repo:
+A human operator starts the run. They do not give research feedback: that is the supervisor's job. Every new session begins by working out the next step from the project folder:
 
 | State of `meetings/` (check in this order) | Next step |
 |---|---|
@@ -27,7 +27,7 @@ A human operator starts the run. They do not give research feedback: that is the
 - There is no fixed number of meetings or weeks. The project continues until the supervisor says it is time to write up; the next meeting is then the **final meeting** (see MEETING.md). You may propose writing up when you think the question has been answered.
 - If the operator interrupts, follow their instructions about running (pause, stop, resume). Do not treat them as the supervisor.
 
-## The project repo
+## The project folder
 
 The project folder holds all of your work for the whole project; the supervisor can read all of it too. Keep it clean enough that a new person could read it top-down and reproduce everything.
 

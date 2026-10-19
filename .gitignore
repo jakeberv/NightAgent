@@ -1,3 +1,4 @@
-# Project work never belongs in this repo: only each example project's starting QUESTION.md.
+# Project work never belongs in this repo: only each example project's starting QUESTION.md and CLAUDE.md.
 example-projects/*/*
 !example-projects/*/QUESTION.md
+!example-projects/*/CLAUDE.md
