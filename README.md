@@ -24,27 +24,26 @@ Following [autoresearch](https://github.com/karpathy/autoresearch), the prototyp
 - [MEETING.md](MEETING.md): meeting protocol between student and supervisor agent: brief → present → feedback → clarification → agreed actions (about a week of student effort) → verbatim transcript, minutes and memory. Ends with a final meeting where the supervisor reviews the report.
 - [SUPERVISOR.md](SUPERVISOR.md): how the supervisor agent behaves (checks the evidence, gives concise feedback, confirms actions, reviews the final report, signs off), plus its private persona: what it values as good research. The same supervisor is used for every project.
 - [project-template/](project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human to fill in, written in the supervisor's voice (the supervisor agent treats it as its own). The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
-- [new_project.sh](new_project.sh): initialises a case folder in place. It adds the template skeleton around the human's files (never overwriting them), builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md, and makes the folder its own git repository. The student is denied read access to the supervisor files, so it has to learn the supervisor's values through meetings.
+- [CLAUDE.md](CLAUDE.md): tells a student agent opened in a new case folder to initialise it with `new_project.sh` before starting.
+- [new_project.sh](new_project.sh): initialises a case folder in place (the student agent runs it; you can also run it yourself). It adds the template skeleton around the human's files (never overwriting them), builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md, and makes the folder its own git repository. The student is denied read access to the supervisor files, so it has to learn the supervisor's values through meetings.
 - [examples/mnist/QUESTION.md](examples/mnist/QUESTION.md): the MNIST case question, "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
 
 This repository holds only the general harness and example questions. Case folders live in `cases/`. Each one is its own git repository, and the student's work is committed only there, never to this repository.
 
-To start a case, create its folder with a question, then initialise it:
+To start a case, create its folder with a question:
 
 ```bash
 mkdir -p cases/mnist && cp examples/mnist/QUESTION.md cases/mnist/
 ```
 
-```bash
-./new_project.sh cases/mnist
-```
+For a new question, copy `project-template/QUESTION.md` instead and fill it in. You can also put starting data or code in the folder.
 
-For a new question, copy `project-template/QUESTION.md` instead and fill it in. You can also put starting data or code in the folder before initialising.
-
-Then open Claude Code in the case folder with no worktree (its `CLAUDE.md` imports the protocols). Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
+Then open Claude Code in the case folder with no worktree. Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
 
 - **"run the project"**: kickoff → research → meeting → … → final meeting, until the supervisor signs off; or
 - **"next step"**: one phase at a time, so you can inspect each one.
+
+On the first run, the student initialises the folder with `new_project.sh`. If its new supervisor agent doesn't load until the session restarts, the student asks you to open a new session in the folder and say "run the project" again; this happens at most once.
 
 To stop, interrupt the session. To resume, open a new session in the case folder and say "run the project": the student works out where it left off from `meetings/`.
 
@@ -56,12 +55,15 @@ The outer loop is supervision meetings, where the supervisor agent steers. The i
 SETUP (human, once per case)
   mkdir cases/<name>; write QUESTION.md in the supervisor's voice
       (question, context, what "best" means, constraints); optional data/code
-  ./new_project.sh cases/<name>
+  open Claude Code in cases/<name> (no worktree, auto mode); say "run the project"
+
+INITIALISE (student agent, first session only; from the root CLAUDE.md)
+  if no .claude/agents/supervisor.md: run new_project.sh on this folder
       → adds template skeleton (memory/, meetings/, experiments/, tools/, REPORT.md, …)
       → builds supervisor agent from SUPERVISOR.md (protocol + general private persona)
       → denies student read access to the supervisor files
       → git init + "Project setup" commit (the case is its own repo)
-  open Claude Code in cases/<name> (no worktree, auto mode); say "run the project"
+  if the supervisor agent isn't loaded yet: ask the human to reopen the session; stop
 
 MAIN LOOP (student agent)
   repeat:
