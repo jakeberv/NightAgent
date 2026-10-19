@@ -26,19 +26,13 @@ Following [autoresearch](https://github.com/karpathy/autoresearch), the prototyp
 - [project-template/](project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human to fill in, written in the supervisor's voice (the supervisor agent treats it as its own). The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
 - [CLAUDE.md](CLAUDE.md): tells a student agent opened in a new case folder to initialise it with `new_project.sh` before starting.
 - [new_project.sh](new_project.sh): initialises a case folder in place (the student agent runs it; you can also run it yourself). It adds the template skeleton around the human's files (never overwriting them), builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md, and makes the folder its own git repository. The student is denied read access to the supervisor files, so it has to learn the supervisor's values through meetings.
-- [examples/mnist/QUESTION.md](examples/mnist/QUESTION.md): the MNIST case question, "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
+- [cases/mnist/](cases/mnist/): a ready-to-start case containing only its `QUESTION.md`: "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
 
-This repository holds only the general harness and example questions. Case folders live in `cases/`. Each one is its own git repository, and the student's work is committed only there, never to this repository.
+This repository holds the general harness plus case folders in `cases/`, each holding only a `QUESTION.md` (and any starting data or code). When a case is started, its folder becomes its own git repository, and the student's work is committed only there, never to this repository.
 
-To start a case, create its folder with a question:
+The MNIST case is ready to start. For a new question, create `cases/<name>/` with a copy of `project-template/QUESTION.md` and fill it in.
 
-```bash
-mkdir -p cases/mnist && cp examples/mnist/QUESTION.md cases/mnist/
-```
-
-For a new question, copy `project-template/QUESTION.md` instead and fill it in. You can also put starting data or code in the folder.
-
-Then open Claude Code in the case folder with no worktree. Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
+To start a case, open Claude Code in its folder (e.g. `cases/mnist`) with no worktree. Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
 
 - **"run the project"**: kickoff → research → meeting → … → final meeting, until the supervisor signs off; or
 - **"next step"**: one phase at a time, so you can inspect each one.

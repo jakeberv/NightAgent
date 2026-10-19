@@ -6,7 +6,7 @@
 # written in the supervisor's voice), plus any starting data/ or code. This script adds the rest
 # of project-template/ without overwriting anything already there, builds the supervisor agent
 # from SUPERVISOR.md, and makes the folder its own git repository: the student's work is committed
-# there, never to this harness repo (cases/ is gitignored here).
+# there, never to this harness repo.
 set -euo pipefail
 
 if [ $# -ne 1 ]; then
