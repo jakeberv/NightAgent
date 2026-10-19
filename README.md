@@ -27,7 +27,7 @@ Following [autoresearch](https://github.com/karpathy/autoresearch), the prototyp
 - [new_project.sh](new_project.sh): initialises a case folder in place. It adds the template skeleton around the human's files (never overwriting them), builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md, and makes the folder its own git repository. The student is denied read access to the supervisor files, so it has to learn the supervisor's values through meetings.
 - [examples/mnist/QUESTION.md](examples/mnist/QUESTION.md): the MNIST case question, "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
 
-This repository holds only the general harness and example questions. Case folders live in `cases/`, which is gitignored here; each one is its own git repository, and the student's work is committed only there.
+This repository holds only the general harness and example questions. Case folders live in `cases/`. Each one is its own git repository, and the student's work is committed only there, never to this repository.
 
 To start a case, create its folder with a question, then initialise it:
 
@@ -47,6 +47,68 @@ Then open Claude Code in the case folder with no worktree (its `CLAUDE.md` impor
 - **"next step"**: one phase at a time, so you can inspect each one.
 
 To stop, interrupt the session. To resume, open a new session in the case folder and say "run the project": the student works out where it left off from `meetings/`.
+
+### How the loop works
+
+The outer loop is supervision meetings, where the supervisor agent steers. The inner loop is research between meetings, where the student works alone.
+
+```
+SETUP (human, once per case)
+  mkdir cases/<name>; write QUESTION.md in the supervisor's voice
+      (question, context, what "best" means, constraints); optional data/code
+  ./new_project.sh cases/<name>
+      → adds template skeleton (memory/, meetings/, experiments/, tools/, REPORT.md, …)
+      → builds supervisor agent from SUPERVISOR.md (protocol + general private persona)
+      → denies student read access to the supervisor files
+      → git init + "Project setup" commit (the case is its own repo)
+  open Claude Code in cases/<name> (no worktree, auto mode); say "run the project"
+
+MAIN LOOP (student agent)
+  repeat:
+    read QUESTION.md, ACTIONS.md, memory/*, latest minutes, experiments index
+    decide next step from meetings/:
+      no M00 minutes             → MEETING (kickoff)
+      latest = minutes           → RESEARCH
+      latest = brief             → MEETING
+      final minutes "Signed off" → stop
+
+MEETING Mnn (student ↔ supervisor agent, no length limit)
+  student:    presents brief (kickoff: reframes question, asks about constraints, proposes plan)
+  supervisor: believes it wrote QUESTION.md and holds the student to it;
+              reads brief + earlier minutes; spot-checks evidence in the repo;
+              gives feedback shaped by its hidden preferences;
+              sets ~1 week of human-student effort
+  student:    extracts actions/lessons; checks meaning, scope, conflicts
+  repeat until clear:
+    student:    batched clarification questions + candidate lessons
+                ("should I remember you value X?") + restated actions
+    supervisor: answers; "Agreed" or amends
+  student records: verbatim transcript, minutes, ACTIONS.md (agreed only),
+                   memory (confirmed only; unresolved → pending.md); commit
+
+RESEARCH (student alone, no overall time limit)
+  agreed actions → goals with done-criteria
+  explore first: alternative framings, methods from other fields, web search
+  repeat until goals are done, or blocked, or a result changes the plan:
+    experiment: prediction → runtime pilot (≤ 3 min per run) → run →
+                results + figures → compare with prediction → commit
+    reusable code → tools/; update REPORT.md
+  write brief (action status, key results, surprises, interpretation, options, questions)
+  → MEETING
+
+ENDING
+  supervisor judges the question answered well enough (or agrees to the student's proposal)
+      → "write it up"
+  student finishes REPORT.md as a paper → final MEETING:
+    repeat: supervisor reviews like a paper reviewer → student revises
+    until "Signed off"
+```
+
+Learning shows up in three places:
+
+- The supervisor's preferences are hidden in its persona (figures, seeds, controlled comparisons, ablations, cross-field links). The student discovers them only through feedback.
+- Memory holds only lessons the supervisor has confirmed, and the student rereads it before every step.
+- The meeting transcripts show whether the student starts acting on those preferences without being told again.
 
 The proof of concept is the record in the project's `meetings/` (briefs, verbatim transcripts and minutes: results, feedback, Q&A, agreed actions), the memory files showing what the student learned about its supervisor, and the final `REPORT.md`, written like a short paper.
 
