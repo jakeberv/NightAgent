@@ -2,6 +2,30 @@
 
 Updated: 19 October 2026. These notes preserve the discussion behind the short [draft spec](SPEC.md). Proposed settings and candidate tasks remain subject to team review; no implementation or evaluation has been completed.
 
+## End-of-day checkpoint — 19 October 2026
+
+Design documentation is ready for the next session; no implementation, dataset-access check, model call, or evaluation has been completed for NightAgent. The team is pausing for the day. SPEC.md is the concise current proposal; the sections above “Historical design discussion” describe current decisions and explicitly labeled proposals. Historical sections are context, not implementation requirements.
+
+**Confirmed scope:** one researcher, one supervisor, bounded classification experiments, a localhost results report, and a read-only post-run trace evaluator. Scientific exploration stays open-ended. Keep trace overlap optional; multiple researchers and direct communication remain future extensions. Day-two tutorial content has not been incorporated.
+
+**Resume with these decisions and steps:**
+
+1. Choose and verify access to one labeled dataset and an approved training script; agree on two or three approaches, parameter bounds, fixed splits, and one primary metric. Digits/MNIST and bird-song spectrograms are candidates, not commitments. Do not preselect a winning approach or required scientific finding.
+2. Assign people to harness/memory, tools/data, and evaluation/report. Finalize role permissions, message format, stop authority, and how the three review rounds fit within six analyses; the detailed protocol below remains a proposal.
+3. Build the fixed classifier baseline and static browser report with JSONL traces, before adding adaptive experiment selection, supervision, and post-run judging. Demonstrate a result changing the next experimental decision.
+4. Name the six evaluation cases and their objective checks. Use fixed dataset conditions/splits; test malformed arguments, failed training, budget exhaustion, and reported metrics inconsistent with saved results. These checks constrain execution and evidence quality, not the discoveries agents must make.
+5. Pilot one complete run plus its trace evaluation before the full suite. Six cases × two repeats × three conditions means 36 runs, of which 24 are adaptive searches; the $5 total cap is proposed, not a measured estimate. Freeze case definitions and evaluator settings before comparing conditions; two repeats support a workshop pilot, not broad claims.
+
+**Review suggestions still optional:** add equal-budget scripted/random configuration search as a cheap reference; choose a bounded configuration space larger than the experiment budget so adaptive selection matters. Persistent-memory transfer across independent runs would need a separate evaluation and is deferred. These suggestions do not add another agent or prescribe the research outcome.
+
+## Open-ended exploration within fixed execution limits
+
+User clarification: keep scientific exploration open-ended. Example broad brief: “Investigate which classification approaches work well on this dataset and why.” The supervisor develops motivation and testable questions from that brief; both roles can revise hypotheses, investigate surprising results, choose informative comparisons, and record why their direction changed. No predetermined discovery, hypothesis, or winning classifier is required.
+
+Before execution, fix the available data, tools, allowed methods/parameters, splits, primary outcome metric, and resource limits. The question can evolve within that brief, while the evaluation contract stays fixed. Judge question alignment against the documented question at the time and justified revisions, rather than penalizing departure from the initial hypothesis. Judge experimental design by whether evidence supports the actual claim; an exploratory observation is valid when labeled as such, without claiming a controlled causal conclusion.
+
+Distinguish adaptation within a run (using earlier results and supervisor feedback) from learning that transfers across runs. The initial comparison tests the value of supervision; resetting memory between cases does not test persistent-memory transfer. Save evidence-linked lessons for provenance and reuse within the run, but do not claim cross-run improvement without a separate controlled test. This preserves Tutorial 2's reflection/evidence principles without adding a memory-ablation study to the workshop scope.
+
 ## Current design: autonomous researcher and supervisor
 
 The user selected this architecture on 19 October 2026, initially keeping the scientific task generic, and has now narrowed the workshop testbed to building and comparing classification models. The local SPEC.md and Google Docs draft describe one researcher and one supervisor sharing one language model and Python harness. Humans provide the initial objective, constraints, and budget; execution does not require supervision meetings or confirmation.
@@ -28,7 +52,7 @@ Use the same fixed evaluator prompt, rubric, and model across conditions. Supply
 | Interaction quality | Feedback is generic/misleading or responses ignore evidence. | Feedback or response is useful, but its connection to subsequent action is unclear. | Feedback is specific and evidence-based; uptake or rejection has a justified rationale. |
 | Uncertainty | Unsupported certainty or limitations ignored. | Limitations acknowledged without connecting them to decisions. | Uncertainty supports an appropriate replication, follow-up, stopping decision, or inconclusive conclusion. |
 
-Code separately checks valid actions and run references, repeated configurations/errors, budgets, and stopping rules. Repeated configurations are descriptive counts: intentional replication is not automatically a failure. Verify judge citations against the trace. Use N/A when a criterion is structurally inapplicable (such as interaction quality in a solo run), not when an applicable behavior is simply missing. Compare the four common reasoning criteria across agent conditions; report interaction quality separately for supervised runs. Do not compare a five-item total to a four-item total. Report baseline trace criteria only where applicable.
+Code separately checks valid actions and run references, numerical claims against saved results, repeated configurations/errors, budgets, and stopping rules. Repeated configurations are descriptive counts: intentional replication is not automatically a failure. Verify judge citations against the trace. Use N/A when a criterion is structurally inapplicable (such as interaction quality in a solo run), not when an applicable behavior is simply missing. Compare the four common reasoning criteria across agent conditions; report interaction quality separately for supervised runs. Do not compare a five-item total to a four-item total. Report baseline trace criteria only where applicable.
 
 Before the main evaluation, manually score a small sample spanning conditions using the same rubric, compare it with evaluator ratings, and fix ambiguous anchors before freezing the rubric. During evaluation, audit a sample and report disagreement. Do not reward verbosity, automatic agreement with the supervisor, or trace differences by themselves. Missing/invalid evaluator output is an evaluation failure to report, not a zero-quality trace. Incomplete runs should retain their failure status and available trace.
 
