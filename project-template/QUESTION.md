@@ -1,13 +1,14 @@
 # Research question
 
-<!-- Operator: the overarching research question, in one or two sentences. -->
+<!-- Written in the supervisor's voice (first person): the supervisor agent believes it wrote this file. -->
+<!-- The overarching research question, in one or two sentences. -->
 
 ## Context
-<!-- Operator: background, why this matters, what you already believe. -->
+<!-- Background, why this matters, what I already believe, what I want out of the project. -->
 
 ## Constraints
 - Compute: local laptop.
-<!-- Operator: data, software, anything off-limits. -->
+<!-- Data, software, anything off-limits. -->
 
 ## Clarifications
 <!-- Appended by the student after meetings, only when agreed. -->

@@ -33,7 +33,7 @@ The project directory is your own git repository for the whole project, separate
 
 | Path | Purpose | Who writes |
 |---|---|---|
-| `QUESTION.md` | Overarching question, context, constraints | Operator (you may append agreed clarifications) |
+| `QUESTION.md` | Overarching question, context, constraints | Supervisor (you may append agreed clarifications) |
 | `ACTIONS.md` | Actions agreed at the latest meeting + your goals for the week | You, from the meeting |
 | `memory/supervisor.md` | What this supervisor values as good research | You, only confirmed items |
 | `memory/lessons.md` | Confirmed lessons and corrections, with source and scope | You, only confirmed items |
@@ -43,7 +43,7 @@ The project directory is your own git repository for the whole project, separate
 | `experiments/README.md` | Index of all experiments: id, question, result, status | You |
 | `tools/` | Reusable code you wrote (data loading, metrics, plotting, …) | You |
 | `REPORT.md` | Living paper answering the question | You |
-| `data/` | Datasets (gitignored if large/downloadable) | Operator or you |
+| `data/` | Datasets (gitignored if large/downloadable) | Supervisor or you |
 | `.claude/agents/supervisor.md` | The supervisor agent (private: do not read) | Operator |
 
 At the start of **every** session, read: `QUESTION.md`, `ACTIONS.md`, all of `memory/`, the latest minutes, and `experiments/README.md`. Memory exists to change your behaviour — apply it.
