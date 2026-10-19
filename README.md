@@ -18,48 +18,53 @@ After feedback, extract at most three actions or lessons. Check each for unclear
 
 ## Minimal prototype (Claude Code as the harness)
 
-Following [autoresearch](https://github.com/karpathy/autoresearch), the prototype has no custom harness code: Claude Code is the harness, and behaviour is defined in plain-language protocols. Both the student and the supervisor are agents. The human only sets up the project and starts the run. Memory is markdown files in the project repo.
+Following [autoresearch](https://github.com/karpathy/autoresearch), the prototype has no custom harness code: Claude Code is the harness, and behaviour is defined in plain-language protocols. Both the student and the supervisor are agents. The human only writes the question and starts the run. Memory is markdown files in the project folder.
 
-- [STUDENT.md](STUDENT.md): how the student works: running the project, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
-- [MEETING.md](MEETING.md): meeting protocol between student and supervisor agent: brief → present → feedback → clarification → agreed actions (about a week of student effort) → verbatim transcript, minutes and memory. Ends with a final meeting where the supervisor reviews the report.
-- [SUPERVISOR.md](SUPERVISOR.md): how the supervisor agent behaves (checks the evidence, gives concise feedback, confirms actions, reviews the final report, signs off), plus its private persona: what it values as good research. The same supervisor is used for every project.
-- [project-template/](project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human to fill in, written in the supervisor's voice (the supervisor agent treats it as its own). The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
-- [CLAUDE.md](CLAUDE.md): tells a student agent opened in a new project folder to initialise it with `new_project.sh` before starting.
-- [new_project.sh](new_project.sh): initialises a project folder in place (the student agent runs it; you can also run it yourself). It adds the template skeleton around the human's files (never overwriting them), builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md, and makes the folder its own git repository. The student is denied read access to the supervisor files, so it has to learn the supervisor's values through meetings.
-- [example-projects/mnist/](example-projects/mnist/): a ready-to-start project containing only its `QUESTION.md`: "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
+### Repository layout
 
-This repository holds the general harness plus project folders in `example-projects/`, each holding only a `QUESTION.md` (and any starting data or code). When a project is started, its folder becomes its own git repository, and the student's work is committed only there, never to this repository.
+This repository defines the agents and how they work. It does not store project work: the only project content kept here is the starting `QUESTION.md` of each example project (enforced by `.gitignore`).
 
-The MNIST project is ready to start. For a new question, create `example-projects/<name>/` with a copy of `project-template/QUESTION.md` and fill it in.
+- [nightagent/](nightagent/): the NightAgent application.
+  - [STUDENT.md](nightagent/STUDENT.md): how the student works: running the project, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
+  - [MEETING.md](nightagent/MEETING.md): meeting protocol between student and supervisor: brief → present → feedback → clarification → agreed actions (about a week of student effort) → verbatim transcript, minutes and memory. Ends with a final meeting where the supervisor reviews the report.
+  - [SUPERVISOR.md](nightagent/SUPERVISOR.md): how the supervisor behaves: checks the evidence, gives concise feedback, confirms actions, reviews the final report, signs off. Both agents read it, so the student understands the whole process.
+  - [supervisor-persona.md](nightagent/supervisor-persona.md): what the supervisor values as good research. **Private to the supervisor**: the student is denied access to it, so it has to learn these values through meetings. The same persona is used for every project.
+  - [project-template/](nightagent/project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human, written in the supervisor's voice (the supervisor treats it as its own). The rest is the skeleton the agents start from (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`, `.claude/`).
+  - [new_project.sh](nightagent/new_project.sh): initialises a project folder in place. It copies in the template (never overwriting the human's files), builds the `supervisor` subagent (`.claude/agents/supervisor.md`) from SUPERVISOR.md plus the private persona, and denies the student access to the persona.
+- [example-projects/](example-projects/): example projects. [mnist/](example-projects/mnist/) is ready to start: "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
+- [CLAUDE.md](CLAUDE.md): tells a student agent opened in a new project folder to initialise it before starting. It sits at the root so that sessions in `example-projects/` load it.
 
-To start a project, open Claude Code in its folder (e.g. `example-projects/mnist`) with no worktree. Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
+### Running a project
+
+The MNIST example is ready to start. For a new question, create `example-projects/<name>/` with a copy of `nightagent/project-template/QUESTION.md` and fill it in. You can also add starting data or code.
+
+Open Claude Code in the project folder (e.g. `example-projects/mnist`) with no worktree. Auto mode avoids permission prompts during unattended work. There are no limits on meetings or compute, except that each experiment must run in 3 minutes or less. Then say:
 
 - **"run the project"**: kickoff → research → meeting → … → final meeting, until the supervisor signs off; or
 - **"next step"**: one phase at a time, so you can inspect each one.
 
 On the first run, the student initialises the folder with `new_project.sh`. If its new supervisor agent doesn't load until the session restarts, the student asks you to open a new session in the folder and say "run the project" again; this happens at most once.
 
-To stop, interrupt the session. To resume, open a new session in the project folder and say "run the project": the student works out where it left off from `meetings/`.
+To stop, interrupt the session. To resume, open a new session in the project folder and say "run the project": the student works out where it left off from `meetings/`. To start over, delete everything in the project folder except `QUESTION.md`.
 
 ### How the loop works
 
-The outer loop is supervision meetings, where the supervisor agent steers. The inner loop is research between meetings, where the student works alone.
+The outer loop is supervision meetings, where the supervisor steers. The inner loop is research between meetings, where the student works alone. The supervisor is a separate agent with its own context; both agents can read every file in the project folder, but only the supervisor knows its persona.
 
 ```
 SETUP (human, once per project)
   mkdir example-projects/<name>; write QUESTION.md in the supervisor's voice
       (question, context, what "best" means, constraints); optional data/code
-  open Claude Code in example-projects/<name> (no worktree, auto mode); say "run the project"
+  open Claude Code in that folder (no worktree, auto mode); say "run the project"
 
 INITIALISE (student agent, first session only; from the root CLAUDE.md)
-  if no .claude/agents/supervisor.md: run new_project.sh on this folder
-      → adds template skeleton (memory/, meetings/, experiments/, tools/, REPORT.md, …)
-      → builds supervisor agent from SUPERVISOR.md (protocol + general private persona)
-      → denies student read access to the supervisor files
-      → git init + "Project setup" commit (the project is its own repo)
+  if no .claude/agents/supervisor.md: run nightagent/new_project.sh on this folder
+      → copies template skeleton (memory/, meetings/, experiments/, tools/, REPORT.md, …)
+      → builds supervisor agent: SUPERVISOR.md (public) + supervisor-persona.md (private)
+      → denies the student access to the persona
   if the supervisor agent isn't loaded yet: ask the human to reopen the session; stop
 
-MAIN LOOP (student agent)
+MAIN LOOP (student agent; knows STUDENT.md, MEETING.md and SUPERVISOR.md)
   repeat:
     read QUESTION.md, ACTIONS.md, memory/*, latest minutes, experiments index
     decide next step from meetings/:
@@ -71,8 +76,8 @@ MAIN LOOP (student agent)
 MEETING Mnn (student ↔ supervisor agent, no length limit)
   student:    presents brief (kickoff: reframes question, asks about constraints, proposes plan)
   supervisor: believes it wrote QUESTION.md and holds the student to it;
-              reads brief + earlier minutes; spot-checks evidence in the repo;
-              gives feedback shaped by its hidden preferences;
+              reads brief + earlier minutes; spot-checks evidence in the project folder;
+              gives feedback shaped by its private persona;
               sets ~1 week of human-student effort
   student:    extracts actions/lessons; checks meaning, scope, conflicts
   repeat until clear:
@@ -80,14 +85,14 @@ MEETING Mnn (student ↔ supervisor agent, no length limit)
                 ("should I remember you value X?") + restated actions
     supervisor: answers; "Agreed" or amends
   student records: verbatim transcript, minutes, ACTIONS.md (agreed only),
-                   memory (confirmed only; unresolved → pending.md); commit
+                   memory (confirmed only; unresolved → pending.md)
 
 RESEARCH (student alone, no overall time limit)
   agreed actions → goals with done-criteria
   explore first: alternative framings, methods from other fields, web search
   repeat until goals are done, or blocked, or a result changes the plan:
     experiment: prediction → runtime pilot (≤ 3 min per run) → run →
-                results + figures → compare with prediction → commit
+                results + figures → compare with prediction
     reusable code → tools/; update REPORT.md
   write brief (action status, key results, surprises, interpretation, options, questions)
   → MEETING
@@ -102,7 +107,7 @@ ENDING
 
 Learning shows up in three places:
 
-- The supervisor's preferences are hidden in its persona (figures, seeds, controlled comparisons, ablations, cross-field links). The student discovers them only through feedback.
+- The supervisor's preferences are in its private persona (figures, seeds, controlled comparisons, ablations, cross-field links). The student discovers them only through feedback.
 - Memory holds only lessons the supervisor has confirmed, and the student rereads it before every step.
 - The meeting transcripts show whether the student starts acting on those preferences without being told again.
 
@@ -125,7 +130,7 @@ The scientific task, dataset, analysis script, and role owners are still open. C
 - [NOTES.md](NOTES.md): design rationale, evaluation details, candidate tasks, and open decisions.
 - [Shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z): collaborative spec draft.
 
-Status as of 19 October 2026: minimal Claude Code prototype with student and supervisor agents (protocols, template, MNIST project) on branch `dev-ben`; not yet run; no evaluation results yet. Next, choose an accessible task and script, assign owners, and build the fixed baseline before adding the adaptive loop.
+Status as of 19 October 2026: minimal Claude Code prototype with student and supervisor agents (`nightagent/`, MNIST example project) on branch `dev-ben`; not yet run; no evaluation results yet. Next, choose an accessible task and script, assign owners, and build the fixed baseline before adding the adaptive loop.
 
 ## Name and guiding ideas
 

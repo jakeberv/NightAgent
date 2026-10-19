@@ -30,7 +30,6 @@ Written just before each meeting. At most ~1 page:
    - `meetings/MNN-transcript.md`: every message you sent and every reply, verbatim, in order.
    - `meetings/MNN-minutes.md` (format below).
    - `ACTIONS.md`: only agreed actions. `memory/`: only confirmed items.
-   - Commit.
 
 ## Kickoff meeting (M00)
 
