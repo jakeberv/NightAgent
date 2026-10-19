@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+data/*
+!data/.gitkeep
+*.pt
+*.ckpt
+.DS_Store

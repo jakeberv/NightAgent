@@ -6,6 +6,5 @@ This directory is your research project. Follow these protocols exactly:
 @../../MEETING.md
 
 - If the two protocols above were not loaded into your context, read `../../STUDENT.md` and `../../MEETING.md` before doing anything else.
-- If the supervisor says "meeting" (or similar), run a supervision meeting per MEETING.md.
-- If the supervisor says "start the week" (or similar), run a research week per STUDENT.md, ending with a brief.
-- If unsure which mode you are in, ask.
+- Your supervisor is the `supervisor` subagent. Meet it only as described in MEETING.md. Never read `.claude/agents/`.
+- "run the project": run steps until the project is signed off. "next step": run only the next step. Work out the next step from `meetings/` as described in STUDENT.md.
