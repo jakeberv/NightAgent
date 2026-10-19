@@ -2,8 +2,10 @@
 # Create a student project from a case definition.
 # Usage: ./new_project.sh <case_dir> [project_dir]
 #
-# A case directory (see case-template/) holds QUESTION.md, supervisor-persona.md, and
-# optionally starting data/ or code. The project is created at project_dir (default:
+# project-template/ is the starting point of every project: the files the operator fills in
+# (QUESTION.md, supervisor-persona.md) plus the skeleton the agents work in. A case directory
+# holds filled-in versions of those two files, and optionally starting data/ or code; they are
+# copied over the template. The project is created at project_dir (default:
 # projects/<case name>, gitignored here) as its own git repository: the student's work is
 # committed there, never to this harness repo.
 set -euo pipefail
