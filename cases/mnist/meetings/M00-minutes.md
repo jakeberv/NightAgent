@@ -37,3 +37,6 @@ Weekly compute cap: ~1 hour.
 - supervisor.md: + values understanding *why* models perform differently, not just ranking them (project scope).
 - lessons.md: none.
 - pending.md: none.
+
+## Addendum (after meeting, 2026-10-19)
+- Supervisor: "for now, let's make the first week quicker (no more than 10 mins runtime) - as we are demoing you right now". Week-1 total compute capped at ≤ 10 min; scope: week 1 only. Actions unchanged.
