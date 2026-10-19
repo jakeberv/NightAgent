@@ -52,7 +52,7 @@ Inspired by [Night Science](https://night-science.org/): explore before judging,
 
 Josef Osumeje - josumeje@umich.edu
 
-Ben Moseley
+Ben Moseley - b.moseley@imperial.ac.uk
 
 Jake Berv — jacob.berv@gmail.com
 
