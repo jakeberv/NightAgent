@@ -21,6 +21,8 @@ class ViewKeys:
         self.escape = b""
         self.pasting = False
         self.log_toggles = 0
+        self.axis_cycles = 0
+        self.run_steps = 0
 
     @property
     def active(self):
@@ -52,6 +54,8 @@ class ViewKeys:
 
     def poll(self):
         self.log_toggles = 0
+        self.axis_cycles = 0
+        self.run_steps = 0
         if not self.active:
             return 0
         try:
@@ -82,6 +86,10 @@ class ViewKeys:
                 toggles += 1
             elif not self.pasting and byte in (ord("l"), ord("L")):
                 self.log_toggles += 1
+            elif not self.pasting and byte in (ord("x"), ord("X")):
+                self.axis_cycles += 1
+            elif not self.pasting and byte in (ord("["), ord("]")):
+                self.run_steps += 1 if byte == ord("]") else -1
         return toggles
 
     def close(self):

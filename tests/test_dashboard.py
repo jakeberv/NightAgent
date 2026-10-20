@@ -26,7 +26,7 @@ def sample(direction="maximize"):
     return state
 
 
-@pytest.mark.parametrize("width,height", [(120, 38), (80, 24), (55, 30), (55, 28), (40, 12)])
+@pytest.mark.parametrize("width,height", [(120, 48), (120, 38), (80, 24), (55, 30), (55, 28), (40, 12)])
 def test_dashboard_fits_terminal_and_preserves_critical_information(width, height):
     from study.terminal import dashboard
     from rich.cells import cell_len
@@ -40,8 +40,9 @@ def test_dashboard_fits_terminal_and_preserves_critical_information(width, heigh
     assert all(cell_len(line) <= width for line in output.splitlines())
     if width >= 76 and height >= 24 or width >= 50 and height >= 29:
         assert "Recent experiments" in output
-        assert "Trial scores" in output
-        assert "Best so far" in output
+        assert "Best" in output
+    if width >= 76 and height >= 44:
+        assert "Experiment progress" in output
 
 
 def test_trial_history_and_outcomes_support_minimization_and_reset():
@@ -91,15 +92,15 @@ def test_trial_trail_marks_only_current_leader_with_a_star():
 
 
 def test_chart_labels_bounds_and_never_invents_missing_scores():
-    from study.terminal import score_chart
+    from study.live_chart import chart
     state = sample()
     state.update({"type": "trial_finished", "run_id": "magic-pilot", "result": {
         "trial_id": 4, "status": "timeout"}})
     stream = io.StringIO()
-    Console(file=stream, width=100, color_system=None).print(score_chart(state, 80))
+    Console(file=stream, width=100, color_system=None).print(chart(state, width=80))
     text = stream.getvalue()
-    assert "0.93100" in text and "0.93300" in text
-    assert "Trial scores" in text and "Best so far" in text
+    assert "Validation roc_auc" in text and "Elapsed time" in text
+    assert "New best" in text and "Target" in text
     assert state.recent[-1]["score"] is None
 
 

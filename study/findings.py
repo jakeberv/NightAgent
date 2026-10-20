@@ -34,7 +34,11 @@ class Findings:
         self.cpu = {}
         self.problem_id = ""
         self.recent = deque(maxlen=12)
-        self.history = deque(maxlen=80)
+        # Compact observations retain the entire search, including early gains.
+        self.history = []
+        self.chart_revision = 0
+        self.chart_cache = {}
+        self.chart_bounds = None
         self.fact = "Waiting for completed experiments."
         self.objective = {"metric": "roc_auc", "direction": "maximize"}
         self.targets = []
@@ -58,6 +62,9 @@ class Findings:
             self.problem_id = problem.get("id", "")
             self.allowance = event.get("config", {}).get("allowance_seconds", 0)
             self.activity = "starting"
+        if kind in ("trial_finished", "selection", "run_stopped"):
+            self.chart_revision += 1
+            self.chart_cache.clear()
         from .progress import format_event
         self.log.append(format_event(event, verbose=True))
         self.run_id = event["run_id"]
@@ -97,7 +104,13 @@ class Findings:
             self.completed += 1
             if score is None:
                 return
-            self.history.append({"trial_id": result["trial_id"], "score": score, "best": None})
+            account = self.accounting
+            self.history.append({"trial_id": result["trial_id"], "score": score, "best": None,
+                "elapsed": self.elapsed,
+                "cost": account.get("known_cost") if account.get("cost_complete") else None,
+                "tokens": account["input_tokens"] + account["output_tokens"]
+                    if account.get("token_usage_complete") and
+                    "input_tokens" in account and "output_tokens" in account else None})
             for previous in reversed(list(self.recent)[:-1]):
                 before, after = previous["config"], row["config"]
                 if (previous["score"] == score and before.get("model") == after.get("model")

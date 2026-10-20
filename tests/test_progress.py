@@ -80,3 +80,30 @@ def test_journal_keeps_readable_log_without_terminal_observer(tmp_path):
     import time
     Journal(tmp_path, time.monotonic()).emit("failure", error="fixture failed")
     assert "fixture failed" in (tmp_path / "progress.log").read_text()
+
+
+def test_parallel_events_do_not_steal_selected_run_or_completion_summary():
+    from study.progress import ConsoleProgress
+    stream = io.StringIO()
+    progress = ConsoleProgress(stream=stream, animate=False)
+    for run_id in ('first', 'second'):
+        progress({'type':'run_started', 'run_id':run_id, 'config':{}})
+    progress({'type':'model_call_started', 'run_id':'second', 'role':'researcher'})
+    assert progress.findings.run_id == 'first'
+    assert progress.states['second'].lab.busy
+    progress({'type':'run_stopped','run_id':'second', 'summary':{'stop_reason':'trial_cap'}})
+    assert progress.findings.run_id == 'first'
+    assert '[second] FINDINGS' in stream.getvalue()
+
+
+def test_plain_summaries_report_each_parallel_run_without_reprinting_unchanged_states():
+    from study.progress import ConsoleProgress
+    stream = io.StringIO()
+    progress = ConsoleProgress(stream=stream, animate=False)
+    for run_id in ('first', 'second'):
+        progress({'type':'run_started', 'run_id':run_id, 'config':{}})
+    progress.show_summary()
+    assert '[first] FINDINGS' in stream.getvalue() and '[second] FINDINGS' in stream.getvalue()
+    before = stream.getvalue()
+    progress.show_summary()
+    assert stream.getvalue() == before
