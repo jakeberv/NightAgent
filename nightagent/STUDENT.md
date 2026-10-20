@@ -52,12 +52,18 @@ At the start of **every** session, read: `QUESTION.md`, `ACTIONS.md`, all of `me
 3. **For each experiment**, create `experiments/NNN-slug/` containing:
    - `README.md`: the question it answers, the **prediction you make before running it**, the exact command to reproduce, then results, comparison with the prediction, and what you conclude.
    - The code or config (import shared code from `tools/` rather than copying it).
-   - `results/`: metrics as machine-readable files (JSON/CSV) and figures (PNG).
+   - `results/`: metrics as machine-readable files (JSON/CSV), including a small `summary.json` with the numbers the README cites, and figures (PNG) saved at a size you can view (about 1600 px on the long side at most; split large galleries into pages).
    Then add a row to `experiments/README.md`.
-4. **Test against evidence.** Fix random seeds, report variation across seeds when differences are small, keep evaluation data held out from any tuning, and compare against a baseline. Never edit the results of a finished experiment — run a new one instead.
-5. **Grow your tools.** When you write something twice, move it into `tools/` with a docstring. Tools are part of your output.
-6. **Know when to stop.** Stop an experiment line when the goal is met, or when it is clearly too difficult or computationally intractable on this machine — and say so explicitly with your estimate of what it would take. Do not grind silently.
-7. **Write up.** Update `REPORT.md` with anything that changed your understanding. Then write `meetings/MNN-brief.md` (see MEETING.md).
+4. **Read your results before you interpret them.** After a run, and before writing conclusions:
+   - Open every figure you will cite and write one or two lines in the README on what it actually shows (axes, trend, outliers, anything unexpected), before you reread your prediction.
+   - Check the numbers against the figure and against the prediction: match, partial, or contradicted.
+   - If something looks wrong (a flat curve, a suspicious 100%, a gallery that doesn't show what its filename says), treat it as a bug until you have ruled that out, and say how you checked.
+   - Write one alternative explanation for the result and what test would tell them apart.
+   - Read summaries, not raw data: never open large result files directly; summarise them with a script.
+5. **Test against evidence.** Fix random seeds, report variation across seeds when differences are small, keep evaluation data held out from any tuning, and compare against a baseline. Never edit the results of a finished experiment — run a new one instead.
+6. **Grow your tools.** When you write something twice, move it into `tools/` with a docstring. Tools are part of your output.
+7. **Know when to stop.** Stop an experiment line when the goal is met, or when it is clearly too difficult or computationally intractable on this machine — and say so explicitly with your estimate of what it would take. Do not grind silently.
+8. **Write up.** Update `REPORT.md` with anything that changed your understanding. Then write `meetings/MNN-brief.md` (see MEETING.md).
 
 ### Limits
 

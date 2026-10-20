@@ -64,6 +64,9 @@ SANDBOX = {
     "failIfUnavailable": True,  # refuse to start rather than run unsandboxed
     "allowUnsandboxedCommands": False,  # no dangerouslyDisableSandbox
 }
+# One message from Claude Code can carry a whole tool result (e.g. a figure the agent reads); the SDK's
+# 1 MB default would end the phase with an error.
+MAX_MESSAGE_BYTES = 64 * 1024 * 1024
 PERMISSIONS = {"blockReadsOutsideWorkingDirectories": True, "disableBypassPermissionsMode": "disable"}
 # With bypass mode off, the student runs in "dontAsk": these tools are allowed, anything else is denied.
 STUDENT_TOOLS = ["Bash", "Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep",
@@ -195,7 +198,8 @@ class Agent:
         # Both agents work in the project folder, ignore local Claude Code config and run under the
         # sandbox and permission policy above (see docstring).
         common = dict(cwd=str(self.project), setting_sources=[], model=self.model, effort=self.effort, env=self.env,
-                      sandbox=SANDBOX, settings=json.dumps({"permissions": PERMISSIONS}))
+                      sandbox=SANDBOX, settings=json.dumps({"permissions": PERMISSIONS}),
+                      max_buffer_size=MAX_MESSAGE_BYTES)
         if self.role == "student":
             # Student: Claude Code's normal coding-agent prompt plus all three public protocols, so it
             # understands the whole process (including how the supervisor works), but not the persona.
@@ -247,18 +251,29 @@ class Agent:
         return {}
 
     async def start(self) -> None:
-        from claude_agent_sdk import ClaudeSDKClient
+        from claude_agent_sdk import ClaudeSDKClient, ClaudeSDKError
 
         self.client = ClaudeSDKClient(self.options())
-        await self.client.connect()
+        try:
+            await self.client.connect()
+        except ClaudeSDKError as e:
+            raise AgentError(f"{self.role} session failed to start: {short(str(e), 300)}") from e
 
     async def send(self, text: str) -> str:
         """Send one message and run the agent's turn (it may use many tools); return its final text.
 
         Tool calls and text are printed as they happen so the human can follow the run. Raises
-        AgentError if the turn failed or ended without text, so that an error is never relayed to the
-        other agent as if it were a message.
+        AgentError if the turn failed, ended without text or broke the SDK connection, so that an error
+        is never relayed to the other agent as if it were a message and the phase stops cleanly.
         """
+        from claude_agent_sdk import ClaudeSDKError
+
+        try:
+            return await self._send(text)
+        except ClaudeSDKError as e:
+            raise AgentError(f"{self.role} turn failed in the SDK: {short(str(e), 300)}") from e
+
+    async def _send(self, text: str) -> str:
         from claude_agent_sdk import AssistantMessage, ResultMessage, TextBlock, ToolUseBlock
 
         await self.client.query(text)
