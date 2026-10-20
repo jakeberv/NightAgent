@@ -65,24 +65,6 @@ def allocation_label(state):
     return f"{active}/{ceiling} allocated"
 
 
-def score_chart(state, width):
-    """Two sparklines with shared explicit bounds; at most one column per trial."""
-    points = list(state.history)[-max(1, width - 36):]
-    values = [p[key] for p in points for key in ("score", "best") if p[key] is not None]
-    if not values:
-        return text("Trial scores: waiting for results\nBest so far: waiting for a selection", "dim")
-    low, high = min(values), max(values)
-    def line(key):
-        return "".join("·" if p[key] is None else "▁▂▃▄▅▆▇█"[
-            3 if high == low else min(7, max(0, round(7 * (p[key] - low) / (high - low))))] for p in points)
-    result = Text()
-    result.append(f"Trial scores  {line('score')} ", "cyan")
-    result.append(f"range {low:.5f}–{high:.5f}\n", "dim")
-    result.append(f"Best so far   {line('best')} ", "green")
-    result.append(f"trials {points[0]['trial_id']}–{points[-1]['trial_id']}", "dim")
-    return result
-
-
 def budget(state, elapsed):
     table = Table.grid(padding=(0, 1), expand=True)
     table.add_column(style="dim", width=8)
@@ -240,11 +222,13 @@ def trial_trail(state, width=116):
     return trail
 
 
-def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False, logs=False, lessons=True):
+def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False, logs=False, lessons=True,
+              chart_axis="time", ascii_only=False, run_position=""):
     """Fit the available terminal; small terminals retain activity, score and cost."""
     if focus:
         from .focus import focus_dashboard
-        return focus_dashboard(state, width=width, height=height, shortcut=shortcut)
+        return focus_dashboard(state, width=width, height=height, shortcut=shortcut,
+                               chart_axis=chart_axis, ascii_only=ascii_only, run_position=run_position)
     from .live_lessons import visible, lesson_panel
     show_lessons = lessons and visible(state)
     if logs and width >= 40 and height >= 14:
@@ -263,7 +247,8 @@ def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False
         if width >= 132 and height >= 24:
             log_width = max(48, width * 2 // 5)
             layout.split_row(Layout(dashboard(state, width=width - log_width, height=height,
-                spinner=spinner, shortcut=shortcut, lessons=False), name="overview"),
+                spinner=spinner, shortcut=shortcut, lessons=False, chart_axis=chart_axis,
+                ascii_only=ascii_only, run_position=run_position), name="overview"),
                 Layout(log_area(log_width, height), size=log_width))
         else:
             log_height = max(5, min(14, height // 3))
@@ -271,7 +256,8 @@ def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False
             if overview_height < 23 or (width < 76 and overview_height < 29):
                 log_height = height - 8
             layout.split_column(Layout(dashboard(state, width=width, height=height - log_height,
-                spinner=spinner, shortcut=shortcut, lessons=False), name="overview"),
+                spinner=spinner, shortcut=shortcut, lessons=False, chart_axis=chart_axis,
+                ascii_only=ascii_only, run_position=run_position), name="overview"),
                 Layout(log_area(width, log_height), size=log_height))
         return layout
     elapsed = elapsed_now(state)
@@ -295,7 +281,7 @@ def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False
     header_height = 6 if stations_expanded else 4
     notebook_height = 6 if expanded else 0
     fixed_height = header_height + notebook_height + metrics_height
-    chart_height = 0 if show_lessons and height - fixed_height - 4 < 11 else 4
+    chart_height = 11 if height - fixed_height >= (30 if show_lessons else 22) else 0
     recent_height = min(8, max(4, height - fixed_height - chart_height - (7 if show_lessons else 6)))
     sections = [Layout(name="header", size=header_height)]
     if expanded:
@@ -320,14 +306,18 @@ def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False
         layout["experiment"].update(experiment_panel(state, width))
     layout["header"].update(Panel(Group(*header),
         title=text(f"NIGHTAGENT · {state.run_id}", "bold"),
-        subtitle=text(f"RESEARCH LAB · {state.problem_id or 'experiment'}" + (" · f Focus · l Log" if shortcut else "")), border_style="cyan", padding=(0, 1)))
+        subtitle=text(f"RESEARCH LAB · {state.problem_id or 'experiment'} {run_position}" +
+                      (" · f Focus · l Log · x Axis" if shortcut else "")), border_style="cyan", padding=(0, 1)))
     if width >= 76:
         layout["metrics"].split_row(Layout(budget(state, elapsed)), Layout(result_panel(state)))
     else:
         layout["metrics"].split_column(Layout(budget(state, elapsed), size=8), Layout(result_panel(state)))
     layout["recent"].update(recent_panel(state, max(1, recent_height - 3)))
     if chart_height:
-        layout["chart"].update(Panel(score_chart(state, width - 4), title="Validation trend · shared scale", border_style="bright_black", padding=(0, 1)))
+        from .live_chart import chart
+        layout["chart"].update(Panel(chart(state, width=width - 4, height=chart_height - 2,
+            axis=chart_axis, ascii_only=ascii_only), title="Experiment progress",
+            border_style="bright_black", padding=(0, 1)))
     if show_lessons:
         layout["findings"].update(lesson_panel(state, width=width,
             height=height - fixed_height - recent_height - chart_height))
@@ -363,8 +353,10 @@ class StatusLine:
     def __init__(self, stream, *, animate=True, input_stream=None):
         from .keyboard import ViewKeys
         self.keys = ViewKeys(input_stream)
-        self.focus = False
+        self.focus = True
         self.show_log = True
+        self.chart_axis = "time"
+        self.selected_run = None
         self.stream = stream
         self.enabled = bool(animate and getattr(stream, "isatty", lambda: False)()
                             and os.environ.get("TERM") != "dumb")
@@ -385,15 +377,23 @@ class StatusLine:
         self.clear()
         print(value, file=self.stream, flush=True)
 
-    def draw(self, state, *, detailed=False):
-        if not self.enabled or not state.run_id or state.stopped:
+    def draw(self, state, *, detailed=False, states=None):
+        states = states or ({state.run_id: state} if state.run_id else {})
+        if not self.enabled or not state.run_id or all(s.stopped for s in states.values()):
             self.clear()
-            return
+            return state
         size = self.console.size
         if detailed:
             self.keys.start()
             if self.keys.poll() % 2:
                 self.focus = not self.focus
+            from .live_chart import AXES
+            self.chart_axis = AXES[(AXES.index(self.chart_axis) + self.keys.axis_cycles) % len(AXES)]
+            run_ids = list(states)
+            if self.selected_run not in states:
+                self.selected_run = state.run_id
+            self.selected_run = run_ids[(run_ids.index(self.selected_run) + self.keys.run_steps) % len(run_ids)]
+            state = states[self.selected_run]
             if self.keys.log_toggles % 2:
                 if self.focus:
                     self.focus = False
@@ -405,7 +405,10 @@ class StatusLine:
                 self.cpu = HostCPU()
             state.cpu = self.cpu.sample()
             content = dashboard(state, width=size.width, height=max(1, size.height - 1), spinner=self.spinner,
-                                focus=self.focus, shortcut=self.keys.active, logs=self.show_log)
+                                focus=self.focus, shortcut=self.keys.active, logs=self.show_log,
+                                chart_axis=self.chart_axis, ascii_only=self.console.encoding.lower() not in ("utf-8", "utf8"),
+                                run_position=f"Run {run_ids.index(self.selected_run) + 1}/{len(run_ids)} · [ ] Select"
+                                    if len(run_ids) > 1 else "")
         else:
             self.keys.close()
             self.spinner.update(text=text(f"{state.activity} | {duration(elapsed_now(state))}/{duration(state.allowance)} | {state.completed} ok | {cost_label(state)}", "cyan"))
@@ -421,3 +424,4 @@ class StatusLine:
             self.live.start(refresh=True)
         else:
             self.live.update(content, refresh=True)
+        return state

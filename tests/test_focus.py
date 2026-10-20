@@ -53,7 +53,7 @@ def test_focus_explains_hypothesis_change_and_expected_outcome_without_extra_cal
     assert "Validation AUC may improve over trial 1." in rendered
     assert "Agent hypothesis:" in rendered and "Expected:" in rendered
     assert "0.91000" in rendered and "$0.2400 known" in rendered
-    assert "l  Log" in rendered
+    assert "l Log" in rendered
 
 
 @pytest.mark.parametrize("role,purpose", [
@@ -181,7 +181,7 @@ def test_focus_retains_failure_and_unknown_accounting_and_supports_minimization(
     Console(file=output, width=80, height=24, color_system=None).print(dashboard(state, width=80, height=24, focus=True))
     rendered = output.getvalue()
     assert "timeout" in rendered and "1 unsuccessful" in rendered
-    assert "+0.20000" in rendered and "rmse" in rendered and "known" in rendered
+    assert "0.80000" in rendered and "rmse" in rendered and "known" in rendered
 
 
 def test_visual_agent_summaries_are_whole_sentences_and_untrusted_text_is_literal():
@@ -269,13 +269,13 @@ def test_focus_keyboard_toggle_reuses_live_screen_and_restores_tty_on_clear(monk
         os.write(master, b"f")
         offset = len(stream.getvalue())
         display.draw(state, detailed=True)
-        assert display.focus and display.live is original_live
+        assert not display.focus and display.live is original_live
         frame = stream.getvalue()[offset:]
-        assert "FOCUS" in frame and "Recent experiments" not in frame
+        assert "Live log" in frame and "FOCUS" not in frame
         assert "\x1b[2J" not in frame and "\x1b[2K" not in frame
         os.write(master, b"f")
         display.draw(state, detailed=True)
-        assert not display.focus and display.live is original_live
+        assert display.focus and display.live is original_live
     finally:
         display.clear()
     after = termios.tcgetattr(slave)
@@ -361,9 +361,9 @@ except KeyboardInterrupt:
                 output += os.read(master, 65536)
         assert marker in output, output.decode(errors="replace")[-2000:]
     try:
-        until(b"Live log")
-        os.write(master, b"f")
         until(b"FOCUS")
+        os.write(master, b"l")
+        until(b"Live log")
         os.write(master, b"\x03")
         until(b"RESTORED_AFTER_CTRL_C")
         assert process.wait(timeout=5) == 0
@@ -429,7 +429,7 @@ def test_narrow_discovery_fallback_does_not_claim_completed_run_is_still_waiting
     output = io.StringIO()
     Console(file=output, width=40, height=24, color_system=None).print(dashboard(state, width=40, height=24, focus=True))
     rendered = output.getvalue()
-    assert "A new result has been recorded." in rendered
+    assert "0.91000" in rendered
     assert "waiting for a completed" not in rendered.lower()
 
 
@@ -446,6 +446,9 @@ def test_log_keyboard_toggle_preserves_stream_and_ignores_pasted_shortcuts(monke
     try:
         display.draw(state, detailed=True)
         original_live = display.live
+        assert 'VISIBLE_LOG_LINE' not in stream.getvalue()
+        os.write(master, b'l')
+        display.draw(state, detailed=True)
         assert 'VISIBLE_LOG_LINE' in stream.getvalue()
         os.write(master, b'l')
         offset = len(stream.getvalue())
@@ -468,3 +471,69 @@ def test_log_keyboard_toggle_preserves_stream_and_ignores_pasted_shortcuts(monke
     finally:
         display.clear()
     assert stream.getvalue().count('\x1b[?1049h') == 1
+
+
+def test_focus_default_chart_and_axis_navigation_are_stable_across_parallel_runs(monkeypatch, keyboard_pty):
+    from study.terminal import StatusLine
+    from test_terminal import Terminal
+    from test_live_chart import started, result, account
+    master, _, stream = keyboard_pty
+    monkeypatch.setenv('TERM', 'xterm')
+    display = StatusLine(Terminal(), input_stream=stream)
+    display.console.size = (96, 30)
+    first = started()
+    result(first,1,.8,10,account())
+    second = started()
+    second.run_id = 'second'
+    states = {first.run_id:first, second.run_id:second}
+    try:
+        display.draw(first, detailed=True, states=states)
+        live = display.live
+        assert display.focus and display.selected_run == first.run_id
+        assert 'Elapsed time' in display.stream.getvalue()
+        display.draw(second, detailed=True, states=states)
+        assert display.selected_run == first.run_id
+        os.write(master,b'x')
+        display.draw(first,detailed=True,states=states)
+        assert display.chart_axis == 'cost'
+        os.write(master,b']')
+        selected = display.draw(first,detailed=True,states=states)
+        assert selected is second and display.selected_run == 'second'
+        os.write(master,b'\x1b[200~[x\x1b[201~')
+        display.draw(first,detailed=True,states=states)
+        assert display.selected_run == 'second' and display.chart_axis == 'cost'
+        second.stopped = True
+        display.draw(first,detailed=True,states=states)
+        assert display.live is live and display.selected_run == 'second'
+        os.write(master,b'[')
+        assert display.draw(second,detailed=True,states=states) is first
+    finally:
+        display.clear()
+
+
+def test_focus_chart_is_main_visual_and_small_terminal_keeps_facts():
+    from test_live_chart import started, result, account
+    state = started()
+    result(state,1,.8,20,account())
+    rendered = render_focus(state, width=80,height=24)
+    assert 'Validation accuracy' in rendered and 'Elapsed time' in rendered
+    assert '80.00%' in rendered and '85.00%' in rendered and '5.00 pp' in rendered
+    compact = render_focus(state,width=40,height=14)
+    assert 'Elapsed time' not in compact
+    assert '80.00%' in compact and '$0.2000' in compact
+    assert len(compact.splitlines()) <= 14
+
+
+def test_tiny_focus_retains_trial_counts_and_unknown_cost_warning_before_secondary_detail():
+    from test_live_lessons import lesson
+    state = structured_focus()
+    state.config['lesson_memory'] = True
+    state.update(dict(type='lesson_memory',run_id=state.run_id,role='supervisor', lessons=[lesson(
+        summary='The larger forest did not improve the validation result.',
+        evidence=[{'trial_id':i,'metric':'roc_auc','split':'validation','value':.91} for i in range(11,17)])]))
+    rendered = render_focus(state,width=40,height=14)
+    prose = ' '.join(line.strip('│ ') for line in rendered.splitlines())
+    assert 'Trials 1/12' in prose and '0 unsuccessful' in prose
+    assert 'API total is incomplete; only known charges are shown.' in prose
+    assert '$0.2400 known' in prose and '0.91000' in prose
+    assert len(rendered.splitlines()) <= 14

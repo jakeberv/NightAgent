@@ -232,3 +232,21 @@ tool schemas.
   failures/recovery, bounded history, missing dependencies, live updates without
   experiment events, narrow history cropping, serial allocations and preserving
   the flicker fix. Scoped review found no material issue.
+
+## Focus progress chart (20 October 2026)
+
+The default Focus view now shows per-experiment validation scores, selected-best
+steps and targets against elapsed time, cumulative API cost or input/output tokens.
+Each strategy/repeat has an independent history and explicit keyboard selection.
+No provider calls or changes to experimental decisions are introduced.
+
+Verification on main `63e7a81` plus the Focus changes: **605 tests passed** in
+89.42 seconds. Coverage includes real PTY shortcuts and Ctrl+C restoration,
+concurrent-run selection and completion, complete/unknown accounting snapshots,
+full-run history beyond 80 trials, minimize/maximize/ties/failures, idle caching,
+ASCII markers, narrow layouts and whole-sentence lesson retention. Rendered
+80×24, 55×20, 96×34 and 120×48 examples; inspected the normal and narrow Focus
+images. Independent review found empty-chart scale retention and tiny-screen
+constraint-priority issues; both reproduced and fixed with regression tests.
+The full-suite experiment-warning regression was also corrected. No paid API
+calls were made. CPU-only GitHub CI remains the portable validation gate.

@@ -9,7 +9,8 @@ from .lab import complete_sentences, sentence_summary
 
 
 MODEL_NAMES = {"histogram_gradient_boosting": "gradient boosting", "random_forest": "random forest",
-               "logistic": "logistic regression", "ridge": "ridge regression"}
+               "logistic": "logistic regression", "ridge": "ridge regression",
+               "torch_mlp": "neural network", "torch_cnn": "convolutional network"}
 
 
 def fitting_summary(value, width, lines=2, fallback="The full explanation is saved in the trace."):
@@ -116,8 +117,29 @@ def narrative(state):
     return f"{heading}: trial {lab.trial_id} · {model}", rows, lab.rationale or experiment_summary(lab)
 
 
-def focus_dashboard(state, *, width, height, shortcut=False):
+def metric_value(state, value):
+    return f"{value * 100:.2f}%" if state.objective["metric"] == "accuracy" else f"{value:.5f}"
+
+
+def target_summary(state, score):
+    if not state.targets:
+        return ""
+    minimize = state.objective["direction"] == "minimize"
+    ordered = sorted(state.targets, key=lambda target: target["value"], reverse=minimize)
+    pending = [t for t in ordered if score is None or (score > t["value"] if minimize else score < t["value"])]
+    target = pending[0] if pending else ordered[-1]
+    status = "reached" if not pending else "pending"
+    label = f"Target {metric_value(state, target['value'])} ({target['name']})"
+    if score is None or not pending:
+        return f"{label}: {status}"
+    gap = abs(score - target["value"])
+    gap_label = f"{gap * 100:.2f} pp" if state.objective["metric"] == "accuracy" else f"{gap:.5f}"
+    return f"{label} · gap {gap_label}"
+
+
+def focus_dashboard(state, *, width, height, shortcut=False, chart_axis="time", ascii_only=False, run_position=""):
     from .terminal import text, elapsed_now, best_score, cost_label, duration, cpu_label, allocation_label
+    from .live_chart import chart, progress_sentence
     width = min(width, 96)
     inner = max(1, width - 4)
     elapsed = elapsed_now(state)
@@ -128,75 +150,71 @@ def focus_dashboard(state, *, width, height, shortcut=False):
     def add(value, style="", priority=1):
         rows.append((text(value, style), priority))
 
-    # Keep the explanation ahead of decoration and resource detail on resize.
     add(active_role(state, elapsed), "bold cyan", 3)
-    add(fitting_summary(activity_sentence(state), inner, 2, "The run is active."), priority=0)
+    add(fitting_summary(activity_sentence(state), inner, 2, "The run is active."), priority=-1)
     if state.lab.busy and state.lab.phase_started is not None:
         pending = "Local work" if state.lab.role == "local" else "API response pending"
-        add(f"{pending} · {duration(max(0, elapsed - state.lab.phase_started))} elapsed", "dim", 2)
-    from .live_lessons import visible, focus_lesson
-    if visible(state):
-        add(focus_lesson(state, inner, lines=4 if height >= 24 else 2), "cyan", 0 if state.lessons.latest else 2)
-    add("", priority=4)
+        add(f"{pending} · {duration(max(0, elapsed - state.lab.phase_started))} elapsed", "dim", 2 if height < 23 else 0)
+    add(f"{metric_value(state, score)}  best {state.objective['metric']}" if score is not None else "No selected model yet", "bold green", -1)
+    if state.targets:
+        add(target_summary(state, score), "cyan", 1 if height < 23 else 0)
+    if width >= 60 and height >= 23:
+        rows.append((chart(state, width=inner, height=10 if height >= 30 else 9,
+                           axis=chart_axis, ascii_only=ascii_only), 1))
+    add(fitting_summary(progress_sentence(state), inner, 2, ""), "dim", 2)
+    if score is not None and state.first_score is not None and height >= 28:
+        gain = state.first_score - score if state.objective["direction"] == "minimize" else score - state.first_score
+        add(f"Improvement {gain:+.5f} · selected trial {state.best['trial_id']}", "dim", 2)
+
     heading, explanation, fallback = narrative(state)
     if heading:
-        # Group the source label with its prose so resizing never orphans it.
         paragraphs = []
         for label, value, priority in explanation:
-            prose = fitting_summary(value, max(1, inner - len(label) - 2),
-                                    3 if height >= 28 else 2, "")
+            prose = fitting_summary(value, max(1, inner - len(label) - 2), 2, "")
             if not prose and label == "Agent hypothesis":
                 label = "Agent summary"
                 prose = fitting_summary(state.lab.rationale, max(1, inner - len(label) - 2), 2, "")
             if prose:
-                paragraphs.append((f"{label}: {prose}", priority))
+                paragraphs.append(f"{label}: {prose}")
         if not paragraphs:
-            paragraphs = [(fitting_summary(fallback, inner, 2,
-                           "The full explanation is available in Details."), 1)]
-        first, priority = paragraphs[0]
-        add(heading + "\n" + first, "magenta", priority)
-        for prose, priority in paragraphs[1:]:
-            add(prose, "magenta", priority)
-    add("", priority=4)
-    add(f"{score:.5f}  best {state.objective['metric']}" if score is not None else "No selected model yet", "bold green", 0)
-    if score is not None and state.first_score is not None:
-        gain = state.first_score - score if state.objective["direction"] == "minimize" else score - state.first_score
-        add(f"Improvement {gain:+.5f} · selected trial {state.best['trial_id']}", "dim", 2)
-    if state.targets:
-        minimize = state.objective["direction"] == "minimize"
-        targets = []
-        for target in state.targets[:2]:
-            reached = score is not None and (score <= target["value"] if minimize else score >= target["value"])
-            targets.append(f"{target['name']} {target['value']:g}: {'reached' if reached else 'pending'}")
-        add(" · ".join(targets), "dim", 2)
-    # Measurements stay distinct from agent expectations and incidental warnings.
-    from .lab import score_of
+            paragraphs = [fitting_summary(fallback, inner, 2,
+                           "The full explanation is available in Details.")]
+        add(heading + "\n" + paragraphs[0], "magenta", 1)
+        for prose in paragraphs[1:]:
+            add(prose, "magenta", 3)
+    from .live_lessons import visible, focus_lesson
+    if visible(state):
+        add(focus_lesson(state, inner, lines=3 if height >= 24 else 2), "cyan", 0 if state.lessons.latest else 2)
+    # Failures remain visible even when the last valid score was excellent.
     result = state.lab.last_result
     if result and result.get("status") != "completed":
-        evidence = f"Trial {result['trial_id']} ended with status {result['status']}."
-    elif result and score_of(result) is not None:
-        evidence = f"Trial {result['trial_id']} measured {score_of(result):.5f} validation {state.objective['metric']}."
-    else:
-        evidence = state.fact
-    add(fitting_summary(evidence, inner, 2, "A result has been recorded." if result else
-                        "No experiment has completed yet."), "dim", 1)
-    if state.lab.discoveries:
-        discovery = state.lab.discoveries[-1]
-        add(fitting_summary(discovery["message"], inner, 2, "A new result has been recorded."),
-            discovery["style"], 2)
-    add("", priority=4)
-    add(f"Time left {duration(remaining)} · API {cost_label(state)} / ${state.config.get('dollar_cap', 0):g}", "cyan", 0)
-    add(f"Trials {state.completed + state.unsuccessful}/{state.config.get('trial_cap', '?')} · {state.unsuccessful} unsuccessful", "dim", 0)
-    add(f"CPU {cpu_label(state)} · {allocation_label(state)}", "dim", 3)
+        add(fitting_summary(f"Trial {result['trial_id']} ended with status {result['status']}.", inner, 2, "The latest trial failed."), "yellow", 0)
+    if state.lab.discoveries and state.lab.discoveries[-1]['style'] == 'yellow':
+        add(fitting_summary(state.lab.discoveries[-1]['message'], inner, 2,
+                            "An experiment warning is available in Details."), "yellow", 2)
+    add(f"Time left {duration(remaining)} · API {cost_label(state)} / ${state.config.get('dollar_cap', 0):g}", "cyan", -2)
+    add(f"Trials {state.completed + state.unsuccessful}/{state.config.get('trial_cap', '?')} · {state.unsuccessful} unsuccessful", "dim", -2)
+    device = state.config.get('device', 'cpu')
+    add(f"Host CPU {cpu_label(state)} · {allocation_label(state)} · device {device}", "dim", 3)
     if state.accounting and not state.accounting.get("cost_complete"):
-        add("API total is incomplete; only known charges are shown.", "yellow", 0)
+        add("API total is incomplete; only known charges are shown.", "yellow", -2)
 
-    # Remove entire low-priority blocks; never crop a prose sentence at the bottom.
+    # Remove entire blocks, preserving complete sentences and critical figures.
     console = Console(width=width)
     def lines(row):
         return max(1, len(row[0].wrap(console, inner)))
     while rows and sum(lines(row) for row in rows) > max(0, height - 2):
         remove = max(range(len(rows)), key=lambda index: (rows[index][1], index))
         rows.pop(remove)
-    return Align.center(Panel(Group(*(row[0] for row in rows)), title=text(f"FOCUS · {state.run_id or state.problem_id}"),
-        subtitle="f  Details · l  Log" if shortcut else "FOCUS", border_style="cyan", padding=(0, 1), width=width))
+    condition = state.config.get('condition', '').replace('_', ' ')
+    title = f"FOCUS · {state.problem_id or state.run_id} · {condition}"
+    if state.stopped:
+        title += " · STOPPED"
+    if run_position:
+        # Run id is important when several strategies share a problem/dataset.
+        title = f"FOCUS · {state.run_id}" + (" · STOPPED" if state.stopped else "")
+    footer = "f Details · l Log · x Axis" if shortcut else "FOCUS"
+    if run_position:
+        footer += " · " + run_position
+    return Align.center(Panel(Group(*(row[0] for row in rows)), title=text(title),
+        subtitle=text(footer), border_style="cyan", padding=(0, 1), width=width))

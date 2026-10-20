@@ -25,11 +25,10 @@ def test_interactive_status_animates_without_new_events_and_clears_on_exit(monke
                       "run_id": "pilot", "elapsed_seconds": 1})
             await asyncio.sleep(.65)
             assert stream.getvalue().count("\x1b[H") >= 2
-            assert "researcher API" in stream.getvalue()
-            assert "0 ok" in stream.getvalue()
+            assert "choosing the next experiment" in stream.getvalue()
+            assert "Trials 0/12" in stream.getvalue()
             assert "5:00" in stream.getvalue()
-            assert "⠋" in stream.getvalue()
-            assert any(frame in stream.getvalue() for frame in "⠙⠹⠸⠼⠴⠦⠧⠇⠏")
+            assert "[o.o]" in stream.getvalue() or "[o_o]" in stream.getvalue()
     asyncio.run(scenario())
     assert "\x1b[?25h" in stream.getvalue()
     assert stream.getvalue().endswith("\x1b[?1049l")
@@ -62,7 +61,7 @@ def test_log_lines_clear_animation_before_printing(monkeypatch):
     assert status.live is None
 
 
-def test_default_panel_replaces_itself_and_shows_full_model_log(monkeypatch):
+def test_default_panel_replaces_itself_and_keeps_full_model_log_in_details(monkeypatch):
     monkeypatch.setenv("TERM", "xterm")
     stream = Terminal()
     async def scenario():
@@ -73,8 +72,9 @@ def test_default_panel_replaces_itself_and_shows_full_model_log(monkeypatch):
                 "response": {"message": {"content": "RAW_MODEL_CONTENT"}}})
             await asyncio.sleep(.35)
         text = stream.getvalue()
-        assert "RAW_MODEL_CONTENT" in text
-        assert "Live log" in text and "\x1b[H" in text
+        assert "RAW_MODEL_CONTENT" not in text
+        assert "Live log" not in text and "\x1b[H" in text
+        assert "FOCUS" in text
         assert "No selected model yet" in text
     asyncio.run(scenario())
 
@@ -94,7 +94,7 @@ def test_dashboard_refresh_does_not_erase_screen_before_repainting(monkeypatch):
         state.activity = "new activity"
         status.draw(state, detailed=True)
         refresh = stream.getvalue()[first:]
-        assert "new activity" in refresh
+        assert "New activity." in refresh
         assert "\x1b[2K" not in refresh  # No clear-line pass before the new frame.
         assert "\x1b[2J" not in refresh  # No clear-screen pass either.
         assert "\x1b[H" in refresh
