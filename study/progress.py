@@ -152,7 +152,7 @@ class ConsoleProgress:
     async def _summaries(self):
         next_summary = time.monotonic() + self.summary_interval
         while self.enabled:
-            await asyncio.sleep(min(.1 if self.display.enabled else 1, self.summary_interval or 1))
+            await asyncio.sleep(min(.25 if self.display.enabled else 1, self.summary_interval or 1))
             if self.summary_interval and time.monotonic() >= next_summary:
                 self.show_summary()
                 next_summary = time.monotonic() + self.summary_interval

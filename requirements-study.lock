@@ -14,7 +14,9 @@ joblib==1.6.0
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 kiwisolver==1.5.1
+markdown-it-py==4.2.0
 matplotlib==3.11.2
+mdurl==0.1.2
 narwhals==2.27.1
 numpy==2.5.4
 packaging==26.3
@@ -26,6 +28,7 @@ pytest==9.1.1
 python-dateutil==2.9.0.post0
 pyyaml==6.0.3
 referencing==0.37.0
+rich==14.3.4
 rpds-py==2026.9.1
 scikit-learn==1.9.1
 scipy==1.18.1

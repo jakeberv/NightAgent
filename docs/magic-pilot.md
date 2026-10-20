@@ -59,12 +59,24 @@ If preflight failed before creating the output directory, fix that reported erro
 before generating a report.
 
 In an interactive terminal, the default CLI is a self-updating **LIVE FINDINGS**
-panel, replacing its previous contents rather than scrolling. A spinner marks
+Rich dashboard, replacing its previous contents rather than scrolling. A spinner marks
 the current activity. The panel shows elapsed/allowed wall time (with a time
 budget bar in wider terminals), trial outcomes, best validation score, targets,
 cost, token usage, and a short supervisor excerpt. The spinner refreshes locally
-ten times per second; measured findings update as events arrive. A moving spinner
+four times per second; measured findings update as events arrive. A moving spinner
 means the observer is responsive, not that the model has returned new work.
+
+Budget bars show consumed time, attempted trials and known API spending. A separate
+best-result card reports validation score, improvement and targets. The recent
+experiment table labels new bests, ties, other results and failures. Two small
+charts show individual scores and best-so-far on one explicitly labeled scale;
+only the most recent 80 completed scored trials are retained for this view.
+Failures remain visible in the table and do not receive invented chart scores.
+The findings card separates recorded comparisons from supervisor interpretation.
+Cards stack in narrow terminals; very small windows retain activity, score, cost
+and time. Enlarge the terminal to see the complete table, charts and commentary.
+Rich handles resizing and cursor cleanup; `NO_COLOR` retains text labels without
+color. The dependency lock includes Rich and its two additional dependencies.
 
 `--verbose` opts into the full scrolling log: model calls and returned text,
 tool arguments/results, classifier results, reviews and reflections, with a

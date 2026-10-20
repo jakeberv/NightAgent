@@ -1,5 +1,6 @@
 """Read-only findings derived from recorded events; no inference or agent feedback."""
 import asyncio
+from collections import deque
 from datetime import datetime
 import json
 import math
@@ -22,6 +23,11 @@ class Findings:
         self.elapsed = 0
         self.event_at = None
         self.allowance = 0
+        self.config = {}
+        self.problem_id = ""
+        self.recent = deque(maxlen=12)
+        self.history = deque(maxlen=80)
+        self.fact = "Waiting for completed experiments."
         self.objective = {"metric": "roc_auc", "direction": "maximize"}
         self.targets = []
         self.completed = self.unsuccessful = 0
@@ -40,6 +46,8 @@ class Findings:
             problem = event.get("problem", {})
             self.objective = problem.get("evaluation", {}).get("objective", self.objective)
             self.targets = problem.get("targets", [])
+            self.config = event.get("config", {})
+            self.problem_id = problem.get("id", "")
             self.allowance = event.get("config", {}).get("allowance_seconds", 0)
             self.activity = "starting"
         self.run_id = event["run_id"]
@@ -57,13 +65,31 @@ class Findings:
         elif kind == "trial_finished":
             result = event["result"]
             self.activity = f"trial {result['trial_id']} {result['status']}"
+            score = result.get("score", result.get("validation_auc"))
+            if type(score) not in (int, float) or not math.isfinite(score):
+                score = None
+            row = {"trial_id": result["trial_id"], "score": score,
+                   "config": result.get("config", {}), "status": result["status"],
+                   "outcome": "Unselected" if result["status"] == "completed" else result["status"],
+                   "elapsed": self.elapsed}
+            self.recent.append(row)
             if result["status"] != "completed":
+                row["score"] = None
                 self.unsuccessful += 1
                 return
             self.completed += 1
-            score = result.get("score", result.get("validation_auc"))
-            if type(score) not in (int, float) or not math.isfinite(score):
+            if score is None:
                 return
+            self.history.append({"trial_id": result["trial_id"], "score": score, "best": None})
+            for previous in reversed(list(self.recent)[:-1]):
+                before, after = previous["config"], row["config"]
+                if (previous["score"] == score and before.get("model") == after.get("model")
+                        and before.get("params") == after.get("params")
+                        and before.get("preprocessing") != after.get("preprocessing")):
+                    self.fact = f"Changing scaling to {after.get('preprocessing')} matched trial {previous['trial_id']}'s score with the same model parameters."
+                    break
+            else:
+                self.fact = f"Trial {result['trial_id']} completed with validation score {score:.6f}."
             if self.first_score is None:
                 self.first_score = score
             model = result.get("config", {}).get("model", "unspecified")
@@ -73,6 +99,14 @@ class Findings:
                 self.models[model] = score
         elif kind == "selection":
             self.best = event.get("best")
+            if self.best and self.recent:
+                best_score = self.best.get("score", self.best.get("validation_auc"))
+                row = self.recent[-1]
+                if row["status"] == "completed" and row["score"] is not None:
+                    row["outcome"] = ("New best" if row["trial_id"] == self.best["trial_id"] else
+                                      "Tied best" if row["score"] == best_score else "Not best")
+                    if self.history and self.history[-1]["trial_id"] == row["trial_id"]:
+                        self.history[-1]["best"] = best_score
         elif kind == "review":
             self.review = (event["after_trial"], event["feedback"])
         elif kind == "run_stopped":
@@ -176,6 +210,6 @@ async def watch(output, *, interval=15, once=False, stream=None, animate=True):
                 if state.stopped or once:
                     return
                 display.draw(state, detailed=True)
-                await asyncio.sleep(min(.1 if display.enabled else 1, interval))
+                await asyncio.sleep(min(.25 if display.enabled else 1, interval))
     finally:
         display.clear()
