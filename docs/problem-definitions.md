@@ -125,7 +125,7 @@ the legacy MAGIC reference remains its original fixed HGB pipeline.
 ## Bundled examples
 
 - [MAGIC](../study/problems/magic.yaml): ten-column telescope data, binary ROC-AUC,
-  0.93 milestone and 0.95 stretch threshold. Use `study-data/magic-profile` as the
+  0.93 milestone and 0.95 stretch threshold. Use `study-data/magic-profile-v2` as the
   new prepared output; the earlier `study-data/magic` belongs to the legacy format.
 - [Classification CSV](../study/problems/classification.yaml): arbitrary numerical
   feature columns and named target, using accuracy plus macro-F1.

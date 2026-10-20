@@ -2,6 +2,7 @@
 from copy import deepcopy
 import json
 import math
+import re
 
 import jsonschema
 
@@ -96,12 +97,13 @@ def validate_contract(contract, role, history, *, has_feedback=False, memory=Fal
     return errors
 
 
-def parse_contract(content):
+def parse_contract(content, *, allow_wrapper=False):
     if not isinstance(content, str):
         raise ValueError("Return a JSON object with the required contract fields.")
     content = content.strip()
-    if content.startswith("```json") and content.endswith("```"):
+    if content.startswith("```json") and content.endswith("```") and content.count('```') == 2:
         content = content[7:-3].strip()
+        allow_wrapper = False
     def finite_number(raw):
         number = float(raw)
         if not math.isfinite(number):
@@ -114,10 +116,93 @@ def parse_contract(content):
         return number
     def reject_constant(raw):
         raise ValueError("Use finite JSON numbers, not " + raw + ".")
-    value = json.loads(content, parse_float=finite_number, parse_int=finite_integer, parse_constant=reject_constant)
+    def unique_keys(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("Duplicate JSON field: " + key)
+            result[key] = value
+        return result
+    decoder = json.JSONDecoder(parse_float=finite_number, parse_int=finite_integer,
+                               parse_constant=reject_constant, object_pairs_hook=unique_keys)
+    if allow_wrapper and '```' in content:
+        # One complete fence only; never pick among competing candidate objects.
+        match = re.fullmatch(r'[^{}\[\]`"]*```(?:json)?\s*(.*?)\s*```[^{}\[\]`"]*', content,
+                             flags=re.DOTALL | re.IGNORECASE)
+        if not match:
+            raise ValueError("Return one unambiguous JSON object.")
+        content = match.group(1).strip()
+        allow_wrapper = False  # A fenced payload must itself be valid JSON.
+    try:
+        value = decoder.decode(content)
+    except json.JSONDecodeError:
+        if not allow_wrapper or content.startswith(('{', '[')):
+            raise
+        start = content.find('{')
+        if start < 0 or any(char in content[:start] for char in '{}[]"'):
+            raise ValueError("Return one unambiguous JSON object.") from None
+        value, end = decoder.raw_decode(content, start)
+        if any(char in content[end:] for char in '{}[]"'):
+            raise ValueError("Return one unambiguous JSON object.")
     if not isinstance(value, dict):
         raise ValueError("Return one JSON object.")
     return value
+
+
+# Conservative lexical guard, not a semantic truth checker. Raw responses and
+# every replacement stay in the journal; only grounded text enters feedback/UI.
+OVERCLAIM = re.compile(
+    r'\b(?:optimal|optimum|ceiling|plateau\w*|confirm\w*|prov(?:e|es|ed|en|ing)|'
+    r'invariant|caus(?:es?|al|ality)|dominant|dominate\w*|indicat\w*)\b|'
+    r'\b(?:limiting factor|minimal impact|no meaningful difference|does not affect|'
+    r'are critical|is critical|reduces generalization)\b', re.IGNORECASE)
+
+
+def observed_summary(evidence):
+    if not evidence:
+        return "No completed comparison establishes this conclusion. Further experiments are needed."
+    first = evidence[0]
+    if len(evidence) > 1 and all(item['metric'] == first['metric'] for item in evidence):
+        values = [item['value'] for item in evidence]
+        trials = ', '.join(str(item['trial_id']) for item in evidence)
+        summary = (f"Cited trials {trials} recorded validation {first['metric']} "
+                   f"from {min(values):.8g} to {max(values):.8g}. Broader conclusions remain untested.")
+        if len(summary) <= 240:
+            return summary
+    return (f"Trial {first['trial_id']} recorded validation {first['metric']} {first['value']:.8g}. "
+            "Broader conclusions remain untested.")
+
+
+def ground_contract(contract):
+    """Replace recognizable unsupported assertions without another model call.
+
+    Invoke only after schema and citation validation. Explicit hypothesis and
+    uncertainty fields remain hypotheses, not accepted observational lessons.
+    """
+    result = deepcopy(contract)
+    changes = []
+
+    def replace_field(record, field, path, evidence):
+        original = record.get(field, '')
+        if not OVERCLAIM.search(original):
+            return False
+        replacement = observed_summary(evidence)
+        record[field] = replacement
+        changes.append({'field': path, 'original': original, 'replacement': replacement,
+                        'reason': 'Single-split observations do not establish this broader conclusion.'})
+        return True
+
+    for field in ('summary', 'assessment', 'what_changed', 'change', 'expected_outcome', 'response_reason'):
+        replace_field(result, field, field, result.get('evidence', []))
+    for index, lesson in enumerate(result.get('lesson_updates', [])):
+        flagged = False
+        for field in ('summary', 'scope'):
+            flagged |= replace_field(lesson, field, f'lesson_updates.{index}.{field}', lesson['evidence'])
+        if flagged:
+            if lesson['status'] != 'superseded':
+                lesson['status'] = 'inconclusive'
+            lesson['scope'] = 'Only the cited configurations on this run\'s validation split were observed.'
+    return result, changes
 
 
 class LessonMemory:
@@ -131,6 +216,7 @@ class LessonMemory:
         errors = [error for item in updates for error in evidence_errors(item["evidence"], history)]
         if errors:
             raise ValueError(" ".join(errors))
+        updates = ground_contract({'lesson_updates': updates})[0]['lesson_updates']
         for item in updates:
             self._lessons.pop(item["id"], None)
             self._lessons[item["id"]] = deepcopy(item)
@@ -160,6 +246,15 @@ Describe the best observed setting among the tested configurations on this split
 A small score difference alone does not establish statistical significance,
 causality, underfitting, an optimum or a performance ceiling. Unmeasured model
 behavior and explanations remain hypotheses. Do not generalize to untested settings.
+Do not call a setting optimal, a practical ceiling or a proven plateau. Report
+the measured score and the specific configurations compared. Put tentative
+interpretations in hypothesis or uncertainty, never in a supported lesson.
+For example: "Trial 6 scored 0.9327 on this validation split; other settings
+remain untested." A weak linear baseline does not prove feature interactions.
+Use max_features="all" for all input features in a random forest; numeric 1 and
+1.0 are not accepted. actual_effective_config records the fitted feature count.
+With ten input features, sqrt and log2 both select three candidate features;
+changing other parameters at the same time does not isolate their effect.
 Use fit_diagnostics when present: max_iter is a ceiling, not the number of iterations
 actually trained. Early stopping before that ceiling does not establish underfitting.
 The current context includes remaining_trials, remaining_seconds and observed

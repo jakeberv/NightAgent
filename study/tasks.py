@@ -15,7 +15,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 COMMON_PARAMETERS = {
-    'random_forest': {'n_estimators': {'type': 'integer', 'minimum': 10, 'maximum': 300}, 'max_depth': {'anyOf': [{'type': 'null'}, {'type': 'integer', 'minimum': 1, 'maximum': 30}]}, 'min_samples_leaf': {'type': 'integer', 'minimum': 1, 'maximum': 50}, 'max_features': {'enum': ['sqrt', 'log2', 1.0]}},
+    'random_forest': {'n_estimators': {'type': 'integer', 'minimum': 10, 'maximum': 300}, 'max_depth': {'anyOf': [{'type': 'null'}, {'type': 'integer', 'minimum': 1, 'maximum': 30}]}, 'min_samples_leaf': {'type': 'integer', 'minimum': 1, 'maximum': 50}, 'max_features': {'enum': ['sqrt', 'log2', 'all']}},
     'histogram_gradient_boosting': {'learning_rate': {'type': 'number', 'minimum': .01, 'maximum': .5}, 'max_iter': {'type': 'integer', 'minimum': 20, 'maximum': 400}, 'max_leaf_nodes': {'type': 'integer', 'minimum': 2, 'maximum': 63}, 'max_depth': {'anyOf': [{'type': 'null'}, {'type': 'integer', 'minimum': 1, 'maximum': 20}]}, 'l2_regularization': {'type': 'number', 'minimum': 0, 'maximum': 100}},
 }
 DEFAULTS = {
@@ -114,7 +114,7 @@ def _default(schema, candidate):
 
 
 class TabularAdapter:
-    version = 1
+    version = 2
 
     def __init__(self, problem):
         self.problem = problem
@@ -150,6 +150,8 @@ class TabularAdapter:
         elif model == 'ridge':
             estimator = Ridge(**params)
         elif model == 'random_forest':
+            if params['max_features'] == 'all':
+                params['max_features'] = 1.0
             estimator = (RandomForestClassifier if classification else RandomForestRegressor)(**params, random_state=seed, n_jobs=1)
         else:
             estimator = (HistGradientBoostingClassifier if classification else HistGradientBoostingRegressor)(**params, random_state=seed, early_stopping=True, validation_fraction=.1, n_iter_no_change=10)

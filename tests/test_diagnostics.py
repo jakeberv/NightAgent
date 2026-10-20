@@ -108,7 +108,16 @@ def test_run_trial_reports_actual_parameters_without_heldout_data(tmp_path):
 
 
 def test_unknown_feature_count_preserves_integer_and_fraction_semantics():
-    assert describe(forest(1), project={})['fingerprint'] != describe(forest(1.0), project={})['fingerprint']
+    # Historical estimators retain their semantics even though new tool requests
+    # must use the unambiguous string "all".
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.pipeline import Pipeline
+    from study.diagnostics import pipeline_effective_config
+    integer = Pipeline([('scale', 'passthrough'), ('model', RandomForestClassifier(max_features=1))])
+    fraction = Pipeline([('scale', 'passthrough'), ('model', RandomForestClassifier(max_features=1.0))])
+    assert type(pipeline_effective_config(integer, forest(1))['params']['max_features']) is int
+    assert type(pipeline_effective_config(fraction, forest(1.0))['params']['max_features']) is float
+    assert describe(forest('all'))['effective_config']['params']['max_features'] == 10
     numeric = {'model': 'logistic', 'preprocessing': 'none', 'params': {'C': 1}}
     decimal = {'model': 'logistic', 'preprocessing': 'none', 'params': {'C': 1.0}}
     assert describe(numeric)['fingerprint'] == describe(decimal)['fingerprint']

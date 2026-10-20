@@ -11,7 +11,7 @@ The prepared configuration is `study/magic-pilot-config.json`:
 - Limits: five minutes, 12 trial attempts, 60 seconds per trial and model call.
 - Spending guard: USD 3 per run; missing billing stops the run. This guard checks
   charges between requests, so the last request can exceed it.
-- Dataset: `study-data/magic-profile`, frozen from `study/problems/magic.yaml`;
+- Dataset: `study-data/magic-profile-v2`, frozen from `study/problems/magic.yaml`;
   binary ROC-AUC with validation targets 0.93 and 0.95.
 
 Run these commands from the NightAgent repository root. The existing `.venv`
@@ -20,10 +20,14 @@ must be at `study-data/magic-source/magic04.data`.
 
 ```bash
 .venv/bin/python -m study prepare \
-  --problem study/problems/magic.yaml --output study-data/magic-profile
+  --problem study/problems/magic.yaml --output study-data/magic-profile-v2
 ```
 
 Preparation verifies the existing immutable dataset if already present. The
+version-2 directory records the unambiguous `max_features="all"` adapter. Older
+`magic-profile` directories remain unchanged and cannot be used for new runs with
+this adapter version. Repreparation preserves the same configured split and seed.
+The
 launch command below reads the existing Tutorial 3 `.env` using `--env-file`.
 It accepts `OPENROUTER_API_KEY`, or the tutorial's `LLM_API_KEY` when
 `LLM_BASE_URL` identifies HTTPS OpenRouter. Only the key is imported; the model
@@ -48,8 +52,9 @@ pilot_output="study-runs/magic-live-pilot-$(date +%Y%m%d-%H%M%S)"
   --config study/magic-pilot-config.json \
   --env-file ../AgenticAI2026_Tutorial-3/.env \
   --max-cores 4 \
+  --lesson-memory \
   --problem study/problems/magic.yaml \
-  --data study-data/magic-profile --output "$pilot_output"
+  --data study-data/magic-profile-v2 --output "$pilot_output"
 pilot_status=$?
 printf 'Pilot exit code: %s\n' "$pilot_status"
 ```

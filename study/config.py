@@ -35,10 +35,13 @@ class StudyConfig:
     allow_unknown_cost: bool = False
     max_cores: int | None = None
     decision_protocol: str = "structured_v1"
+    reasoning_policy: str = "grounded_v1"
     lesson_memory: bool = False
     memory_limit: int = 6
 
     def __post_init__(self):
+        if self.reasoning_policy != "grounded_v1":
+            raise ValueError("reasoning_policy must be grounded_v1")
         if self.decision_protocol != "structured_v1":
             raise ValueError("decision_protocol must be structured_v1")
         if type(self.lesson_memory) is not bool:

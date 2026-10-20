@@ -4,6 +4,37 @@ Updated: 19 October 2026. These notes preserve the discussion behind the short [
 
 ## Core idea and scope
 
+### Operational pilot audit — 20 October 2026
+
+Reviewed `magic-pilot-20261020-164827`: 12 successful local fits in 266.896 seconds,
+31 completed model calls, complete $0.950805 accounting. Best validation AUC
+0.9326917831 was trial 6, tied by trial 9. All artifact hashes and 26 accepted
+contracts verified; this was validation-only, without held-out scoring.
+
+Found an execution/interpretation mismatch: trial 8 described all features but
+sent integer `max_features=1`, which the saved RF estimator interpreted as one
+candidate feature. The numeric enum had accepted both 1 and 1.0. New requests
+use explicit `sqrt`, `log2`, or `all`; numeric spellings are rejected, and `all`
+maps to float 1.0. Both adapters are version 2; the new MAGIC prepared directory
+is `study-data/magic-profile-v2`, with identical split arrays and updated provenance.
+Historical trials and their scores remain unmodified.
+
+Two supervisor responses needed repairs solely for prose surrounding fenced JSON.
+The additional calls consumed 12.831 seconds and $0.075930. Reviews now accept one
+unambiguous wrapped JSON object locally, while malformed or multiple objects,
+duplicate fields and invalid evidence still fail validation.
+
+Agent interpretations overclaimed optimality, ceilings, invariance and causal
+explanations. New `grounded_v1` reasoning applies a conservative lexical guard
+after citation validation: recognizable assertions become cited measurements,
+and affected lessons become inconclusive. Original responses and each replacement
+remain in audit logs; feedback, lessons and dashboard prose receive grounded text.
+This guard is not a semantic proof system. Explicit hypotheses and uncertainties
+remain labeled as such; other uncaught interpretations still need review. Actual
+fitted parameters now reach agents, including effective RF feature counts.
+Reports separate this policy from historical runs. The next API pilot must verify
+live response quality and overhead; offline replay does not establish either.
+
 NightAgent is a research apprentice supervised by a scientist. Its outer loop is a meeting: report results → receive feedback → clarify → agree on actions. Its inner loop uses tools to carry out those actions and produce evidence, artifacts, and a report.
 
 The harness manages memory, tool execution, validation, limits, and traces. The agent is the model plus that harness when the model chooses analyses and follow-ups. Memory is a persistent state that influences later behavior; this workshop prototype does not train model weights. Remembering feedback alone is not evidence of improvement.

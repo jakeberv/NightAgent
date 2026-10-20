@@ -33,14 +33,14 @@ from sklearn.preprocessing import StandardScaler
 from threadpoolctl import threadpool_limits
 
 MAGIC_FEATURES = ["fLength", "fWidth", "fSize", "fConc", "fConc1", "fAsym", "fM3Long", "fM3Trans", "fAlpha", "fDist"]
-LEGACY_CONSTRUCTOR_VERSION = 1
+LEGACY_CONSTRUCTOR_VERSION = 2
 PARAMETERS = {
     "logistic": {"C": {"type": "number", "minimum": .001, "maximum": 100}, "max_iter": {"type": "integer", "minimum": 50, "maximum": 1000}},
     "random_forest": {
         "n_estimators": {"type": "integer", "minimum": 10, "maximum": 300},
         "max_depth": {"anyOf": [{"type": "null"}, {"type": "integer", "minimum": 1, "maximum": 30}]},
         "min_samples_leaf": {"type": "integer", "minimum": 1, "maximum": 50},
-        "max_features": {"enum": ["sqrt", "log2", 1.0]},
+        "max_features": {"enum": ["sqrt", "log2", "all"]},
     },
     "histogram_gradient_boosting": {
         "learning_rate": {"type": "number", "minimum": .01, "maximum": .5},
@@ -87,6 +87,8 @@ def build_pipeline(config: dict, *, seed: int) -> Pipeline:
     if model == "logistic":
         classifier = LogisticRegression(**({"C": 1., "max_iter": 300} | params), solver="lbfgs", random_state=seed)
     elif model == "random_forest":
+        if params.get("max_features") == "all":
+            params["max_features"] = 1.0
         classifier = RandomForestClassifier(**({"n_estimators": 100, "max_depth": None, "min_samples_leaf": 1, "max_features": "sqrt"} | params), random_state=seed, n_jobs=1)
     else:
         classifier = HistGradientBoostingClassifier(**({"max_iter": 100, "learning_rate": .1, "max_leaf_nodes": 31} | params), random_state=seed, early_stopping=True, validation_fraction=.1, n_iter_no_change=10)

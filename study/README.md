@@ -48,7 +48,7 @@ metric, and preserves its official test partition.
 .venv/bin/python -m study smoke --problem study/problems/regression.yaml \
   --output study-runs/regression-smoke
 .venv/bin/python -m study prepare --problem study/problems/magic.yaml \
-  --output study-data/magic-profile
+  --output study-data/magic-profile-v2
 ```
 
 The MAGIC command requires the source downloaded to the path below. Pass the
@@ -151,6 +151,25 @@ included in an existing agent response. Memory starts empty for every run, survi
 the recent-trial context window, and is saved in `lessons.json` and the event log.
 No other run's memory or test feedback is loaded. Supported is an agent assessment
 of cited observations, not a claim of independent replication.
+
+New runs record `reasoning_policy=grounded_v1`. A conservative local wording
+check replaces recognizable claims of optimality, performance ceilings, causality,
+invariance, and similar overclaims with a complete-sentence summary of their cited
+validation measurements. Flagged lessons become `inconclusive` (or remain
+`superseded`). Grounded text reaches the UI, feedback, and run-local memory;
+original responses and `contract_grounded` adjustments stay in the audit logs.
+This is a lexical guard, not a semantic truth checker: uncaught interpretations
+still require review. Hypothesis and uncertainty fields remain explicitly tentative.
+These adjustments need no model call; necessary schema/citation repairs still do.
+Review responses containing a single JSON object inside a prose or Markdown wrapper
+are parsed locally. Multiple objects, duplicate fields, malformed JSON, and invalid
+citations still fail validation. Reports separate the new policy from older runs.
+
+Random forests now accept `max_features` values `sqrt`, `log2`, or `all`.
+`all` explicitly selects every feature; numeric `1` and `1.0` are rejected to avoid
+their different scikit-learn meanings. Actual fitted parameters are included in
+agent context. Adapter version 2 requires a new prepared directory; the MAGIC
+pilot uses `study-data/magic-profile-v2`. Previous artifacts remain unchanged.
 
 Memory is **off by default** and recorded as a separate experimental variant.
 `--no-lesson-memory` overrides a config that enables it. A memory-enabled suite

@@ -56,7 +56,7 @@ def tools_for(role, config, problem=None):
 
 def agent_result(result):
     return {key: value for key, value in result.items()
-            if key not in ("artifact", "artifact_hash", "fingerprint", "provenance", "actual_effective_config")}
+            if key not in ("artifact", "artifact_hash", "fingerprint", "provenance")}
 
 
 def resolve_problem(config, data_dir, problem=None):
@@ -168,7 +168,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     if provider_metadata is not None:
         atomic_json(run_dir / "provider.json", provider_metadata)
     history = []
-    from .reasoning import LessonMemory, validate_contract, parse_contract, schema_errors
+    from .reasoning import LessonMemory, validate_contract, parse_contract, schema_errors, ground_contract
     memory = LessonMemory(config.memory_limit)
     feedback = reflection = None
     accounting = Accounting()
@@ -261,6 +261,12 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             journal.emit("lesson_memory", lessons=memory.snapshot())
             atomic_json(run_dir / "lessons.json", {"scope": "this run only", "lessons": memory.snapshot()})
 
+    def ground_accepted(contract, role):
+        contract, changes = ground_contract(contract)
+        if changes:
+            journal.emit("contract_grounded", role=role, adjustments=changes)
+        return contract
+
     async def phase(role):
         instructions = prompts.instructions_for(role, problem)
         from .reasoning import instructions as contract_instructions
@@ -280,9 +286,11 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                 if role != "researcher":
                     contract = None
                     try:
-                        contract = parse_contract(message.get("content"))
+                        contract = parse_contract(message.get("content"), allow_wrapper=True)
                         errors = validate_contract(contract, role, history,
                             has_feedback=feedback is not None, memory=config.lesson_memory)
+                        if not errors:
+                            contract = ground_accepted(contract, role)
                     except (ValueError, TypeError) as error:
                         errors = [str(error)]
                     journal.emit(role + "_contract", after_trial=summary["trials"],
@@ -328,6 +336,8 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         intent = args.pop("intent", None)
                         errors = validate_contract(intent, "researcher", history,
                             has_feedback=feedback is not None, memory=config.lesson_memory)
+                        if not errors:
+                            intent = ground_accepted(intent, "researcher")
                         journal.emit("decision_contract", trial_id=summary["trials"] + 1,
                                      contract=intent, valid=not errors, errors=errors)
                         contract_recorded = True

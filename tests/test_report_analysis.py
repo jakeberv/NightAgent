@@ -108,8 +108,17 @@ def test_one_pair_has_no_ci_and_memory_variants_are_never_pooled(tmp_path):
     assert len(data["conditions"]) == 4
 
 
+def test_grounded_policy_runs_are_not_pooled_with_historical_reasoning(tmp_path):
+    paired_run(tmp_path, 'before', 'periodic_reflection', lesson_memory=True)
+    paired_run(tmp_path, 'after', 'periodic_reflection', lesson_memory=True,
+               reasoning_policy='grounded_v1')
+    data = build_report_data(tmp_path)
+    assert len(data['conditions']) == 2
+
+
 @pytest.mark.parametrize("change", [{"training_seed": 999}, {"model": "other"},
-                                     {"decision_protocol": "legacy"}, {"lesson_memory": True}])
+                                     {"decision_protocol": "legacy"}, {"lesson_memory": True},
+                                     {"reasoning_policy": "grounded_v1"}])
 def test_mismatched_config_or_seed_cannot_form_a_pair(tmp_path, change):
     paired_run(tmp_path, "a", "researcher_alone")
     paired_run(tmp_path, "b", "frequent", **change)

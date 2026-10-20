@@ -260,7 +260,7 @@ def test_multiclass_auc_worker_and_heldout_evaluator_use_same_probability_metric
     data = tmp_path / 'data'
     prepare_dataset(data, problem=spec)
     adapter = get_adapter(spec)
-    assert adapter.version == 1
+    assert json.loads((data / 'manifest.json').read_text())['adapter']['version'] == adapter.version
     result = asyncio.run(run_trial(data, tmp_path / 'trial', adapter.reference_config, seed=7, timeout=20))
     assert result['status'] == 'completed', result
     assert result['score'] == result['metrics']['roc_auc_ovr_macro']
