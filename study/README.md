@@ -114,20 +114,37 @@ each role has a distinct ASCII robot avatar; only a busy role animates. API wait
 has no invented completion percentage. Disabled roles are labeled for the run's
 condition. With at least 76 columns and 33 terminal rows, an experiment notebook
 shows the latest trial's actual settings, changes versus the previous completed
-trial (not necessarily the agent's chosen baseline), and a bounded researcher
-excerpt labeled **Agent interpretation**. More space reveals the four avatar
+trial (not necessarily the agent's chosen baseline), and whole-sentence researcher
+commentary labeled **Agent interpretation**. More space reveals the four avatar
 stations; use a 100-column, 35-row window or larger for a demo.
 Measured discoveries announce new bests, ties, targets and unsuccessful trials,
 with a brief sparkle for improvements and target crossings. The connected trial
 trail uses `★` for new best, `=` for tied best, `×` for unsuccessful and `·` for other
 completed trials. Compact windows prioritize activity, scores, budgets and findings.
 All lab state comes from recorded events, adding no model calls or token usage;
-full rationale and configuration remain in the trace when excerpts are shortened.
+full rationale and configuration remain in the trace. Summaries select complete
+sentences; if none fit, the notebook describes the recorded configuration change
+in a complete sentence. It never clips commentary in the middle of a sentence.
+Press **`f`** (no Enter) to toggle **Focus** and **Details** during a live run or
+`study watch`. Details remains the default. Focus uses one panel, one active
+avatar, the best score and target status, the latest discovery and experiment,
+and remaining time, API spending and CPU allocation. This puts activity, results
+and constraints ahead of diagnostics; histories, token totals and the four-role
+map remain one keypress away in Details. The panel is capped at 96 columns to
+keep text readable on wide screens. Smaller windows drop whole low-priority
+blocks rather than cut sentences. Known-cost warnings and unsuccessful trial
+counts remain visible; the view does not estimate model thinking progress.
+The shortcut appears in the panel border when keyboard input is available.
+Switches reuse the same screen and do not change experiments, logs or API usage.
+Keyboard input requires interactive POSIX stdin (macOS/Linux); redirected input,
+plain-text and verbose modes remain untouched. Ctrl+C keeps its normal behavior,
+and keyboard settings are restored when the display closes.
+
 `--verbose` enables the full scrolling log;
 `--no-animation` uses plain text and `--quiet` hides all progress. Plain-text
 summaries print every 15 seconds when events change, plus a final summary.
 Adjust with `--summary-interval SECONDS` (0 disables printed summaries).
-Summaries reuse existing results and labeled supervisor excerpts, without extra
+Summaries reuse existing results and labeled supervisor commentary, without extra
 API calls or feedback into the agents. Detailed traces are always saved.
 Attach to an existing single run from a second terminal with
 `.venv/bin/python -m study watch --output RUN_DIRECTORY --interval 15`.

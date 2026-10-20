@@ -184,27 +184,21 @@ def role_strip(state, *, expanded=False, elapsed=0):
 
 
 def experiment_panel(state, width):
+    from .focus import fitting_summary, experiment_summary
     lab = state.lab
-    result = Text()
     if lab.trial_id is None:
-        result.append("Waiting for the researcher's first experiment", "dim")
+        content = text("The first experiment has not started.", "dim")
     else:
         heading = text(f"Trial {lab.trial_id} · {lab.config.get('model', 'unspecified')} · "
-                       f"preprocessing {lab.config.get('preprocessing', 'default')}", "bold cyan")
-        heading.truncate(width - 4, overflow="ellipsis")
-        result.append(heading)
-        result.append("\n")
-        comparison = f"vs completed trial {lab.comparison}" if lab.comparison is not None else "first experiment"
-        changes = "; ".join(lab.changes) if lab.changes else ("same explicit settings" if lab.comparison is not None else "no comparison yet")
-        change_line = text(f"Settings {comparison}: {changes}", "dim")
-        change_line.truncate(width - 4, overflow="ellipsis")
-        result.append(change_line)
-        result.append("\n")
-        result.append("Agent interpretation (excerpt): ", "bold magenta")
-        rationale = text(lab.rationale or "No rationale recorded for this trial.")
-        rationale.truncate(2 * (width - 4) - len("Agent interpretation (excerpt): ") - 12, overflow="ellipsis")
-        result.append(rationale)
-    return Panel(result, title="Experiment notebook · latest trial", border_style="cyan", padding=(0, 1))
+                       f"preprocessing {lab.config.get('preprocessing', 'default')}", "bold cyan",
+                       no_wrap=True, overflow="ellipsis")
+        comparison = fitting_summary(experiment_summary(lab), width - 4, 1,
+                                     f"Trial {lab.trial_id} has {len(lab.changes)} changed settings.")
+        rationale = fitting_summary(lab.rationale, width - 4 - len("Agent interpretation: "), 2, "")
+        interpretation = text("Agent interpretation: " + rationale, "magenta") if rationale else text(
+            "The full agent rationale is saved in the trace.", "dim")
+        content = Group(heading, text(comparison, "dim"), interpretation)
+    return Panel(content, title="Experiment notebook · latest trial", border_style="cyan", padding=(0, 1))
 
 
 def trial_trail(state, width=116):
@@ -226,8 +220,11 @@ def trial_trail(state, width=116):
     return trail
 
 
-def dashboard(state, *, width, height, spinner=None):
+def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False):
     """Fit the available terminal; small terminals retain activity, score and cost."""
+    if focus:
+        from .focus import focus_dashboard
+        return focus_dashboard(state, width=width, height=height, shortcut=shortcut)
     elapsed = elapsed_now(state)
     activity = state.activity.replace(" model call in progress", " API").replace("local ", "")
     score = best_score(state)
@@ -239,7 +236,7 @@ def dashboard(state, *, width, height, spinner=None):
             text(f"Host CPU {cpu_label(state)}", "cyan"),
             text(f"{allocation_label(state)} · {cpu_history(state, width-7-len(allocation_label(state)))}",
                  "dim", no_wrap=True, overflow="crop")),
-            title="NIGHTAGENT", border_style="cyan", height=min(8, height))
+            title="NIGHTAGENT", subtitle="f  Focus" if shortcut else None, border_style="cyan", height=min(8, height))
     layout = Layout()
     metrics_height = 8 if width >= 76 else 14
     expanded = width >= 76 and height >= 32
@@ -268,23 +265,26 @@ def dashboard(state, *, width, height, spinner=None):
         layout["experiment"].update(experiment_panel(state, width))
     layout["header"].update(Panel(Group(*header),
         title=text(f"NIGHTAGENT · {state.run_id}", "bold"),
-        subtitle=text(f"RESEARCH LAB · {state.problem_id or 'experiment'}"), border_style="cyan", padding=(0, 1)))
+        subtitle=text(f"RESEARCH LAB · {state.problem_id or 'experiment'}" + (" · f  Focus" if shortcut else "")), border_style="cyan", padding=(0, 1)))
     if width >= 76:
         layout["metrics"].split_row(Layout(budget(state, elapsed)), Layout(result_panel(state)))
     else:
         layout["metrics"].split_column(Layout(budget(state, elapsed), size=8), Layout(result_panel(state)))
     layout["recent"].update(recent_panel(state, max(1, recent_height - 3)))
     layout["chart"].update(Panel(score_chart(state, width - 4), title="Validation trend · shared scale", border_style="bright_black", padding=(0, 1)))
-    facts = Text(no_wrap=True, overflow="ellipsis")
-    if not expanded and state.lab.trial_id is not None:
-        facts.append(text(f"Trial {state.lab.trial_id}: {state.lab.config.get('model', 'model')} · "))
+    from .focus import fitting_summary
+    facts = Text()
+    observed = fitting_summary(state.fact, width - 4 - len("Observed: "), 1,
+                               f"{state.completed} experiments have completed.")
     facts.append("Observed: ", "bold")
-    facts.append(text(state.fact).plain)
+    facts.append(text(observed))
     if state.review:
         trial, feedback = state.review
-        excerpt = " ".join(text(str(feedback)).plain.split()).replace("**", "").lstrip("# ")
-        facts.append(f"\nSupervisor after trial {trial} (interpretation): ", "bold magenta")
-        facts.append(excerpt[:180] + ("…" if len(excerpt) > 180 else ""), "dim")
+        label = f"Supervisor after trial {trial}: "
+        summary = fitting_summary(feedback, width - 4 - len(label), 1,
+                                  "Review saved.")
+        facts.append("\n" + label, "bold magenta")
+        facts.append(text(summary, "dim"))
     content = [facts]
     if expanded:
         content.insert(0, trial_trail(state, width - 4))
@@ -293,13 +293,17 @@ def dashboard(state, *, width, height, spinner=None):
             celebrating = (latest["style"] == "green" and not state.stopped and state.lab.celebration_at is not None and
                            0 <= elapsed - state.lab.celebration_at < 4)
             marker = ("✦" if int(elapsed * 2) % 2 else "✧") if celebrating else "•"
-            content.insert(1, text(f"{marker} {latest['message']}", latest["style"]))
+            discovery = fitting_summary(latest["message"], width - 6, 1, "A new result has been recorded.")
+            content.insert(1, text(f"{marker} {discovery}", latest["style"]))
     layout["findings"].update(Panel(Group(*content), title="Findings · measured discoveries", border_style="magenta", padding=(0, 1)))
     return layout
 
 
 class StatusLine:
-    def __init__(self, stream, *, animate=True):
+    def __init__(self, stream, *, animate=True, input_stream=None):
+        from .keyboard import ViewKeys
+        self.keys = ViewKeys(input_stream)
+        self.focus = False
         self.stream = stream
         self.enabled = bool(animate and getattr(stream, "isatty", lambda: False)()
                             and os.environ.get("TERM") != "dumb")
@@ -309,9 +313,12 @@ class StatusLine:
         self.cpu = None
 
     def clear(self):
-        if self.live is not None:
-            live, self.live = self.live, None
-            live.stop()
+        try:
+            if self.live is not None:
+                live, self.live = self.live, None
+                live.stop()
+        finally:
+            self.keys.close()
 
     def write(self, value):
         self.clear()
@@ -323,12 +330,17 @@ class StatusLine:
             return
         size = self.console.size
         if detailed:
+            self.keys.start()
+            if self.keys.poll() % 2:
+                self.focus = not self.focus
             if self.cpu is None:
                 from .cpu import HostCPU
                 self.cpu = HostCPU()
             state.cpu = self.cpu.sample()
-            content = dashboard(state, width=size.width, height=max(1, size.height - 1), spinner=self.spinner)
+            content = dashboard(state, width=size.width, height=max(1, size.height - 1), spinner=self.spinner,
+                                focus=self.focus, shortcut=self.keys.active)
         else:
+            self.keys.close()
             self.spinner.update(text=text(f"{state.activity} | {duration(elapsed_now(state))}/{duration(state.allowance)} | {state.completed} ok | {cost_label(state)}", "cyan"))
             content = self.spinner
         if self.live is None:

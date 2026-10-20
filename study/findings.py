@@ -162,9 +162,9 @@ class Findings:
             lines.append("  " + _usage(self.accounting))
         if self.review:
             after, feedback = self.review
-            excerpt = " ".join(str(feedback).split())
-            excerpt = excerpt[:280] + ("…" if len(excerpt) > 280 else "")
-            lines.append(f"  Supervisor excerpt after trial {after} (model interpretation): {excerpt}")
+            from .lab import sentence_summary
+            summary = sentence_summary(feedback, limit=280) or "The full review is saved in the trace."
+            lines.append(f"  Supervisor after trial {after} (model interpretation): {summary}")
         return _safe("\n".join(lines))
 
 

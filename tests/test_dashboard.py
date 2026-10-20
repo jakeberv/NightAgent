@@ -68,7 +68,7 @@ def test_chart_labels_bounds_and_never_invents_missing_scores():
 def test_untrusted_model_text_remains_literal_in_rich():
     from study.terminal import dashboard
     state = sample()
-    state.review = (3, "[red]literal[/red]\x1b[2J")
+    state.review = (3, "The [red]literal[/red] is safe.\x1b[2J")
     stream = io.StringIO()
     Console(file=stream, width=120, height=40, color_system=None).print(dashboard(state, width=120, height=40))
     output = stream.getvalue()

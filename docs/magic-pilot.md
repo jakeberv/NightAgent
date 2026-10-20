@@ -106,16 +106,27 @@ dashboard identifies the focused run, keeping its score and usage separate.
 Use the same resource policy for all runs in a strategy comparison, and record
 that concurrent runs compete for machine resources.
 
-In an interactive terminal, the default CLI is a self-updating **LIVE FINDINGS**
+In an interactive terminal, the default CLI is a self-updating **RESEARCH LAB**
 Rich dashboard in the terminal's alternate screen. Refreshes overwrite the previous
 frame without first erasing every line, avoiding the blanking that can flicker in
 Termius and other terminals. The normal screen and cursor return when the dashboard
 stops, before final summaries are printed. A spinner marks
 the current activity. The panel shows elapsed/allowed wall time (with a time
 budget bar in wider terminals), trial outcomes, best validation score, targets,
-cost, token usage, and a short supervisor excerpt. The spinner refreshes locally
+cost, token usage, and whole-sentence supervisor commentary. The spinner refreshes locally
 four times per second; measured findings update as events arrive. A moving spinner
 means the observer is responsive, not that the model has returned new work.
+
+Press **`f`** without Enter for a cleaner **Focus** view; press it again to return
+to **Details**. The border shows the shortcut when interactive keyboard input is
+available. Focus keeps the active avatar, current activity, best score, targets,
+latest measured discovery, experiment explanation, time remaining, API spend and
+CPU allocation. It omits histories and token breakdowns. Both views use complete
+sentences for summaries and retain full content in the trace; fitting less text
+never means cutting a sentence midway. Changing views makes no API calls and
+does not affect the run. This also works with `study watch`. The keyboard shortcut
+is available with interactive stdin on macOS/Linux and does not consume piped
+input. Ctrl+C still interrupts normally and restores terminal settings.
 
 Budget bars show consumed time, attempted trials and known API spending. A separate
 best-result card reports validation score, improvement and targets. The recent
@@ -142,7 +153,7 @@ when events have changed, and immediately when a run stops. In verbose mode,
 these periodic summaries accompany the logs. They report completed/unsuccessful
 trials, the selected validation score, absolute improvement over the first
 completed trial, targets, best observed scores by model, activity, and usage.
-Any supervisor excerpt is labeled as model interpretation, with its trial number;
+Supervisor commentary is labeled as model interpretation, with its trial number;
 it may describe an earlier state. Summaries make no extra API calls, never enter
 agent context, and run on a separate timer while model calls or local trials wait.
 Use `--summary-interval 30` to reduce printed-summary frequency, or

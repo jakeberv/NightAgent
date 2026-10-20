@@ -45,7 +45,7 @@ def test_experiment_uses_actual_config_and_named_previous_completed_comparison()
     state = start()
     finish(state, 1, .8, {"model": "random_forest", "params": {"n_estimators": 100, "max_depth": None}})
     finish(state, 2, None, status="failed")
-    emit(state, "decision", trial_id=3, message={"content": "## Rationale\nTest more trees. [red]literal[/red]\x1b[2J"})
+    emit(state, "decision", trial_id=3, message={"content": "## Rationale\nTest more trees. The [red]literal[/red] is safe.\x1b[2J"})
     emit(state, "trial_started", trial_id=3, config={"model": "random_forest", "params": {"n_estimators": 200}})
     assert state.lab.comparison == 1
     assert "n_estimators: 100 -> 200" in state.lab.changes
@@ -53,7 +53,7 @@ def test_experiment_uses_actual_config_and_named_previous_completed_comparison()
     assert "Test more trees" in state.lab.rationale
     output = io.StringIO()
     Console(file=output, width=120, height=40, color_system=None).print(dashboard(state, width=120, height=40))
-    assert "vs completed trial 1" in output.getvalue()
+    assert "completed trial 1" in output.getvalue()
     assert "Agent interpretation" in output.getvalue()
     assert "[red]literal[/red]" in output.getvalue() and "\x1b" not in output.getvalue()
     emit(state, "trial_started", trial_id=4, config={})
@@ -67,8 +67,8 @@ def test_discoveries_only_celebrate_measured_improvements(direction, scores):
         finish(state, trial, score)
         emit(state, "selection", best={"trial_id": min(trial, 2), "score": score})
     messages = [d["message"] for d in state.lab.discoveries]
-    assert sum("Target reached" in m for m in messages) == 1
-    assert sum("New best" in m for m in messages) == 2
+    assert sum("has been reached" in m for m in messages) == 1
+    assert sum("new best" in m for m in messages) == 2
     assert any("tied" in m for m in messages)
     before = len(messages)
     emit(state, "selection", best={"trial_id": 2, "score": scores[1]})
@@ -89,8 +89,8 @@ def test_rationale_is_bounded_and_raw_responses_are_not_displayed():
 
 
 def test_rationale_prefers_bold_heading_and_does_not_keep_following_section():
-    from study.lab import excerpt
-    assert excerpt('Intro\n\n**Rationale:**\nTry more trees.\n## Next\nOther') == 'Try more trees.'
+    from study.lab import sentence_summary
+    assert sentence_summary('Intro\n\n**Rationale:**\nTry more trees.\n## Next\nOther') == 'Try more trees.'
 
 
 def test_avatars_animate_only_during_recorded_activity_and_disabled_roles_are_labeled():
@@ -121,7 +121,7 @@ def test_lab_layout_preserves_notebook_metrics_and_discoveries(width, height):
     rendered = stream.getvalue()
     assert "Agent interpretation" in rendered and "Try a second model." in rendered
     assert "Host CPU" in rendered and "Tokens" in rendered and "0.91000" in rendered
-    assert "Target reached" in rendered and "Trail" in rendered
+    assert "has been reached" in rendered and "Trail" in rendered
     assert "Observed:" in rendered
     assert len(rendered.splitlines()) == height
 

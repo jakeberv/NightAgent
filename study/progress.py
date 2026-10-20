@@ -153,14 +153,16 @@ class ConsoleProgress:
         return self
 
     async def __aexit__(self, *exc):
-        if self.task:
-            self.task.cancel()
-            with suppress(asyncio.CancelledError):
-                await self.task
         try:
-            self.display.clear()
-        except OSError:
-            self.enabled = False
+            if self.task:
+                self.task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await self.task
+        finally:
+            try:
+                self.display.clear()
+            except OSError:
+                self.enabled = False
 
     async def _summaries(self):
         next_summary = time.monotonic() + self.summary_interval

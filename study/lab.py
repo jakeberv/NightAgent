@@ -6,16 +6,53 @@ import math
 import re
 
 
-def excerpt(value, limit=240):
+def complete_sentences(prose):
+    """Split terminal prose without treating common abbreviations as endings."""
+    start = 0
+    for match in re.finditer(r"[.!?](?:[\"'’)\]]*)(?=\s|$)", prose):
+        prefix = prose[:match.start() + 1]
+        if prose[match.start()] == "." and (
+            re.search(r"\b(?:e\.g|i\.e|etc|vs|approx|fig|eq|dr|mr|mrs|ms|prof|sr|jr)\.$", prefix, re.I)
+            or re.search(r"\b[A-Z]\.$", prefix)
+        ):
+            continue
+        sentence = prose[start:match.end()].strip()
+        if sentence:
+            yield sentence
+        start = match.end()
+
+
+def sentence_summary(value, limit=240):
+    """Select whole prose sentences; never manufacture a clipped quotation.
+
+    Lists/code/headings are not prose. If no sentence fits, the view uses a
+    factual summary of the recorded experiment instead of truncating the agent.
+    """
     from .progress import _safe
     if not isinstance(value, str):
         return ""
-    # Prefer an explicitly titled rationale; otherwise show a labeled excerpt.
-    match = re.search(r"(?im)^[ \t]*(?:#{1,6}[ \t]+|\*\*)rationale[ \t]*:?(?:\*\*)?[ \t]*\n", value)
-    if match:
-        value = value[match.end():].split("\n#", 1)[0]
-    value = " ".join(_safe(value).replace("**", "").strip("# \n").split())
-    return value if len(value) <= limit else value[:limit - 1] + "…"
+    value = _safe(value)
+    value = re.sub(r"```.*?```", "", value, flags=re.S)
+    sections = re.split(r"(?im)^[ \t]*(?:#{1,6}[ \t]+|\*\*)(?:rationale|strategy)[ \t]*:?(?:\*\*)?[ \t]*\n", value)
+    preferred = sections[1:] + sections[:1] if len(sections) > 1 else sections
+    for section in preferred:
+        lines = [line.strip().replace("**", "") for line in section.splitlines()
+                 if line.strip() and not re.match(r"^\s*(?:#|[-*] |\d+[.)] )", line)]
+        prose = " ".join(lines)
+        sentences = complete_sentences(prose)
+        chosen = []
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) > limit:
+                continue
+            if len(" ".join(chosen + [sentence])) > limit:
+                break
+            chosen.append(sentence)
+            if len(chosen) == 2:
+                break
+        if chosen:
+            return " ".join(chosen)
+    return ""
 
 
 def settings(config):
@@ -62,7 +99,7 @@ class Lab:
             self.role, self.busy = event.get("role"), False
             self.action = f"Tool returned: {event.get('name', 'tool')}"
         elif kind == "decision":
-            self.pending = (event["trial_id"], excerpt(event.get("message", {}).get("content")))
+            self.pending = (event["trial_id"], sentence_summary(event.get("message", {}).get("content")))
         elif kind == "trial_started":
             self.role, self.busy = "local", True
             self.trial_id = event["trial_id"]
@@ -92,7 +129,7 @@ class Lab:
             if result["status"] == "completed":
                 self.previous = deepcopy(result)
             else:
-                self.record(self.action, "red")
+                self.record(f"Trial {result['trial_id']} ended with status {result['status']}.", "red")
         elif kind == "selection" and event.get("best"):
             best = event["best"]
             score = score_of(best)
@@ -103,18 +140,18 @@ class Lab:
             minimize = state.objective["direction"] == "minimize"
             improved = self.best_score is None or (score < self.best_score if minimize else score > self.best_score)
             if improved:
-                self.record(f"New best · trial {best['trial_id']} · {score:.5f}", "green")
+                self.record(f"Trial {best['trial_id']} set a new best score of {score:.5f}.", "green")
                 self.celebration_at = state.elapsed
             elif score_of(row) == score:
-                self.record(f"Trial {row['trial_id']} tied the best · {score:.5f}")
+                self.record(f"Trial {row['trial_id']} tied the best score at {score:.5f}.")
             else:
-                self.record(f"Trial {row['trial_id']} completed · best remains trial {best['trial_id']}", "dim")
+                self.record(f"Trial {row['trial_id']} completed; trial {best['trial_id']} remains the best.", "dim")
             self.best_score = score
             for target in state.targets:
                 key = (target["name"], target["value"])
                 if key not in self.reached and (score <= target["value"] if minimize else score >= target["value"]):
                     self.reached.add(key)
-                    self.record(f"Target reached · {target['name']} ({target['value']:g})", "green")
+                    self.record(f"The {target['name']} target ({target['value']:g}) has been reached.", "green")
                     self.celebration_at = state.elapsed
         elif kind in ("review", "reflection"):
             self.role, self.busy = ("supervisor" if kind == "review" else "reflection"), False

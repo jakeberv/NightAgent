@@ -31,7 +31,7 @@ def test_findings_report_observed_best_improvement_failures_and_targets(directio
     assert f"{scores[1]:.6f}" in text and "trial 2" in text
     assert "goal reached" in text and "tree" in text
     assert "improvement" in text and "known USD=0.100000 (incomplete)" in text
-    assert "Supervisor excerpt after trial 3" in text and "Try a linear baseline." in text
+    assert "Supervisor after trial 3" in text and "Try a linear baseline." in text
     assert "\x1b" not in text
 
 
