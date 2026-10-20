@@ -7,7 +7,7 @@ from study.science import prepare_dataset, run_trial
 import pytest
 
 
-@pytest.mark.parametrize("command", ["run", "suite"])
+@pytest.mark.parametrize("command", ["run", "suite", "suite-validation"])
 @pytest.mark.parametrize("billing", ["known", "unknown"])
 def test_live_cli_failure_exits_nonzero_and_preserves_results(tmp_path, monkeypatch, command, billing):
     import sys
@@ -29,7 +29,11 @@ def test_live_cli_failure_exits_nonzero_and_preserves_results(tmp_path, monkeypa
         async def aclose(self):
             pass
     monkeypatch.setattr("study.__main__.live_model", lambda _: FailedProvider())
+    validation_only = command == 'suite-validation'
+    command = 'suite' if validation_only else command
     argv = ["study", command, "--config", str(config), "--data", str(data), "--output", str(output)]
+    if validation_only:
+        argv.append('--validation-only')
     if command == "suite":
         argv += ["--repeats", "1", "--reserve-seconds", "10", "--deadline",
                  (datetime.now(timezone.utc) + timedelta(minutes=2)).isoformat()]
@@ -308,3 +312,32 @@ def test_cli_enables_run_local_memory_and_freezes_treatment(tmp_path, monkeypatc
     assert summary['lessons']
     assert (output / 'lessons.json').exists()
     assert not (output / 'test-results.json').exists()
+def test_validation_only_suite_runs_all_strategies_without_heldout_scoring(tmp_path, monkeypatch):
+    import sys
+    from datetime import datetime, timedelta, timezone
+    from study.__main__ import main
+    from study.config import CONDITIONS
+    from study.fake import FakeModel
+    data, output = tmp_path / 'data', tmp_path / 'suite'
+    prepare_dataset(data, synthetic=True)
+    config = tmp_path / 'config.json'
+    config.write_text('{"trial_cap":1,"allowance_seconds":10}')
+    class Offline(FakeModel):
+        async def describe(self):
+            return {'offline': True}
+    monkeypatch.setattr('study.__main__.live_model', lambda config: Offline())
+    monkeypatch.setattr(sys, 'argv', ['study', 'suite', '--config', str(config),
+        '--data', str(data), '--output', str(output), '--repeats', '1', '--max-cores', '2',
+        '--reserve-seconds', '5', '--deadline',
+        (datetime.now(timezone.utc) + timedelta(seconds=90)).isoformat(),
+        '--validation-only', '--quiet'])
+    main()
+    summaries = [json.loads(p.read_text()) for p in output.glob('runs/*/summary.json')]
+    assert {s['condition'] for s in summaries} == set(CONDITIONS)
+    assert all(s['trials'] == 1 and s['best'] for s in summaries)
+    assert (output / 'report.html').is_file()
+    assert not (output / 'evaluation').exists()
+    assert not list(output.glob('runs/*/test-results.json'))
+    assert json.loads((output / 'completion.json').read_text())['postrun'] == {
+        'evaluate': 'skipped_validation_only', 'report': 'completed'}
+    assert json.loads((output / 'suite.json').read_text())['postrun_policy'] == 'validation_only'

@@ -238,6 +238,33 @@ destination, and retain original/final URLs and the redirect chain. Publisher
 access restrictions, PDFs, and pages requiring JavaScript can still prevent
 useful retrieval; those outcomes remain visible to the supervisor.
 
+## All five strategies
+
+For an operational comparison, use one repeat of every strategy with the same
+five-minute, 12-trial, USD 3 per-run guard. Two runs overlap and share eight local
+training threads. A 20-minute deadline leaves room for three five-minute batches,
+a three-minute reporting reserve and startup overhead; it is not a fixed wait.
+The suite stops sooner when its runs finish. Spending guards are per run, so five
+runs have five separate USD 3 guards, each checked between model calls.
+
+```bash
+.venv/bin/python -m study suite \
+  --config study/magic-pilot-config.json \
+  --env-file ../AgenticAI2026_Tutorial-3/.env \
+  --data study-data/magic-profile-v2 \
+  --output "study-runs/magic-all-strategies-$(date +%Y%m%d-%H%M%S)" \
+  --repeats 1 --max-cores 8 --lesson-memory --validation-only \
+  --reserve-seconds 180 \
+  --deadline "$(.venv/bin/python -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat())')"
+```
+
+This exercises researcher alone, frequent supervision, periodic supervision,
+periodic supervision with reflection, and periodic supervision with reflection
+and literature. Each strategy has separate logs under `runs/`; the root
+`report.html` compares validation results, calls, costs and timing. Held-out test
+scoring is deliberately skipped. One repeat checks operation and suggests follow-up
+experiments; it does not establish a reliable ranking of strategies.
+
 ## Workshop-informed decision protocol
 
 New pilots use `structured_v1` automatically: the researcher supplies a hypothesis,

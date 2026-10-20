@@ -26,7 +26,7 @@ def provenance(data_dir):
 
 async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seconds,
                     model_factory, runner=run_one, order_seed=2026, provider_metadata=None, problem=None,
-                    progress=None):
+                    progress=None, validation_only=False):
     if deadline.tzinfo is None:
         raise ValueError("deadline must include a UTC offset")
     if type(repeats) is not int or repeats < 1:
@@ -62,6 +62,7 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
     manifest = {"created_at": utc_now(), "config": config.to_dict(), "repeats": repeats,
         "schedule": schedule, "order_seed": order_seed, "deadline": deadline.isoformat(),
         "reserve_seconds": reserve_seconds, "execution": execution, "provenance": provenance(data_dir),
+        "postrun_policy": "validation_only" if validation_only else "heldout_and_report",
         "provider_metadata": provider_metadata, "problem": resolved_problem.to_dict(),
         "problem_hash": resolved_problem.fingerprint, "data_fingerprint": data_fingerprint,
         "objective": resolved_problem.objective,

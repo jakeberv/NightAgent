@@ -433,6 +433,12 @@ gets up to 70% of remaining time and reporting the rest. Both run in killable
 processes bounded by the study deadline. `completion.json` records postrun
 success, failure, or timeout.
 
+For operational pilots, add `--validation-only --repeats 1` to run all five
+strategies and generate the combined report without held-out scoring. The frozen
+suite manifest records this policy and `completion.json` labels evaluation
+`skipped_validation_only`. Failed searches or reporting still exit nonzero.
+See the [all-strategy pilot command](../docs/magic-pilot.md#all-five-strategies).
+
 The CLI exits nonzero for failed search runs, runs without a valid selected model,
 and failed, timed-out or unstarted postrun phases. It preserves diagnostics and
 attempts reporting even when evaluation fails. Normal deadline/trial/dollar caps

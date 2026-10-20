@@ -107,11 +107,14 @@ def evaluate(data_dir, root):
                            (", ".join(failures) if failures else "no selected models"))
 
 
-async def finish_before_deadline(data_dir, output, deadline):
+async def finish_before_deadline(data_dir, output, deadline, *, validation_only=False):
     """Killable postrun phases; reserve cannot extend the study's hard deadline."""
     from .science import THREAD_ENV
     statuses = {}
     for command in ("evaluate", "report"):
+        if command == "evaluate" and validation_only:
+            statuses[command] = "skipped_validation_only"
+            continue
         remaining = deadline.timestamp() - datetime.now(timezone.utc).timestamp()
         limit = remaining * .7 if command == "evaluate" else remaining
         if limit <= 0:
@@ -136,7 +139,7 @@ async def finish_before_deadline(data_dir, output, deadline):
             if asyncio.current_task().cancelling():
                 raise
     atomic_json(Path(output) / "completion.json", {"finished_at": utc_now(), "postrun": statuses})
-    if any(status != "completed" for status in statuses.values()):
+    if any(status not in ("completed", "skipped_validation_only") for status in statuses.values()):
         raise RuntimeError(f"Postrun failed; see {Path(output) / 'completion.json'}: {statuses}")
 
 
@@ -267,8 +270,10 @@ async def _dispatch(args, progress):
             deadline = datetime.fromisoformat(args.deadline)
             summaries = await run_suite(config, args.data, args.output, repeats=args.repeats, deadline=deadline,
                 reserve_seconds=args.reserve_seconds, order_seed=args.order_seed, model_factory=live_model,
-                provider_metadata=provider_metadata, problem=problem, progress=progress)
-            await finish_before_deadline(args.data, args.output, deadline)
+                provider_metadata=provider_metadata, problem=problem, progress=progress,
+                validation_only=getattr(args, 'validation_only', False))
+            await finish_before_deadline(args.data, args.output, deadline,
+                validation_only=getattr(args, 'validation_only', False))
             require_successful_runs(summaries)
 
 
@@ -311,6 +316,8 @@ def main():
         if command == "run":
             p.add_argument("--condition", choices=CONDITIONS)
         else:
+            p.add_argument("--validation-only", action="store_true",
+                           help="Pilot all strategies and generate a report without held-out test scoring")
             p.add_argument("--repeats", type=int, default=5)
             p.add_argument("--deadline", required=True, help="Hard study deadline with timezone, e.g. 2026-10-21T08:00:00-04:00")
             p.add_argument("--reserve-seconds", type=float, default=3600)
