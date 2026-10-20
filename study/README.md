@@ -518,3 +518,23 @@ to regenerate these outputs for earlier runs or after held-out evaluation.
 Reports reject comparisons with different frozen problems, objectives, or dataset
 fingerprints. Historical groups with no recorded dataset identity remain readable,
 but cannot be pooled with runs having known identity.
+
+
+### Fashion-MNIST and strategy efficiency
+
+See [the calibrated Fashion-MNIST pilot](../docs/fashion-pilot.md) for optional
+PyTorch installation, local no-API calibration, a short MPS pilot, and a five-strategy
+validation-only comparison. `--device mps` requires a working Apple GPU; `auto`
+selects MPS when available, otherwise CPU. Classical estimators stay on CPU.
+Neural profiles require PyTorch before a paid run can begin.
+
+Target reports include reached/not-reached counts, measured first-attainment
+cost/tokens/time, and all-run attainment curves. Unreached targets stay censored at
+the observed budget; unknown accounting is not zero. Conditional successful-run
+means alone do not rank strategy efficiency. One pilot repeat is not a statistical
+comparison. All report calculations are local and require no extra model calls.
+
+Model evidence requests now contain only `trial_id` and `metric`; the harness
+attaches the exact recorded `value` and validation `split`. Supplying either
+measurement field in a request is rejected. Stored contracts retain all four
+fields for audit, and lessons retain unverified interpretations separately.

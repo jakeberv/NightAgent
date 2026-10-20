@@ -12,11 +12,15 @@ def prose(limit=500):
             "pattern": r"[.!?][\"'’\)]?$"}
 
 
+EVIDENCE_REFERENCES = {"type": "array", "maxItems": 6, "items": {
+    "type": "object", "properties": {"trial_id": {"type": "integer", "minimum": 1},
+        "metric": {"type": "string", "minLength": 1, "maxLength": 60}},
+    "required": ["trial_id", "metric"], "additionalProperties": False}}
 EVIDENCE = {"type": "array", "maxItems": 6, "items": {
     "type": "object", "properties": {"trial_id": {"type": "integer", "minimum": 1},
         "metric": {"type": "string", "minLength": 1, "maxLength": 60},
         "split": {"const": "validation"}, "value": {"type": "number"}},
-    "required": ["trial_id", "metric", "split"], "additionalProperties": False}}
+    "required": ["trial_id", "metric", "split", "value"], "additionalProperties": False}}
 LESSON = {"type": "object", "properties": {
     "id": {"type": "string", "pattern": "^[a-z0-9_-]{1,40}$"},
     "status": {"enum": ["supported", "inconclusive", "superseded"]},
@@ -29,6 +33,7 @@ LESSON = {"type": "object", "properties": {
 
 
 def contract_schema(role, memory=False):
+    """Schema for canonical contracts stored in logs, feedback and memory."""
     properties = {"summary": prose(240), "evidence": deepcopy(EVIDENCE)}
     if role == "researcher":
         properties.update(hypothesis=prose(), baseline_trial_id={"type": ["integer", "null"], "minimum": 1},
@@ -49,16 +54,24 @@ def contract_schema(role, memory=False):
             "additionalProperties": False}
 
 
+def request_contract_schema(role, memory=False):
+    """Model input contains references; measurements and interpretation labels are harness-owned."""
+    schema = contract_schema(role, memory)
+    schema['properties']['evidence'] = deepcopy(EVIDENCE_REFERENCES)
+    if memory:
+        lesson = schema['properties']['lesson_updates']['items']
+        lesson['properties']['evidence'] = {**deepcopy(EVIDENCE_REFERENCES), 'minItems': 1}
+        del lesson['properties']['interpretation']
+    return schema
+
+
 def recorded_measurement(citation, records):
     row = records.get(citation['trial_id'], {})
-    actual = (row.get('metrics') or {}).get(citation['metric'])
-    if actual is None and citation['metric'] == 'roc_auc':
-        actual = row.get('validation_auc')
-    return actual
+    return (row.get('metrics') or {}).get(citation['metric'])
 
 
 def resolve_contract_evidence(contract, history):
-    """Resolve citation references, never overwrite a supplied measurement.
+    """Convert reference-only model requests to canonical measured evidence.
 
     Raises ValueError for invalid citations so the caller can request a repair.
     Other contract fields remain the role-specific validator's responsibility.
@@ -74,19 +87,21 @@ def resolve_contract_evidence(contract, history):
         if 'evidence' not in record:
             continue
         evidence = record['evidence']
-        errors = schema_errors(evidence, EVIDENCE, 'evidence')
+        errors = schema_errors(evidence, EVIDENCE_REFERENCES, 'evidence references')
         if errors:
             raise ValueError(' '.join(errors))
-        for citation in evidence:
-            if 'value' not in citation:
-                citation['value'] = recorded_measurement(citation, records)
-        errors = evidence_errors(evidence, history)
+        record['evidence'] = [{**citation, 'split': 'validation',
+                               'value': recorded_measurement(citation, records)} for citation in evidence]
+        errors = evidence_errors(record['evidence'], history)
         if errors:
             raise ValueError(' '.join(errors))
     return result
 
 
 def evidence_errors(evidence, history):
+    errors = schema_errors(evidence, EVIDENCE, 'recorded evidence')
+    if errors:
+        return errors
     records = {row.get("trial_id"): row for row in history if row.get("status") == "completed"}
     errors = []
     for citation in evidence:
@@ -253,13 +268,13 @@ def observed_scope(evidence, history):
     return result if len(result) <= 240 else fallback
 
 
-def ground_contract(contract, history=None):
+def ground_contract(contract, history):
     """Generate factual lessons and demote recognizable unsupported assertions.
 
     Invoke only after schema and citation validation. Explicit hypothesis and
     uncertainty fields remain hypotheses, not accepted observational lessons.
     """
-    result = resolve_contract_evidence(contract, history) if history is not None else deepcopy(contract)
+    result = deepcopy(contract)
     changes = []
 
     def replace_field(record, field, path, evidence):
@@ -298,7 +313,6 @@ class LessonMemory:
         self._lessons = {}
 
     def update(self, updates, history):
-        updates = resolve_contract_evidence({'lesson_updates': updates}, history)['lesson_updates']
         jsonschema.validate(updates, {"type": "array", "maxItems": 2, "items": LESSON})
         errors = [error for item in updates for error in evidence_errors(item["evidence"], history)]
         if errors:
@@ -315,7 +329,7 @@ class LessonMemory:
 
 
 def instructions(role, *, memory=False):
-    schema = contract_schema(role, memory)
+    schema = request_contract_schema(role, memory)
     prefix = ("Place the decision contract in run_analysis.intent. " if role == "researcher" else
               "When finished with tools, return only one JSON object matching this contract. ")
     return "\n" + prefix + """Use short complete sentences, not fragments or Markdown lists.
@@ -324,9 +338,9 @@ prose field: summary at most 240 characters; other prose fields at most 500.
 Prefer under 200 characters per field to leave room for the evidence. Lesson
 summary and scope are each limited to 240 characters. These limits are characters,
 not tokens. Before returning, check every field against its length limit.
-Cite completed validation measurements using trial_id, metric and split="validation".
-Omit value; the harness inserts the exact recorded value. If you supply value,
-it must match the recorded measurement. Evidence checks validate references, not whether
+Cite completed validation measurements using only trial_id and metric.
+Do not supply split or value; the harness adds the validation split and exact
+recorded measurement. Evidence checks validate references, not whether
 your hypothesis or interpretation is true. Use an empty evidence list before the
 first completed trial. A baseline is null for an initial or independent experiment.
 Recommendation uptake is your stated response, not a causal attribution.
@@ -349,8 +363,7 @@ The current context includes remaining_trials, remaining_seconds and observed
 mean_model_call_seconds. Account for API calls and scheduled reviews/reflections;
 local fit duration alone does not estimate how many experiments remain feasible.
 Project metadata and recent trials are already in context. Researchers must submit
-the next experiment through run_analysis. Reviewers may use inspect_project or
-read_results only if they need information absent from that context.
+the next experiment through run_analysis.
 """ + ("""You may provide at most two lesson_updates based on completed trials. Retain
 scope, uncertainty and citations. Reuse an id to revise a lesson; use superseded
 when a conclusion no longer applies. The harness generates lesson summary and scope

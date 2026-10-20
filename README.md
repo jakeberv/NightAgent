@@ -12,6 +12,8 @@ Use [problem profiles](docs/problem-definitions.md) to specify datasets, objecti
 named targets, and search spaces without changing the runner. Bundled examples
 cover MAGIC binary AUC, multiclass CSV, MNIST multiclass AUC, and regression.
 See its README for setup, the MAGIC feasibility pilot, and the overnight CLI.
+The [Fashion-MNIST GPU pilot](docs/fashion-pilot.md) adds small local MLP/CNN
+models and reports strategy cost/token efficiency at fixed accuracy targets.
 The conversational prototype below remains available separately.
 
 ## What we are building

@@ -240,7 +240,11 @@ async def _dispatch(args, progress):
             config = replace(config, lesson_memory=args.lesson_memory)
         if getattr(args, "max_cores", None) is not None:
             config = replace(config, max_cores=args.max_cores)
+        if getattr(args, 'device', None) is not None:
+            config = replace(config, device=args.device)
         problem = preflight_problem(problem_path, args.data)
+        from .controller import execution_config
+        config = execution_config(config, problem)
         if getattr(args, "env_file", None):
             from .credentials import load_openrouter_env
             load_openrouter_env(args.env_file)
@@ -309,6 +313,7 @@ def main():
         p.add_argument("--lesson-memory", action=argparse.BooleanOptionalAction, default=None,
                        help="Enable bounded lessons within each run; a separately recorded experimental variant")
         p.add_argument("--max-cores", type=int, help="Maximum local training threads; automatically balances independent suite runs")
+        p.add_argument('--device', choices=('auto', 'cpu', 'mps'), help='Neural training backend; explicit mps fails if unavailable; classical models stay on CPU')
         p.add_argument("--no-animation", action="store_true", help="Disable the interactive status line")
         display = p.add_mutually_exclusive_group()
         display.add_argument("--verbose", action="store_true", help="Show full model text and tool results live")

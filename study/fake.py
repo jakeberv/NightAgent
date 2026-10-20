@@ -34,10 +34,8 @@ def scripted_contract(role, context):
     latest = next((row for row in reversed(context.get("recent_trials", []))
                    if row.get("status") == "completed"), None)
     evidence = []
-    if latest:
-        value = (latest.get("metrics") or {}).get(metric, latest.get("score", latest.get("validation_auc")))
-        if value is not None:
-            evidence = [{"trial_id": latest["trial_id"], "metric": metric, "split": "validation", "value": value}]
+    if latest and metric in (latest.get("metrics") or {}):
+        evidence = [{"trial_id": latest["trial_id"], "metric": metric}]
     common = {"summary": "The scripted agent is comparing model capacity using recorded validation results.",
               "evidence": evidence}
     if role == "researcher":

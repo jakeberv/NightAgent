@@ -53,7 +53,16 @@ def completion_tools(tools):
         alternatives = []
         for clause in schema.pop("allOf"):
             model = clause["if"]["properties"]["model"]["const"]
-            parameters = clause["then"]["properties"]["params"]
+            restrictions = clause["then"]["properties"]
+            if "params" not in restrictions:
+                for field, constraint in restrictions.items():
+                    if "const" not in constraint:
+                        raise ValueError(f"Unsupported model constraint for {field}")
+                    advertised = schema["properties"][field]
+                    advertised["description"] = (advertised.get("description", "") +
+                        f" For model={model}, {field} must be {constraint['const']!r}.").strip()
+                continue
+            parameters = restrictions["params"]
             parameters["description"] = f"Parameters for model={model}; use only with that model."
             alternatives.append(parameters)
         schema["properties"]["params"] = {

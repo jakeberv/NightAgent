@@ -27,10 +27,10 @@ class StructuredModel:
         latest = context['trials_attempted']
         contract = decision()
         contract['baseline_trial_id'] = latest or None
-        contract['evidence'] = ([{'trial_id': latest, 'metric': 'roc_auc', 'split': 'validation', 'value': .9}]
+        contract['evidence'] = ([{'trial_id': latest, 'metric': 'roc_auc'}]
                                 if latest else [])
         if self.invalid_first and self.calls == 1:
-            contract['evidence'] = [{'trial_id': 999, 'metric': 'roc_auc', 'split': 'validation', 'value': .9}]
+            contract['evidence'] = [{'trial_id': 999, 'metric': 'roc_auc'}]
         if self.memory and latest == 1:
             contract['lesson_updates'] = [{'id': 'baseline', 'status': 'supported',
                 'summary': 'The initial baseline achieved validation AUC 0.9.',
@@ -94,8 +94,37 @@ def test_default_offline_model_exercises_all_contract_roles_and_optional_memory(
     assert result['lessons']
     events = [json.loads(line) for line in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
     assert all(event['valid'] for event in events if event['type'].endswith('_contract'))
+    contracts = [event['contract'] for event in events if event['type'].endswith('_contract')]
+    assert any(contract['evidence'] for contract in contracts)
+    assert all(citation['split'] == 'validation' and citation['value'] == .9
+               for contract in contracts for citation in contract['evidence'])
     assert sum(event['type'] == 'review' for event in events) == 1
     assert sum(event['type'] == 'reflection' for event in events) == 3
+
+
+@pytest.mark.parametrize('value', [.9, .95])
+def test_model_supplied_review_measurement_requires_repair_even_when_correct(tmp_path, value):
+    from study.fake import FakeModel, scripted_contract
+    class Reviewer(FakeModel):
+        attempts = 0
+        async def complete(self, messages, tools, *, timeout):
+            if messages[0]['content'].startswith('ROLE: supervisor'):
+                self.attempts += 1
+                contract = scripted_contract('supervisor', json.loads(messages[1]['content']))
+                if self.attempts == 1:
+                    contract['evidence'][0]['value'] = value
+                return {'message': {'role': 'assistant', 'content': json.dumps(contract)},
+                        'usage': {'prompt_tokens': 2, 'completion_tokens': 2, 'cost': 0}}
+            return await super().complete(messages, tools, timeout=timeout)
+    model = Reviewer()
+    result = asyncio.run(run_one(StudyConfig(condition='frequent', trial_cap=2),
+        tmp_path, tmp_path / 'run', model, trial_runner=trial, project={}))
+    assert result['stop_reason'] == 'trial_cap' and model.attempts == 2
+    events = [json.loads(line) for line in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
+    reviews = [event for event in events if event['type'] == 'supervisor_contract']
+    assert [review['valid'] for review in reviews] == [False, True]
+    assert reviews[-1]['contract']['evidence'] == [
+        {'trial_id': 1, 'metric': 'roc_auc', 'split': 'validation', 'value': .9}]
 
 
 @pytest.mark.parametrize('number', ['NaN', 'Infinity', '1e309', '1' + '0' * 310])
@@ -110,7 +139,7 @@ def test_nonfinite_review_citation_is_repaired_without_crashing_journal(tmp_path
                 contract = scripted_contract('supervisor', context)
                 content = json.dumps(contract)
                 if self.attempts == 1:
-                    content = content.replace('"value": 0.9', '"value": ' + number)
+                    content = content.replace('"trial_id": 1', '"trial_id": ' + number)
                 return {'message': {'role': 'assistant', 'content': content},
                         'usage': {'prompt_tokens': 2, 'completion_tokens': 2, 'cost': 0}}
             return await super().complete(messages, tools, timeout=timeout)

@@ -378,7 +378,7 @@ async def _kill_group(process) -> None:
     await process.wait()
 
 
-async def run_trial(data_dir: Path, trial_dir: Path, config: dict, *, seed: int, timeout: float, cores=1) -> dict:
+async def run_trial(data_dir: Path, trial_dir: Path, config: dict, *, seed: int, timeout: float, cores=1, device='cpu') -> dict:
     """Run one bounded worker with train/validation paths, then verify its output."""
     started = time.monotonic()
     process = None
@@ -404,6 +404,9 @@ async def run_trial(data_dir: Path, trial_dir: Path, config: dict, *, seed: int,
         from .resources import validate_cores
         validate_cores(cores)
         request = {"cores": cores, "train_path": str(data_dir / "train.npz"), "validation_path": str(data_dir / "validation.npz"), "artifact_path": str(artifact), "config": config, "seed": seed, "metadata": {"data_fingerprint": manifest["data_fingerprint"], "train_sha256": manifest["partitions"]["train"]["sha256"], "validation_sha256": manifest["partitions"]["validation"]["sha256"]}}
+        if device not in ('auto', 'cpu', 'mps'):
+            raise ValueError('device must be auto, cpu, or mps')
+        request['device'] = device
         if problem is not None:
             request['problem'] = worker_problem(problem)
             request['metadata']['problem_hash'] = problem.fingerprint
@@ -451,7 +454,7 @@ async def run_trial(data_dir: Path, trial_dir: Path, config: dict, *, seed: int,
             if problem.objective['metric'] == 'roc_auc':
                 result['validation_auc'] = score
         else:
-            result['validation_auc'] = score
+            result.update(score=score, metrics={'roc_auc': score}, validation_auc=score)
     except asyncio.CancelledError:
         if process is None and spawn_task is not None:
             process = await asyncio.shield(spawn_task)

@@ -18,18 +18,30 @@ COMMON_PARAMETERS = {
     'random_forest': {'n_estimators': {'type': 'integer', 'minimum': 10, 'maximum': 300}, 'max_depth': {'anyOf': [{'type': 'null'}, {'type': 'integer', 'minimum': 1, 'maximum': 30}]}, 'min_samples_leaf': {'type': 'integer', 'minimum': 1, 'maximum': 50}, 'max_features': {'enum': ['sqrt', 'log2', 'all']}},
     'histogram_gradient_boosting': {'learning_rate': {'type': 'number', 'minimum': .01, 'maximum': .5}, 'max_iter': {'type': 'integer', 'minimum': 20, 'maximum': 400}, 'max_leaf_nodes': {'type': 'integer', 'minimum': 2, 'maximum': 63}, 'max_depth': {'anyOf': [{'type': 'null'}, {'type': 'integer', 'minimum': 1, 'maximum': 20}]}, 'l2_regularization': {'type': 'number', 'minimum': 0, 'maximum': 100}},
 }
+TORCH_TRAINING_PARAMETERS = {
+    'epochs': {'type': 'integer', 'minimum': 1, 'maximum': 10},
+    'batch_size': {'type': 'integer', 'minimum': 64, 'maximum': 512},
+    'learning_rate': {'type': 'number', 'minimum': .0001, 'maximum': .01},
+    'weight_decay': {'type': 'number', 'minimum': 0, 'maximum': .1},
+}
+TORCH_PARAMETERS = {
+    'torch_mlp': {**TORCH_TRAINING_PARAMETERS, 'hidden_width': {'type': 'integer', 'minimum': 32, 'maximum': 256}},
+    'torch_cnn': {**TORCH_TRAINING_PARAMETERS, 'channels': {'type': 'integer', 'minimum': 8, 'maximum': 32}},
+}
 DEFAULTS = {
     'logistic': {'C': 1., 'max_iter': 300},
     'ridge': {'alpha': 1.},
     'random_forest': {'n_estimators': 100, 'max_depth': None, 'min_samples_leaf': 1, 'max_features': 'sqrt'},
     'histogram_gradient_boosting': {'learning_rate': .1, 'max_iter': 200, 'max_leaf_nodes': 31, 'max_depth': None, 'l2_regularization': 1.},
+    'torch_mlp': {'hidden_width': 64, 'epochs': 3, 'batch_size': 128, 'learning_rate': .001, 'weight_decay': 0.},
+    'torch_cnn': {'channels': 16, 'epochs': 3, 'batch_size': 128, 'learning_rate': .001, 'weight_decay': 0.},
 }
 
 
 def _parameters(task):
     parameters = copy.deepcopy(COMMON_PARAMETERS)
     if task == 'tabular_classification':
-        return {'logistic': {'C': {'type': 'number', 'minimum': .001, 'maximum': 100}, 'max_iter': {'type': 'integer', 'minimum': 50, 'maximum': 1000}}, **parameters}
+        return {'logistic': {'C': {'type': 'number', 'minimum': .001, 'maximum': 100}, 'max_iter': {'type': 'integer', 'minimum': 50, 'maximum': 1000}}, **parameters, **copy.deepcopy(TORCH_PARAMETERS)}
     if task == 'tabular_regression':
         return {'ridge': {'alpha': {'type': 'number', 'minimum': .001, 'maximum': 1000}}, **parameters}
     raise ValueError('unknown trusted task')
@@ -88,6 +100,8 @@ def validate_search_space(task, space):
     _names(preprocess, 'preprocessing')
     if not set(preprocess) <= {'standard', 'none'}:
         raise ValueError('unsupported preprocessing')
+    if set(space['models']) & set(TORCH_PARAMETERS) and 'none' not in preprocess:
+        raise ValueError('torch image models require none preprocessing; pixel normalization is internal')
     overrides = space.setdefault('parameters', {})
     if not isinstance(overrides, dict) or not set(overrides) <= set(space['models']):
         raise ValueError('parameter overrides must name allowed models')
@@ -114,7 +128,7 @@ def _default(schema, candidate):
 
 
 class TabularAdapter:
-    version = 2
+    version = 3
 
     def __init__(self, problem):
         self.problem = problem
@@ -126,9 +140,11 @@ class TabularAdapter:
             for name, override in settings.items():
                 self.parameters[model][name] = _narrow(self.parameters[model][name], override)
         self.analysis_schema = {'type': 'object', 'additionalProperties': False, 'required': ['model', 'preprocessing', 'params'], 'properties': {'model': {'enum': space['models']}, 'preprocessing': {'enum': space['preprocessing']}, 'params': {'type': 'object'}}, 'allOf': [{'if': {'properties': {'model': {'const': model}}}, 'then': {'properties': {'params': {'type': 'object', 'properties': params, 'additionalProperties': False}}}} for model, params in self.parameters.items()]}
+        for model in set(self.parameters) & set(TORCH_PARAMETERS):
+            self.analysis_schema['allOf'].append({'if': {'properties': {'model': {'const': model}}}, 'then': {'properties': {'preprocessing': {'const': 'none'}}}})
         preferred = 'logistic' if problem.task == 'tabular_classification' else 'ridge'
         model = preferred if preferred in space['models'] else space['models'][0]
-        self.reference_config = {'model': model, 'preprocessing': 'standard' if 'standard' in space['preprocessing'] else space['preprocessing'][0], 'params': {name: _default(schema, DEFAULTS[model][name]) for name, schema in self.parameters[model].items()}}
+        self.reference_config = {'model': model, 'preprocessing': 'none' if model in TORCH_PARAMETERS else ('standard' if 'standard' in space['preprocessing'] else space['preprocessing'][0]), 'params': {name: _default(schema, DEFAULTS[model][name]) for name, schema in self.parameters[model].items()}}
         self.validate_config(self.reference_config)
 
     def validate_config(self, config):
@@ -153,6 +169,9 @@ class TabularAdapter:
             if params['max_features'] == 'all':
                 params['max_features'] = 1.0
             estimator = (RandomForestClassifier if classification else RandomForestRegressor)(**params, random_state=seed, n_jobs=1)
+        elif model in TORCH_PARAMETERS:
+            from study.torch_models import TorchImageClassifier
+            estimator = TorchImageClassifier(architecture=model.removeprefix('torch_'), **params, random_state=seed)
         else:
             estimator = (HistGradientBoostingClassifier if classification else HistGradientBoostingRegressor)(**params, random_state=seed, early_stopping=True, validation_fraction=.1, n_iter_no_change=10)
         return Pipeline([('scale', StandardScaler() if config['preprocessing'] == 'standard' else 'passthrough'), ('classifier' if classification else 'regressor', estimator)])

@@ -72,7 +72,7 @@ def test_tool_arguments_do_not_accept_prose_wrappers():
 ])
 def test_overclaims_are_grounded_before_feedback_and_memory(claim):
     context = {'recent_trials': [{'trial_id': 6, 'status': 'completed', 'metrics': {'roc_auc': .9327}}], 'lessons': []}
-    contract = scripted_contract('reflection', context)
+    contract = reasoning.resolve_contract_evidence(scripted_contract('reflection', context), context['recent_trials'])
     contract['summary'] = claim
     contract['lesson_updates'][0].update(summary=claim, status='supported')
     original = copy.deepcopy(contract)
@@ -91,7 +91,7 @@ def test_overclaims_are_grounded_before_feedback_and_memory(claim):
 
 def test_scoped_observations_and_explicit_uncertainty_are_preserved():
     context = {'recent_trials': [{'trial_id': 1, 'status': 'completed', 'metrics': {'roc_auc': .9}}], 'lessons': []}
-    contract = scripted_contract('reflection', context)
+    contract = reasoning.resolve_contract_evidence(scripted_contract('reflection', context), context['recent_trials'])
     contract['summary'] = 'Trial 1 recorded validation AUC 0.9 on this split.'
     contract['uncertainty'] = 'Whether a performance ceiling exists remains unknown.'
     grounded, changes = reasoning.ground_contract(contract, context['recent_trials'])
@@ -154,6 +154,7 @@ def test_grounding_never_resurrects_superseded_lessons():
     lesson = {'id': 'old', 'status': 'superseded', 'summary': 'This proves an optimal setting.',
               'scope': 'This run only.',
               'evidence': [{'trial_id': 1, 'metric': 'roc_auc', 'split': 'validation', 'value': .9}]}
-    result, changes = reasoning.ground_contract({'lesson_updates': [lesson]})
+    result, changes = reasoning.ground_contract({'lesson_updates': [lesson]}, [
+        {'trial_id': 1, 'status': 'completed', 'metrics': {'roc_auc': .9}}])
     assert result['lesson_updates'][0]['status'] == 'superseded'
     assert changes

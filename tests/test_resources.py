@@ -32,6 +32,51 @@ def test_pool_caps_combined_training_and_returns_cores_after_cancellation():
     asyncio.run(scenario())
 
 
+def test_pool_gives_queued_waiter_priority_over_immediate_reacquisition():
+    from study.resources import CorePool
+    async def scenario():
+        pool = CorePool(2)
+        order = []
+        async def waiting_fit():
+            async with pool.lease():
+                order.append('queued')
+        async with pool.lease():
+            waiter = asyncio.create_task(waiting_fit())
+            await asyncio.sleep(0)
+            assert not waiter.done()
+        # A scripted strategy can request its next fit without an intervening
+        # event-loop turn. It must not starve the other strategy already queued.
+        async with pool.lease():
+            order.append('newcomer')
+        await waiter
+        assert order == ['queued', 'newcomer']
+        assert pool.available == pool.limit
+    asyncio.run(asyncio.wait_for(scenario(), timeout=2))
+
+
+def test_cancelled_first_core_waiter_does_not_block_the_next_waiter():
+    from study.resources import CorePool
+    async def scenario():
+        pool = CorePool(2)
+        order = []
+        async def waiting_fit(name):
+            async with pool.lease():
+                order.append(name)
+        async with pool.lease():
+            cancelled = asyncio.create_task(waiting_fit('cancelled'))
+            survivor = asyncio.create_task(waiting_fit('survivor'))
+            await asyncio.sleep(0)
+            cancelled.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await cancelled
+        async with pool.lease():
+            order.append('newcomer')
+        await survivor
+        assert order == ['survivor', 'newcomer']
+        assert pool.available == pool.limit
+    asyncio.run(asyncio.wait_for(scenario(), timeout=2))
+
+
 def test_parallel_suite_overlaps_runs_and_preserves_schedule_order(tmp_path):
     from study.suite import run_suite
     active = peak = 0
@@ -61,6 +106,8 @@ def test_worker_uses_allocation_without_nested_thread_explosion():
     assert worker_threads('random_forest', 4) == {'jobs': 4, 'openmp': 1, 'blas': 1}
     assert worker_threads('histogram_gradient_boosting', 4) == {'jobs': 1, 'openmp': 4, 'blas': 1}
     assert worker_threads('logistic', 4) == {'jobs': 1, 'openmp': 1, 'blas': 4}
+    assert worker_threads('torch_mlp', 2) == {'jobs': 1, 'openmp': 2, 'blas': 1}
+    assert worker_threads('torch_cnn', 3) == {'jobs': 1, 'openmp': 3, 'blas': 1}
 
 
 def test_shared_balancer_never_exceeds_ceiling_and_records_queue_time(tmp_path):
@@ -174,3 +221,132 @@ def test_recovery_and_report_exclude_queue_time(tmp_path):
     (tmp_path / 'events.jsonl').write_text(''.join(json.dumps(event) + '\n' for event in events))
     assert recover_run(tmp_path)['training_seconds'] == 5
     assert [trial['training_seconds'] for trial in _trials({}, events)] == [3, 2]
+
+
+def test_gpu_queue_serializes_gpu_fits_without_blocking_cpu_fits(tmp_path):
+    from study.resources import CorePool, BalancedTrials
+    async def scenario():
+        active_gpu = peak_gpu = 0
+        gpu_started = asyncio.Event()
+        cpu_overlapped = []
+        async def runner(data, output, config, **kwargs):
+            nonlocal active_gpu, peak_gpu
+            if config['model'].startswith('torch_'):
+                assert kwargs['device'] == 'mps'
+                active_gpu += 1
+                peak_gpu = max(peak_gpu, active_gpu)
+                gpu_started.set()
+                await asyncio.sleep(.03)
+                active_gpu -= 1
+            else:
+                await gpu_started.wait()
+                cpu_overlapped.append(active_gpu > 0)
+            return {'status': 'completed'}
+        pool = CorePool(8)
+        balanced = BalancedTrials(pool, runner=runner, device='mps')
+        jobs = [balanced(tmp_path, tmp_path, {'model': m}, seed=42, timeout=2)
+                for m in ('torch_mlp', 'torch_cnn', 'logistic')]
+        await asyncio.gather(*jobs)
+        assert peak_gpu == 1 and cpu_overlapped == [True]
+        assert pool.available == pool.limit
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize('exit_mode', ['cancellation', 'timeout'])
+def test_gpu_waiter_exit_never_releases_active_lock_or_reserves_cores(exit_mode, monkeypatch):
+    from study.resources import CorePool, BalancedTrials
+    monkeypatch.setattr('study.resources.os.cpu_count', lambda: 8)
+    async def scenario():
+        pool = CorePool(8)
+        entered = asyncio.Event()
+        release_worker = asyncio.Event()
+        fits = 0
+        async def runner(**kwargs):
+            nonlocal fits
+            fits += 1
+            entered.set()
+            await release_worker.wait()
+            return {'status': 'completed'}
+        balanced = BalancedTrials(pool, runner=runner, device='mps')
+        active = asyncio.create_task(balanced(config={'model': 'torch_mlp'}, timeout=2))
+        await entered.wait()
+        waiter = asyncio.create_task(balanced(config={'model': 'torch_cnn'}, timeout=.02 if exit_mode == 'timeout' else 2))
+        await asyncio.sleep(0)
+        assert pool.available == 4
+        if exit_mode == 'cancellation':
+            waiter.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await waiter
+        else:
+            with pytest.raises(TimeoutError):
+                await waiter
+        assert fits == 1
+        assert balanced.gpu_lock.locked()
+        assert pool.available == 4
+        release_worker.set()
+        await active
+        assert not balanced.gpu_lock.locked()
+        assert pool.available == pool.limit
+        assert (await balanced(config={'model': 'torch_cnn'}, timeout=1))['status'] == 'completed'
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
+
+
+@pytest.mark.parametrize('exit_mode', ['cancellation', 'timeout'])
+def test_gpu_lock_released_when_its_holder_exits_while_waiting_for_cpu(exit_mode):
+    from study.resources import CorePool, BalancedTrials
+    async def scenario():
+        pool = CorePool(2)
+        async def runner(**kwargs):
+            return {'status': 'completed'}
+        balanced = BalancedTrials(pool, runner=runner, device='mps')
+        async with pool.lease():
+            waiter = asyncio.create_task(balanced(config={'model': 'torch_mlp'}, timeout=.02 if exit_mode == 'timeout' else 2))
+            await asyncio.sleep(0)
+            assert balanced.gpu_lock.locked()
+            if exit_mode == 'cancellation':
+                waiter.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await waiter
+            else:
+                with pytest.raises(TimeoutError):
+                    await waiter
+            assert not balanced.gpu_lock.locked()
+            assert pool.available == 0
+        assert pool.available == pool.limit
+        assert (await balanced(config={'model': 'torch_cnn'}, timeout=1))['status'] == 'completed'
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
+
+
+@pytest.mark.parametrize('exit_mode', ['cancellation', 'timeout'])
+def test_gpu_and_cpu_leases_remain_held_until_cancelled_worker_cleanup_finishes(exit_mode):
+    from study.resources import CorePool, BalancedTrials
+    async def scenario():
+        pool = CorePool(2)
+        started = asyncio.Event()
+        cleanup_started = asyncio.Event()
+        permit_cleanup = asyncio.Event()
+        async def runner(**kwargs):
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cleanup_started.set()
+                await permit_cleanup.wait()
+                assert balanced.gpu_lock.locked()
+                assert pool.available == 0
+        balanced = BalancedTrials(pool, runner=runner, device='mps')
+        trial = balanced(config={'model': 'torch_mlp'}, timeout=2)
+        active = asyncio.create_task(asyncio.wait_for(trial, timeout=.02) if exit_mode == 'timeout' else trial)
+        await started.wait()
+        if exit_mode == 'cancellation':
+            active.cancel()
+        await cleanup_started.wait()
+        assert not active.done()
+        assert balanced.gpu_lock.locked()
+        assert pool.available == 0
+        permit_cleanup.set()
+        with pytest.raises(asyncio.CancelledError if exit_mode == 'cancellation' else TimeoutError):
+            await active
+        assert not balanced.gpu_lock.locked()
+        assert pool.available == pool.limit
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))

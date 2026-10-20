@@ -2,7 +2,7 @@
 import asyncio
 from datetime import datetime, timezone
 import hashlib
-from importlib.metadata import version
+from importlib.metadata import version, PackageNotFoundError
 import json
 import math
 from pathlib import Path
@@ -18,8 +18,13 @@ def provenance(data_dir):
     sources = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                for p in Path(__file__).parent.glob("*.py")}
     manifest = Path(data_dir) / "manifest.json"
+    dependencies = {name: version(name) for name in ("numpy", "scikit-learn", "httpx", "joblib")}
+    try:
+        dependencies['torch'] = version('torch')
+    except PackageNotFoundError:
+        pass
     return {"python": platform.python_version(), "platform": platform.platform(),
-        "dependencies": {name: version(name) for name in ("numpy", "scikit-learn", "httpx", "joblib")},
+        "dependencies": dependencies,
         "source_sha256": sources,
         "data_manifest": json.loads(manifest.read_text()) if manifest.exists() else None}
 
@@ -34,18 +39,21 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
     if not math.isfinite(reserve_seconds) or reserve_seconds <= 0:
         raise ValueError("reserve_seconds must be positive")
     search_deadline = deadline.timestamp() - reserve_seconds
+    resolved_problem = resolve_problem(config, data_dir, problem)
+    from .controller import execution_config
+    config = execution_config(config, resolved_problem)
     concurrent_runs = 2 if config.max_cores is not None else 1
     required = math.ceil(repeats * len(CONDITIONS) / concurrent_runs) * config.allowance_seconds
     balanced_trials = None
     execution = {"concurrent_runs": concurrent_runs, "max_cores": 1, "policy": "sequential"}
     if config.max_cores is not None:
         from .resources import CorePool, BalancedTrials
-        balanced_trials = BalancedTrials(CorePool(config.max_cores))
-        execution.update(max_cores=balanced_trials.pool.limit, policy="automatic_shared_core_pool")
+        balanced_trials = BalancedTrials(CorePool(config.max_cores), device=config.device)
+        execution.update(max_cores=balanced_trials.pool.limit, policy="automatic_shared_core_pool", device=config.device,
+                         concurrent_gpu_fits=1 if config.device == 'mps' else 0)
     if search_deadline - datetime.now(timezone.utc).timestamp() < required:
         raise ValueError("Study window cannot fit all equal allowances plus reporting reserve")
     # Verify frozen science and partition hashes before constructing any provider.
-    resolved_problem = resolve_problem(config, data_dir, problem)
     data_fingerprint = prepared_fingerprint(data_dir)
     from .problem import problem_from_data
     pass_problem = problem is not None or problem_from_data(data_dir) is not None

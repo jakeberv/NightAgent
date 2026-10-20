@@ -1,6 +1,7 @@
 """The harness, not the model, controls experimental timing and treatments."""
 import asyncio
 from datetime import datetime, timedelta, timezone
+from dataclasses import replace
 import json
 import math
 from pathlib import Path
@@ -36,9 +37,9 @@ def tools_for(role, config, problem=None):
             from .tasks import get_adapter
             schema = get_adapter(problem).analysis_schema
         from copy import deepcopy
-        from .reasoning import contract_schema
+        from .reasoning import request_contract_schema
         schema = deepcopy(schema)
-        schema["properties"]["intent"] = contract_schema("researcher", config.lesson_memory)
+        schema["properties"]["intent"] = request_contract_schema("researcher", config.lesson_memory)
         schema["required"] = [*schema["required"], "intent"]
         tools.append(function_tool("run_analysis", "Run exactly one bounded experiment.", schema))
     if role == "supervisor" and config.literature:
@@ -55,6 +56,16 @@ def tools_for(role, config, problem=None):
 def agent_result(result):
     return {key: value for key, value in result.items()
             if key not in ("artifact", "artifact_hash", "fingerprint", "provenance")}
+
+
+def agent_project(project):
+    """Describe generated feature indexes exactly without repeating a large name list."""
+    names = project.get('feature_names', [])
+    if len(names) > 32 and names == [f'feature_{index:04d}' for index in range(len(names))]:
+        return {**{key: value for key, value in project.items() if key != 'feature_names'},
+                'feature_layout': {'count': len(names), 'naming': 'feature_{index:04d}',
+                                   'index_range': [0, len(names) - 1]}}
+    return dict(project)
 
 
 def resolve_problem(config, data_dir, problem=None):
@@ -76,6 +87,14 @@ def prepared_fingerprint(data_dir):
     """Return prepared content identity; fixture-only legacy runs may have none."""
     manifest = Path(data_dir) / "manifest.json"
     return json.loads(manifest.read_text()).get("data_fingerprint") if manifest.exists() else None
+
+
+def execution_config(config, problem):
+    """Resolve the neural backend before model calls; explicit MPS never falls back."""
+    if problem and any(name.startswith('torch_') for name in problem.search_space['models']):
+        from .torch_models import resolve_device
+        return replace(config, device=resolve_device(config.device))
+    return replace(config, device='cpu')
 
 
 def initial_summary(config, problem, data_fingerprint=None):
@@ -138,14 +157,12 @@ def select_result(summary, result, accounting, config, problem=None):
 async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, project=None, literature=None,
                   provider_metadata=None, problem=None, progress=None):
     """Run once in a NEW directory. Existing runs must be recovered, never resumed."""
-    if trial_runner is None:
-        from .science import run_trial
-        trial_runner = run_trial
-        if config.max_cores is not None:
-            from .resources import CorePool, BalancedTrials
-            trial_runner = BalancedTrials(CorePool(config.max_cores))
-    run_dir, data_dir = Path(run_dir).resolve(), Path(data_dir).resolve()
     problem = resolve_problem(config, data_dir, problem)
+    config = execution_config(config, problem)
+    if trial_runner is None:
+        from .resources import CorePool, BalancedTrials
+        trial_runner = BalancedTrials(CorePool(config.max_cores or 1), device=config.device)
+    run_dir, data_dir = Path(run_dir).resolve(), Path(data_dir).resolve()
     data_fingerprint = prepared_fingerprint(data_dir)
     if project is None:
         from .problem import problem_from_data
@@ -166,7 +183,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     if provider_metadata is not None:
         atomic_json(run_dir / "provider.json", provider_metadata)
     history = []
-    from .reasoning import LessonMemory, validate_contract, parse_contract, schema_errors, ground_contract, resolve_contract_evidence
+    from .reasoning import LessonMemory, validate_contract, parse_contract, schema_errors, ground_contract, resolve_contract_evidence, request_contract_schema
     memory = LessonMemory(config.memory_limit)
     feedback = reflection = None
     accounting = Accounting()
@@ -194,7 +211,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             raise StopRun("trial_cap")
 
     def context():
-        return json.dumps({"project": project, "recent_trials": [agent_result(row) for row in history[-config.history_trials:]],
+        return json.dumps({"project": agent_project(project), "recent_trials": [agent_result(row) for row in history[-config.history_trials:]],
             "best": agent_result(summary["best"] or {}), "last_supervisor_feedback": feedback,
             "last_explicit_reflection": reflection, "trials_attempted": summary["trials"],
             "trial_cap": config.trial_cap, "remaining_trials": max(0, config.trial_cap - summary["trials"]),
@@ -285,6 +302,9 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                     contract = None
                     try:
                         contract = parse_contract(message.get("content"), allow_wrapper=True)
+                        input_errors = schema_errors(contract, request_contract_schema(role, config.lesson_memory), f'{role} request')
+                        if input_errors:
+                            raise ValueError(' '.join(input_errors))
                         contract = resolve_contract_evidence(contract, history)
                         errors = validate_contract(contract, role, history,
                             has_feedback=feedback is not None, memory=config.lesson_memory)

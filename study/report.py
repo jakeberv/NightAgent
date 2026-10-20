@@ -159,6 +159,51 @@ def _data_fingerprint(summary: dict, folder: Path, events: list[dict], warnings:
     return next(iter(known), None)
 
 
+def _budget(value):
+    value = _number(value)
+    return value if value is not None and value >= 0 else None
+
+
+def _budget_summary(values):
+    known = [number for value in values if (number := _budget(value)) is not None]
+    return {'n': len(known), 'missing': len(values) - len(known),
+            'mean': mean(known) if known else None,
+            'sd': stdev(known) if len(known) > 1 else None,
+            'min': min(known) if known else None, 'max': max(known) if known else None}
+
+
+def _target_efficiency(rows, name):
+    """Observed first-attainment budgets, without success-only denominators or extrapolation."""
+    reached = [row for row in rows if row['targets'].get(name, {}).get('reached')]
+    missed = [row for row in rows if not row['targets'].get(name, {}).get('reached')]
+    axes = ('seconds', 'total_cost', 'total_tokens')
+    endings = [{'run_id': row['run_id'], 'stop_reason': row['stop_reason'],
+                'seconds': _budget(row['elapsed_seconds']),
+                **{field: row[field] for field in ('known_cost', 'cost_complete', 'total_cost',
+                                                  'total_tokens', 'token_usage_complete')}} for row in missed]
+    curves = {}
+    for field in axes:
+        crossings = [_budget(row['targets'][name].get(field)) for row in reached]
+        known = [value for value in crossings if value is not None]
+        censored = [{'run_id': row['run_id'], 'budget': _budget(row[field])}
+                    for row in endings if _budget(row[field]) is not None]
+        points = [(0., sum(value == 0 for value in known) / len(rows))]
+        for budget in sorted(set(known) - {0.}):
+            points.append((budget, sum(value <= budget for value in known) / len(rows)))
+        endpoint = max([*known, *(row['budget'] for row in censored)], default=0.)
+        if endpoint > points[-1][0]:
+            points.append((endpoint, len(known) / len(rows)))
+        curves[field] = {'denominator': len(rows), 'known_crossings': len(known), 'curve': points,
+            'reached_with_unknown_budget': [row['run_id'] for row, value in zip(reached, crossings) if value is None],
+            'not_reached_with_unknown_end_budget': [row['run_id'] for row in endings if _budget(row[field]) is None],
+            'censored': censored}
+    return {'n': len(rows), 'reached': len(reached), 'not_reached': len(missed),
+            'conditional_at_attainment': {field: _budget_summary([row['targets'][name].get(field) for row in reached])
+                                         for field in axes},
+            'nonattainment': {'n': len(missed), 'observed_end_budgets': endings},
+            'attainment_by_budget': curves}
+
+
 def _run_data(path: Path, warnings: list[str], summary_override=None, shared_test_cache=None) -> dict:
     summary = _read(path, warnings) if summary_override is None else summary_override
     objective = _objective(summary)
@@ -279,17 +324,21 @@ def _run_data(path: Path, warnings: list[str], summary_override=None, shared_tes
         crossing = next((item for item in valid if
                          (item["score"] >= threshold if maximize else item["score"] <= threshold)), None)
         selection = selections.get(name) or {}
+        crossing_account = crossing.get('accounting') if crossing else None
+        if (crossing and crossing_account is None
+                and str(selection.get('trial_id')) == str(crossing['trial_id'])):
+            crossing_account = selection.get('accounting')
         details = {key: crossing.get(key) if crossing else None for key in
                    ("trial_id", "score", "metrics", "artifact", "artifact_hash")}
         details.update({"threshold": threshold, "reached": crossing is not None,
                         "seconds": float(crossing["elapsed_seconds"]) if crossing else None,
-                        **_accounting(selection.get("accounting") if crossing else None),
+                        **_accounting(crossing_account),
                         **test_result(name)})
         row["targets"][name] = details
         if metric == "roc_auc" and name in ("milestone", "stretch"):
             row.update({name + "_auc": threshold, name + "_reached": details["reached"],
                         name + "_seconds": details["seconds"],
-                        **_accounting(selection.get("accounting") if crossing else None, name + "_")})
+                        **_accounting(crossing_account, name + "_")})
     if metric == "roc_auc":
         row["best_validation_auc"] = row["best_score"]
         for name in ("best", "milestone", "stretch"):
@@ -385,7 +434,8 @@ def build_report_data(root: Path) -> dict:
                 points.append((seconds, sum(t <= seconds for t in times) / len(rows)))
             if deadlines and points[-1][0] < max(deadlines):
                 points.append((max(deadlines), len(times) / len(rows)))
-            aggregate["targets"][name] = {"fraction": len(times) / len(rows), "curve": points}
+            aggregate["targets"][name] = {"fraction": len(times) / len(rows), "curve": points,
+                                          **_target_efficiency(rows, name)}
             if objective["metric"] == "roc_auc" and name in ("milestone", "stretch"):
                 aggregate[name + "_fraction"] = len(times) / len(rows)
                 aggregate[name + "_curve"] = points
@@ -484,6 +534,66 @@ def _plots(data: dict, root: Path) -> str:
     return export_figure(figure, root, "performance", "Validation progress, all-run attainment, API cost and tokens")
 
 
+def _target_budget_plot(data, root):
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from .report_graphics import export_figure
+
+    figure = Figure(figsize=(12, 4.5), layout='constrained')
+    FigureCanvasAgg(figure)
+    for axes, field, label in zip(figure.subplots(1, 2), ('total_cost', 'total_tokens'),
+                                  ('Cumulative API cost budget, USD', 'Cumulative input + output token budget')):
+        for condition, aggregate in data['conditions'].items():
+            for target, details in aggregate['targets'].items():
+                curve = details['attainment_by_budget'][field]
+                x, y = zip(*curve['curve'])
+                axes.step(x, y, where='post', marker='.', label=f'{condition}: {target}')
+        axes.set(xlabel=label, ylabel='Recorded attainments / all scheduled runs', ylim=(-.02, 1.02), xlim=(0, None))
+        axes.grid(alpha=.15)
+        axes.legend(fontsize=6)
+    return export_figure(figure, root, 'target-budgets',
+        'Observed budget attainment with all-run denominators. Unknown crossing accounting is excluded from the numerator; no convergence is extrapolated.')
+
+
+def _efficiency_section(data, root):
+    targets = [(condition, target, details) for condition, aggregate in data['conditions'].items()
+               for target, details in aggregate['targets'].items()]
+    sections = ['<h2>Strategy efficiency at preset targets</h2>',
+        '<p>Preset targets are frozen with the problem and must be shared across strategies for comparison. '
+        'Every scheduled run remains in the attainment denominator. A single repeat cannot establish a strategy ranking; '
+        'repeated matched runs are needed to assess variation.</p>',
+        _table(['Strategy', 'Target', 'All runs', 'Reached', 'Not observed reached', 'Fraction of all runs'],
+               [[condition, target, d['n'], d['reached'], d['not_reached'], d['fraction']]
+                for condition, target, d in targets]),
+        '<h3>Conditional on reaching the target</h3><p>These summaries describe successful runs only, '
+        'with a separate measured n for each budget; they are not an overall strategy efficiency estimate. '
+        'Missing accounting is excluded, never treated as zero. Dollar budgets cover reported model API charges, '
+        'not unmetered training or post-run compute.</p>',
+        _table(['Strategy', 'Target', 'Budget', 'Measured successes', 'Missing successes', 'Mean', 'SD', 'Min', 'Max'],
+               [[condition, target, field, *[s[key] for key in ('n', 'missing', 'mean', 'sd', 'min', 'max')]]
+                for condition, target, d in targets for field, s in d['conditional_at_attainment'].items()]),
+        '<p>Runs not observed to reach a target are censored at their observed end budgets; this does not '
+        'estimate when or whether they would eventually succeed. Runs with no observed budget remain unknown. '
+        'The budget curves count recorded attainments over all scheduled runs, not survival-adjusted probabilities; '
+        'unknown crossing accounting makes them lower bounds on observed attainment by budget. '
+        'There is no extrapolated convergence beyond observed budgets.</p>',
+        _table(['Strategy', 'Target', 'Run not observed reached', 'Stop reason', 'Observed stop seconds',
+                'Known USD subtotal', 'Complete USD', 'Complete tokens'],
+               [[condition, target, *[row[key] for key in ('run_id', 'stop_reason', 'seconds', 'known_cost', 'total_cost', 'total_tokens')]]
+                for condition, target, d in targets for row in d['nonattainment']['observed_end_budgets']]),
+        '<h3>Budget curve accounting coverage</h3><p>Runs with unknown crossing or end budgets are excluded '
+        'from those budget coordinates, while remaining in the all-run denominator.</p>',
+        _table(['Strategy', 'Target', 'Budget', 'All-run denominator', 'Located attainments',
+                'Attainers missing crossing budget', 'Nonattainers missing end budget'],
+               [[condition, target, field, curve['denominator'], curve['known_crossings'],
+                 ', '.join(curve['reached_with_unknown_budget']) or 'none',
+                 ', '.join(curve['not_reached_with_unknown_end_budget']) or 'none']
+                for condition, target, d in targets for field, curve in d['attainment_by_budget'].items()])]
+    if targets:
+        sections.append(_target_budget_plot(data, root))
+    return '\n'.join(sections)
+
+
 def generate_report(root: Path) -> Path:
     """Write a portable CSV and self-contained HTML report; make no API calls."""
     started = time.perf_counter()
@@ -493,6 +603,8 @@ def generate_report(root: Path) -> Path:
     runs = data["runs"]
     (root / "paired-comparisons.json").write_text(
         json.dumps(data["paired_comparisons"], indent=2, ensure_ascii=False), encoding="utf-8")
+    (root / "strategy-efficiency.json").write_text(json.dumps(
+        {name: aggregate['targets'] for name, aggregate in data['conditions'].items()}, indent=2), encoding='utf-8')
     fields = [key for row in runs for key in row if key not in
               ("best_curve", "postrun_accounting", "event_counts", "trace")]
     fields = list(dict.fromkeys(fields)) or ["run_id", "condition", "best_validation_auc"]
@@ -531,6 +643,7 @@ def generate_report(root: Path) -> Path:
                     "Early stops carry their last completed score to the scheduled deadline; no uncompleted work is credited. "
                     "Dotted vertical lines mark allowances; dashed horizontal lines mark frozen targets.</p>")
     sections.append(_plots(data, root) if runs else "<p>No run summaries found.</p>")
+    sections.append(_efficiency_section(data, root))
     sections.append("<h2>Matched condition comparisons</h2><p>Pairs share the frozen problem, data, objective, "
                     "allowance, training seed, repeat and every configuration setting except condition. "
                     "Protocol and lesson-memory variants remain separate. Duplicate units are excluded. "

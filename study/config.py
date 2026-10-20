@@ -34,12 +34,15 @@ class StudyConfig:
     literature_timeout_seconds: float = 15
     allow_unknown_cost: bool = False
     max_cores: int | None = None
+    device: str = 'auto'
     decision_protocol: str = "structured_v1"
     reasoning_policy: str = "grounded_v2"
     lesson_memory: bool = False
     memory_limit: int = 6
 
     def __post_init__(self):
+        if self.device not in ('auto', 'cpu', 'mps'):
+            raise ValueError('device must be auto, cpu, or mps')
         if self.reasoning_policy != "grounded_v2":
             raise ValueError("reasoning_policy must be grounded_v2")
         if self.decision_protocol != "structured_v1":

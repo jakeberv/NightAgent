@@ -29,6 +29,11 @@ def execute(request: dict) -> dict:
     from study.resources import worker_threads
     threads = worker_threads(request["config"]["model"], request.get("cores", 1))
     pipeline = (adapter.build_pipeline if adapter else build_pipeline)(request['config'], seed=request['seed'])
+    if request['config']['model'].startswith('torch_'):
+        import torch
+        from study.torch_models import resolve_device
+        torch.set_num_threads(request.get('cores', 1))
+        pipeline.steps[-1][1].set_params(device=resolve_device(request.get('device', 'cpu')))
     if request["config"]["model"] == "random_forest":
         pipeline.steps[-1][1].set_params(n_jobs=threads["jobs"])
     with np.load(request["train_path"], allow_pickle=False) as train, np.load(request["validation_path"], allow_pickle=False) as validation, threadpool_limits(limits=threads["blas"], user_api="blas"), threadpool_limits(limits=threads["openmp"], user_api="openmp"):
@@ -40,6 +45,9 @@ def execute(request: dict) -> dict:
             score = metrics[adapter.problem.objective['metric']]
     artifact = Path(request["artifact_path"])
     metadata = request["metadata"] | {"config": request["config"], "seed": request["seed"], "allocated_cores": request.get("cores", 1)}
+    estimator = pipeline.steps[-1][1]
+    if hasattr(estimator, 'training_diagnostics_'):
+        metadata['training_diagnostics'] = estimator.training_diagnostics_
     with tempfile.NamedTemporaryFile(dir=artifact.parent, suffix=".joblib.tmp", delete=False) as handle:
         temporary = Path(handle.name)
         try:
@@ -61,6 +69,8 @@ def execute(request: dict) -> dict:
     result = {'status': 'completed', 'artifact_hash': hashlib.sha256(artifact.read_bytes()).hexdigest()}
     from study.diagnostics import pipeline_effective_config
     result['actual_effective_config'] = pipeline_effective_config(pipeline, request['config'], n_features=int(pipeline.steps[-1][1].n_features_in_))
+    if hasattr(estimator, 'training_diagnostics_'):
+        result['fit_diagnostics'] = estimator.training_diagnostics_
     if request['config']['model'] == 'histogram_gradient_boosting':
         estimator = pipeline.steps[-1][1]
         # Report observed stopping behavior; this is not a diagnosis of

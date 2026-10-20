@@ -182,7 +182,7 @@ def test_worker_environment_excludes_secrets_and_receives_no_test_path(prepared,
     assert captured["env"]["OMP_NUM_THREADS"] == "1"
     assert captured["env"]["LOKY_MAX_CPU_COUNT"] == "1"
     assert captured["start_new_session"] is True
-    assert set(captured["request"]) == {"train_path", "validation_path", "artifact_path", "config", "seed", "metadata", "cores"}
+    assert set(captured["request"]) == {"train_path", "validation_path", "artifact_path", "config", "seed", "metadata", "cores", "device"}
     assert captured["request"]["train_path"] == str(prepared / "train.npz")
     assert captured["request"]["validation_path"] == str(prepared / "validation.npz")
 
