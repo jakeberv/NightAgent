@@ -4,7 +4,7 @@ Usage:
     python nightagent/run.py <project_dir>            # run the next phase (one meeting or one research week)
     python nightagent/run.py <project_dir> --all      # run phases until the supervisor signs off
     python nightagent/run.py <project_dir> --dry-run  # exercise the loop with fake agents (no API calls)
-    OPENROUTER_API_KEY=... python nightagent/run.py <project_dir> --provider openrouter   # bill OpenRouter instead
+    python nightagent/run.py <project_dir> --provider openrouter   # bill OpenRouter (key in .env or env)
 
 The project folder needs a QUESTION.md. On first use, the rest of nightagent/project-template/ is
 copied in. Protocols (STUDENT.md, MEETING.md, SUPERVISOR.md) and the private persona are read from
@@ -25,8 +25,8 @@ Design decisions:
   loads CLAUDE.md files or settings.json, so behaviour depends only on the files in nightagent/.
 - Billing: by default the agents use whatever Claude Code is logged in with (a Claude subscription) or
   ANTHROPIC_API_KEY. With --provider openrouter they are pointed at OpenRouter's Anthropic-compatible
-  endpoint instead, using OPENROUTER_API_KEY from the environment (never a command-line argument, so
-  the key stays out of shell history and process listings).
+  endpoint instead, using OPENROUTER_API_KEY from the environment or the repository's .env file
+  (never a command-line argument, so the key stays out of shell history and process listings).
 """
 
 from __future__ import annotations
@@ -54,6 +54,16 @@ DEFAULT_MODELS = {  # per provider; override with --model (OpenRouter uses its o
 }
 
 
+def load_dotenv(path: Path = CORE.parent / ".env") -> None:
+    """Load KEY=VALUE lines from the repository's .env (gitignored) without overriding the environment."""
+    if not path.is_file():
+        return
+    for line in path.read_text().splitlines():
+        key, sep, value = line.strip().partition("=")
+        if sep and key and not key.startswith("#"):
+            os.environ.setdefault(key.removeprefix("export ").strip(), value.strip().strip("'\""))
+
+
 def provider_env(provider: str) -> dict[str, str]:
     """Environment for the agents' Claude Code processes (merged over this process's environment).
 
@@ -63,9 +73,10 @@ def provider_env(provider: str) -> dict[str, str]:
     """
     if provider == "claude":
         return {}
+    load_dotenv()
     key = os.environ.get("OPENROUTER_API_KEY")
     if not key:
-        sys.exit("Error: --provider openrouter needs OPENROUTER_API_KEY set in the environment.")
+        sys.exit("Error: --provider openrouter needs OPENROUTER_API_KEY, in the environment or in .env.")
     return {"ANTHROPIC_BASE_URL": "https://openrouter.ai/api", "ANTHROPIC_AUTH_TOKEN": key, "ANTHROPIC_API_KEY": ""}
 
 
@@ -377,7 +388,7 @@ async def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="use fake agents (no API calls)")
     ap.add_argument("--provider", default="claude", choices=sorted(DEFAULT_MODELS),
                     help="who serves the model: your Claude login/ANTHROPIC_API_KEY (default), or OpenRouter "
-                         "(needs OPENROUTER_API_KEY in the environment)")
+                         "(needs OPENROUTER_API_KEY in the environment or .env)")
     ap.add_argument("--model", help="model for both agents (default depends on --provider)")
     ap.add_argument("--effort", default="high", choices=["low", "medium", "high", "xhigh", "max"])
     ap.add_argument("--max-meeting-messages", type=int, default=20,

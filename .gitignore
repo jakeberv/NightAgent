@@ -3,3 +3,4 @@ example-projects/*/*
 !example-projects/*/QUESTION.md
 .venv/
 __pycache__/
+.env

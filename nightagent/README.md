@@ -57,10 +57,10 @@ That runs the **next phase** only (first, the kickoff meeting) and stops, so you
 
 ### Using OpenRouter instead of a Claude login
 
-By default the agents use Claude Code's login (your Claude subscription) or `ANTHROPIC_API_KEY`. To bill an OpenRouter account instead, put your key in the environment (not on the command line) and add `--provider openrouter`:
+By default the agents use Claude Code's login (your Claude subscription) or `ANTHROPIC_API_KEY`. To bill an OpenRouter account instead, put your key in a `.env` file at the repository root (it is gitignored), or export `OPENROUTER_API_KEY` in your shell, and add `--provider openrouter`:
 
-```bash
-export OPENROUTER_API_KEY=your-key-here
+```
+OPENROUTER_API_KEY=your-key-here
 ```
 
 ```bash
