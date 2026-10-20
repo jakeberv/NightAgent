@@ -114,15 +114,17 @@ class ConsoleProgress:
         self.findings = Findings()
         self.states = {}
         self.resources = {}
-        self.previous_summary = ""
+        self.previous_summaries = {}
         self.task = None
 
     def __call__(self, event):
         if not self.enabled:
             return
         from .findings import Findings
-        self.findings = self.states.setdefault(event["run_id"], Findings())
-        self.findings.update(event)
+        state = self.states.setdefault(event["run_id"], Findings())
+        state.update(event)
+        if self.findings.run_id is None:
+            self.findings = state
         if event["type"] == "resources":
             self.resources = {key: event[key] for key in ("max_cores", "active_cores", "allocated_cores", "waiting")}
         if self.verbose:
@@ -133,10 +135,7 @@ class ConsoleProgress:
                 self.display.clear()
             except OSError:
                 self.enabled = False
-            self.show_summary(force=True)
-            active = [state for state in self.states.values() if not state.stopped]
-            if active:
-                self.findings = active[-1]
+            self.show_summary(force=True, state=state)
 
     def write(self, text):
         if text and self.enabled:
@@ -146,12 +145,15 @@ class ConsoleProgress:
                 # Losing a terminal/pipe must not invalidate saved experiments.
                 self.enabled = False
 
-    def show_summary(self, *, force=False):
+    def show_summary(self, *, force=False, state=None):
         if self.summary_interval and (force or self.verbose or not self.display.enabled):
-            text = self.findings.render()
-            if text != self.previous_summary:
-                self.write(text)
-                self.previous_summary = text
+            selected = [state] if state else ([self.findings] if self.display.enabled and not self.verbose
+                                             else list(self.states.values()))
+            for current in selected:
+                text = current.render()
+                if text != self.previous_summaries.get(current.run_id):
+                    self.write(text)
+                    self.previous_summaries[current.run_id] = text
 
     async def __aenter__(self):
         if self.summary_interval or self.display.enabled:
@@ -179,7 +181,12 @@ class ConsoleProgress:
                 next_summary = time.monotonic() + self.summary_interval
             try:
                 if self.resources:
-                    self.findings.resources = self.resources
-                self.display.draw(self.findings, detailed=not self.verbose)
+                    for state in self.states.values():
+                        # Shared pool totals apply to all views; allocation and
+                        # waiting status remain local to each strategy.
+                        state.resources.update({key: self.resources[key]
+                                                for key in ("max_cores", "active_cores")})
+                self.findings = self.display.draw(self.findings, detailed=not self.verbose,
+                                                 states=self.states) or self.findings
             except OSError:
                 self.enabled = False

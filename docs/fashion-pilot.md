@@ -148,7 +148,10 @@ ceiling and serialize neural fits on the GPU; GPU waiters hold no CPU allocation
 Five 5-minute allowances need at most three search waves (15 minutes), plus setup
 and report time. The five per-run USD 3 guards total USD 15 before possible final
 call overruns. Use the single-run command above for the shortest check. Interactive
-terminals show the self-updating dashboard by default; `--verbose` enables full
+terminals show Focus with live validation accuracy by default; press `f` for
+Details, `l` for the live log, `x` for time/cost/token axes, and `[` / `]` to
+select among concurrent runs. Each dot is a completed experiment and the step
+line tracks the best score, with configured targets marked. `--verbose` enables full
 streaming logs. Both commands retain full event logs and create an HTML report.
 
 

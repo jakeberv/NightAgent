@@ -240,9 +240,9 @@ a USD 3 guard, and periodic supervision with reflection.
 
 Live runs default to a responsive Rich dashboard in the alternate terminal screen,
 overwriting frames without a clear-before-redraw pass to reduce flicker. The normal
-screen and cursor are restored on exit. It includes a spinner, budget bars,
-best-result card, recent trials, score-history charts, findings, targets and usage.
-The research-lab header highlights the actual active role. At 100 columns or wider,
+screen and cursor are restored on exit. Focus is the default; Details adds budget
+bars, a best-result card, recent trials, diagnostics and usage.
+The Details research-lab header highlights the actual active role. At 100 columns or wider,
 each role has a distinct ASCII robot avatar; only a busy role animates. API waiting
 has no invented completion percentage. Disabled roles are labeled for the run's
 condition. With at least 76 columns and 33 terminal rows, an experiment notebook
@@ -264,25 +264,50 @@ All lab state comes from recorded events, adding no model calls or token usage;
 full rationale and configuration remain in the trace. New runs supply a short, validated summary within the existing agent response.
 Historical logs use complete sentences; if none fit, the notebook describes the
 recorded configuration change in a complete sentence. It never clips commentary in the middle of a sentence.
-Press **`f`** (no Enter) to toggle **Focus** and **Details** during a live run or
-`study watch`. Details remains the default. Focus uses one panel, one active
-avatar, the best score and target status, the latest discovery and experiment,
-and remaining time, API spending and CPU allocation. Its narrative shows the
-recorded agent hypothesis, proposed change and expected result in complete
-sentences, separately from measured validation scores. Recorded supervisor
-advice or reflection stays visible while the researcher considers the next
-experiment, with its source and trial number. Pending calls explain the role's
-purpose and show elapsed time for that call (reset on retry); they do not claim
-to stream the model's private thinking. When space is tight, explanations take
-priority over avatars and CPU detail. Long hypotheses fall back to the recorded
-short summary when it fits. This puts activity, results and constraints ahead
-of diagnostics; histories, token totals and the four-role
-map remain one keypress away in Details. The panel is capped at 96 columns to
-keep text readable on wide screens. Smaller windows drop whole low-priority
-blocks rather than cut sentences. Known-cost warnings and unsuccessful trial
-counts remain visible; the view does not estimate model thinking progress.
-The shortcut appears in the panel border when keyboard input is available.
-Switches reuse the same screen and do not change experiments, logs or API usage.
+**Focus is the default interactive view.** Press **`f`** (no Enter) to toggle
+Focus and Details during a live run or `study watch`. Focus puts the activity,
+best validation score, next target and gap above a live **experiment progress**
+chart. Each completed, scored trial adds a dot at its completion time. A step
+line shows the selected best so far, record-setting dots have distinct markers,
+and dashed lines show configured targets. Failed and unscored trials add no
+score; unsuccessful counts and failure messages remain visible.
+
+The chart uses the configured validation objective: accuracy/AUC rises when it
+improves; a minimization objective falls. This shows search progress across
+experiments, not epochs or training loss. Accuracy and its target gap are shown
+as percentages and percentage points; AUC retains its numeric scale. The progress
+sentence describes observed improvements or the number of trials without one;
+it never claims convergence.
+
+Press **`x`** to cycle the horizontal axis: elapsed time, cumulative API cost,
+and cumulative input + output tokens. Coordinates are snapshots at trial
+completion, including all earlier researcher/reviewer/reflection calls in that
+run. Cached and reasoning token subsets are not added twice. Missing/incomplete
+accounting omits that trial from the relevant axis and displays the omitted
+count; it never becomes a zero-cost point. Time uses the run allowance and cost
+the spending guard as initial bounds. Token bounds grow in powers of two.
+Vertical bounds are labelled and expand when needed, never shrink during a run.
+All completed observations are retained; close points may share a terminal cell,
+where record-setting points take precedence. There is no smoothing or extrapolation.
+
+Concurrent runs keep independent histories and accounting. The selected run stays
+fixed when other runs emit events or finish. Press **`[`** / **`]`** to select the
+previous/next run; the border identifies the run and its position. A completed
+selected run remains inspectable while other runs continue. All-run completion
+restores normal terminal output. These keys change only the display.
+
+Recorded agent hypotheses, supervisor advice and reflection remain attributed
+complete sentences. Pending calls explain the role's purpose and show elapsed
+time for that call (reset on retry); they do not stream private model thinking.
+Focus retains the latest lesson, time/cost limits and unsuccessful trial count.
+On small screens, whole secondary blocks and then the chart are removed before
+critical figures and warnings; the graph requires at least 60 columns and 23 rows.
+The panel is capped at 96 columns. Details retains the table, notebook, diagnostics
+and a larger chart when space permits. Markers and axis labels work without color;
+non-UTF-8 output uses ASCII plot marks. Plot content is cached between result events,
+and view changes reuse the alternate screen to retain Termius flicker protections.
+All of this is local, with no additional model calls or tokens.
+
 When lesson memory is enabled, **Focus includes the latest lesson**, labeled
 New, Updated or Superseded, its agent-assigned status, source role and supporting
 trial IDs. **Details includes a Lessons notebook**, newest revisions first, with
@@ -298,7 +323,7 @@ Keyboard input requires interactive POSIX stdin (macOS/Linux); redirected input,
 plain-text and verbose modes remain untouched. Ctrl+C keeps its normal behavior,
 and keyboard settings are restored when the display closes.
 
-The default dashboard includes a **Live log** box that follows the full readable
+Details includes a **Live log** box that follows the full readable
 log as events arrive. Wide terminals (132 columns or more) place it beside the
 overview; other terminals place it below. Very small terminals retain the compact
 status view. Long messages wrap and the viewport follows the newest lines. Press

@@ -128,22 +128,27 @@ cost, token usage, and whole-sentence supervisor commentary. The spinner refresh
 four times per second; measured findings update as events arrive. A moving spinner
 means the observer is responsive, not that the model has returned new work.
 
-Press **`f`** without Enter for a cleaner **Focus** view; press it again to return
-to **Details**. The border shows the shortcut when interactive keyboard input is
+**Focus** is the default. Press **`f`** without Enter to open **Details** or return
+to Focus. Press **`x`** to cycle elapsed time, API cost and token chart axes;
+**`[`** / **`]`** selects a run when strategies execute concurrently. The selected
+run stays fixed as other strategies emit events. The border shows the shortcut when interactive keyboard input is
 available. Focus keeps the active avatar, current activity, best score, targets,
-latest measured discovery, experiment explanation, time remaining, API spend and
-CPU allocation. It omits histories and token breakdowns. Both views use complete
+experiment progress chart, complete-sentence explanation, latest lesson, time
+remaining, API spend and CPU allocation. Details holds trial tables and token
+breakdowns. Both views use complete
 sentences for summaries and retain full content in the trace; fitting less text
 never means cutting a sentence midway. Changing views makes no API calls and
 does not affect the run. This also works with `study watch`. The keyboard shortcut
 is available with interactive stdin on macOS/Linux and does not consume piped
 input. Ctrl+C still interrupts normally and restores terminal settings.
 
-Budget bars show consumed time, attempted trials and known API spending. A separate
+In Details, budget bars show consumed time, attempted trials and known API spending. A separate
 best-result card reports validation score, improvement and targets. The recent
-experiment table labels new bests, ties, other results and failures. Two small
-charts show individual scores and best-so-far on one explicitly labeled scale;
-only the most recent 80 completed scored trials are retained for this view.
+experiment table distinguishes the current best, prior records, ties and failures.
+The live scatterplot retains all completed scored trials and overlays the selected
+best as a step line. Points use actual completion time or cumulative API accounting;
+unknown accounting is labelled and omitted from cost/token coordinates. Chart
+resolution is limited by terminal cells; close points may overlap.
 Failures remain visible in the table and do not receive invented chart scores.
 The findings card separates recorded comparisons from supervisor interpretation.
 Cards stack in narrow terminals; very small windows retain activity, score, cost
