@@ -129,21 +129,41 @@ def result_panel(state):
     return Panel(result, title="Best validation result", border_style="green", padding=(0, 1))
 
 
+def current_comparison(state, row):
+    """Compare to the selected leader now; keep historical outcomes immutable."""
+    if row['status'] != 'completed':
+        return row['status'], None, 'red'
+    if row['score'] is None:
+        return 'Unscored', None, 'dim'
+    best = best_score(state)
+    if best is None or row['outcome'] == 'Unselected':
+        return 'Pending', None, 'dim'
+    gap = row['score'] - best if state.objective['direction'] == 'minimize' else best - row['score']
+    if row['trial_id'] == state.best['trial_id']:
+        return 'Best now', gap, 'bold green'
+    if row['score'] == best:
+        return 'Tied best', gap, 'cyan'
+    return ('Prior best' if row['outcome'] == 'New best' else 'Behind'), gap, 'dim'
+
+
 def recent_panel(state, rows):
     table = Table(box=None, expand=True, padding=(0, 1), pad_edge=False, header_style="bold dim")
     table.add_column("Trial", width=5)
     table.add_column("Model", ratio=1, no_wrap=True, overflow="ellipsis")
     table.add_column("Score", justify="right", width=8)
-    table.add_column("Outcome", width=10)
+    table.add_column("Gap", justify="right", width=8)
+    table.add_column("Status", width=10)
     names = {"histogram_gradient_boosting": "Gradient boosting", "random_forest": "Random forest", "logistic": "Logistic", "ridge": "Ridge"}
     for row in list(state.recent)[-rows:]:
-        style = "red" if row["status"] != "completed" else "green" if row["outcome"] == "New best" else "cyan" if row["outcome"] == "Tied best" else "dim"
+        status, gap, style = current_comparison(state, row)
         model = row["config"].get("model", "—")
         table.add_row(str(row["trial_id"]), text(names.get(model, model)),
-                      "—" if row["score"] is None else f"{row['score']:.5f}", text(row["outcome"], style))
+                      "—" if row["score"] is None else f"{row['score']:.5f}",
+                      "—" if gap is None else f"{gap:.5f}", text(status, style))
     if not state.recent:
-        table.add_row("—", "Waiting for first trial", "—", "")
-    return Panel(table, title="Recent experiments", border_style="bright_black", padding=(0, 1))
+        table.add_row("—", "Waiting for first trial", "—", "—", "")
+    return Panel(table, title="Recent experiments", subtitle="Gap to best · smaller is closer",
+                 border_style="bright_black", padding=(0, 1))
 
 
 def role_strip(state, *, expanded=False, elapsed=0):
@@ -213,34 +233,46 @@ def trial_trail(state, width=116):
         if index:
             trail.append(" ─ ", "dim")
         failed = row["status"] != "completed"
-        new = row["outcome"] == "New best"
-        tied = row["outcome"] == "Tied best"
-        trail.append(f"{'×' if failed else '★' if new else '=' if tied else '·'}{row['trial_id']}",
-                     "red" if failed else "green" if new else "cyan" if tied else "dim")
+        status, _, style = current_comparison(state, row)
+        marker = ('×' if failed else '★' if status == 'Best now' else '↑' if status == 'Prior best'
+                  else '=' if status == 'Tied best' else '·')
+        trail.append(f"{marker}{row['trial_id']}", style)
     return trail
 
 
-def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False, logs=False):
+def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False, logs=False, lessons=True):
     """Fit the available terminal; small terminals retain activity, score and cost."""
     if focus:
         from .focus import focus_dashboard
         return focus_dashboard(state, width=width, height=height, shortcut=shortcut)
+    from .live_lessons import visible, lesson_panel
+    show_lessons = lessons and visible(state)
     if logs and width >= 40 and height >= 14:
         from .live_log import log_panel
+        def log_area(area_width, area_height):
+            area = Layout()
+            if show_lessons and area_width >= 50 and area_height >= 11:
+                lesson_height = min(14, max(6, area_height // 2))
+                log_height = area_height - lesson_height
+                area.split_column(Layout(log_panel(state, log_height, shortcut=shortcut), size=log_height),
+                    Layout(lesson_panel(state, width=area_width, height=lesson_height), size=lesson_height))
+            else:
+                area.update(log_panel(state, area_height, shortcut=shortcut))
+            return area
         layout = Layout()
         if width >= 132 and height >= 24:
             log_width = max(48, width * 2 // 5)
             layout.split_row(Layout(dashboard(state, width=width - log_width, height=height,
-                spinner=spinner, shortcut=shortcut), name="overview"),
-                Layout(log_panel(state, height, shortcut=shortcut), size=log_width))
+                spinner=spinner, shortcut=shortcut, lessons=False), name="overview"),
+                Layout(log_area(log_width, height), size=log_width))
         else:
             log_height = max(5, min(14, height // 3))
             overview_height = height - log_height
             if overview_height < 23 or (width < 76 and overview_height < 29):
                 log_height = height - 8
             layout.split_column(Layout(dashboard(state, width=width, height=height - log_height,
-                spinner=spinner, shortcut=shortcut), name="overview"),
-                Layout(log_panel(state, log_height, shortcut=shortcut), size=log_height))
+                spinner=spinner, shortcut=shortcut, lessons=False), name="overview"),
+                Layout(log_area(width, log_height), size=log_height))
         return layout
     elapsed = elapsed_now(state)
     activity = state.activity.replace(" model call in progress", " API").replace("local ", "")
@@ -262,12 +294,16 @@ def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False
     stations_expanded = expanded and width >= 100 and height >= 34
     header_height = 6 if stations_expanded else 4
     notebook_height = 6 if expanded else 0
-    recent_height = min(8, max(4, height - header_height - notebook_height - metrics_height - 4 - 6))
+    fixed_height = header_height + notebook_height + metrics_height
+    chart_height = 0 if show_lessons and height - fixed_height - 4 < 11 else 4
+    recent_height = min(8, max(4, height - fixed_height - chart_height - (7 if show_lessons else 6)))
     sections = [Layout(name="header", size=header_height)]
     if expanded:
         sections.append(Layout(name="experiment", size=notebook_height))
-    sections.extend([Layout(name="metrics", size=metrics_height), Layout(name="recent", size=recent_height),
-                     Layout(name="chart", size=4), Layout(name="findings")])
+    sections.extend([Layout(name="metrics", size=metrics_height), Layout(name="recent", size=recent_height)])
+    if chart_height:
+        sections.append(Layout(name="chart", size=chart_height))
+    sections.append(Layout(name="findings"))
     layout.split_column(*sections)
     status = Text(no_wrap=True, overflow="ellipsis")
     status.append(activity, "bold cyan")
@@ -290,7 +326,12 @@ def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False
     else:
         layout["metrics"].split_column(Layout(budget(state, elapsed), size=8), Layout(result_panel(state)))
     layout["recent"].update(recent_panel(state, max(1, recent_height - 3)))
-    layout["chart"].update(Panel(score_chart(state, width - 4), title="Validation trend · shared scale", border_style="bright_black", padding=(0, 1)))
+    if chart_height:
+        layout["chart"].update(Panel(score_chart(state, width - 4), title="Validation trend · shared scale", border_style="bright_black", padding=(0, 1)))
+    if show_lessons:
+        layout["findings"].update(lesson_panel(state, width=width,
+            height=height - fixed_height - recent_height - chart_height))
+        return layout
     from .focus import fitting_summary
     facts = Text()
     observed = fitting_summary(state.fact, width - 4 - len("Observed: "), 1,

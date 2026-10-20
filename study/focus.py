@@ -124,6 +124,9 @@ def focus_dashboard(state, *, width, height, shortcut=False):
     if state.lab.busy and state.lab.phase_started is not None:
         pending = "Local work" if state.lab.role == "local" else "API response pending"
         add(f"{pending} · {duration(max(0, elapsed - state.lab.phase_started))} elapsed", "dim", 2)
+    from .live_lessons import visible, focus_lesson
+    if visible(state):
+        add(focus_lesson(state, inner, lines=4 if height >= 24 else 2), "cyan", 0 if state.lessons.latest else 2)
     add("", priority=4)
     heading, explanation, fallback = narrative(state)
     if heading:

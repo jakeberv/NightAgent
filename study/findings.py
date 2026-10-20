@@ -21,8 +21,10 @@ class Findings:
     def __init__(self):
         from .lab import Lab
         from .live_log import LogBuffer
+        from .live_lessons import LessonFeed
         self.lab = Lab()
         self.log = LogBuffer()
+        self.lessons = LessonFeed()
         self.run_id = None
         self.elapsed = 0
         self.event_at = None
@@ -65,6 +67,8 @@ class Findings:
         if "accounting" in event:
             self.accounting = event["accounting"]
         self.lab.update(event, self)
+        if kind == "lesson_memory":
+            self.lessons.update(event.get("lessons", []), source=event.get("role") or self.lab.role)
         if kind == "model_call_started":
             self.activity = f"{event.get('role', 'agent')} model call in progress"
         elif kind == "model_call":

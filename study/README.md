@@ -218,8 +218,13 @@ the comparison is unavailable instead of substituting another trial. More space 
 stations; use a 100-column, 35-row window or larger for a demo.
 Measured discoveries announce new bests, ties, targets and unsuccessful trials,
 with a brief sparkle for improvements and target crossings. The connected trial
-trail uses `★` for new best, `=` for tied best, `×` for unsuccessful and `·` for other
-completed trials. Compact windows prioritize activity, scores, budgets and findings.
+trail uses `★` for the current best, `↑` for a prior record, `=` for a current tie,
+`×` for unsuccessful and `·` for other completed trials. The recent-experiment
+table labels **Best now**, **Prior best**, **Tied best**, or **Behind**, and shows
+the score gap to the current leader (smaller is closer, for both maximization and
+minimization). Failed/unscored/pending trials retain explicit statuses and no gap.
+Historical record-setting events remain intact in the trace.
+Compact windows prioritize activity, scores, budgets and findings.
 All lab state comes from recorded events, adding no model calls or token usage;
 full rationale and configuration remain in the trace. New runs supply a short, validated summary within the existing agent response.
 Historical logs use complete sentences; if none fit, the notebook describes the
@@ -243,6 +248,17 @@ blocks rather than cut sentences. Known-cost warnings and unsuccessful trial
 counts remain visible; the view does not estimate model thinking progress.
 The shortcut appears in the panel border when keyboard input is available.
 Switches reuse the same screen and do not change experiments, logs or API usage.
+When lesson memory is enabled, **Focus includes the latest lesson**, labeled
+New, Updated or Superseded, its agent-assigned status, source role and supporting
+trial IDs. **Details includes a Lessons notebook**, newest revisions first, with
+scope when it fits. Unchanged snapshots do not count as new learning; evicted
+lessons leave the display and a new run starts empty. Only accepted memory events
+enter the notebook. Lessons are agent interpretations, not verified conclusions.
+The view uses complete sentences and points to `lessons.json` when a sentence or
+the rest of the notebook cannot fit. Tiny Details windows retain the compact
+status view; Focus remains available with `f`. Waiting memory shows an empty state;
+disabled memory adds no panel. Existing events drive both live runs and replay in
+`study watch`, with no added API calls or tokens.
 Keyboard input requires interactive POSIX stdin (macOS/Linux); redirected input,
 plain-text and verbose modes remain untouched. Ctrl+C keeps its normal behavior,
 and keyboard settings are restored when the display closes.

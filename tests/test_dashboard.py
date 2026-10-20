@@ -52,6 +52,44 @@ def test_trial_history_and_outcomes_support_minimization_and_reset():
     assert not state.recent and not state.history
 
 
+@pytest.mark.parametrize('direction', ['maximize', 'minimize'])
+def test_recent_table_distinguishes_current_leader_from_prior_records_and_gaps(direction):
+    from study.terminal import recent_panel
+    state = sample(direction)
+    stream = io.StringIO()
+    Console(file=stream, width=100, color_system=None).print(recent_panel(state, 6))
+    output = stream.getvalue()
+    assert 'Best now' in output and 'Prior best' in output and 'Behind' in output
+    assert 'Gap' in output and '0.00200' in output and '0.00100' in output
+    assert 'New best' not in output
+    # Historical record-setting events remain available to the trail and replay.
+    assert [row['outcome'] for row in state.recent] == ['New best', 'New best', 'Not best']
+
+
+def test_current_comparison_handles_ties_failures_and_pending_selection():
+    from study.terminal import recent_panel
+    state = sample()
+    state.update({'type': 'trial_finished', 'run_id': 'magic-pilot', 'result': {
+        'trial_id': 4, 'status': 'completed', 'score': .933}})
+    def output():
+        stream = io.StringIO()
+        Console(file=stream, width=100, color_system=None).print(recent_panel(state, 8))
+        return stream.getvalue()
+    assert 'Pending' in output()
+    state.update({'type': 'selection', 'run_id': 'magic-pilot', 'best': state.best})
+    assert 'Tied best' in output()
+    state.update({'type': 'trial_finished', 'run_id': 'magic-pilot', 'result': {
+        'trial_id': 5, 'status': 'timeout'}})
+    assert 'timeout' in output() and output().count('Best now') == 1
+
+
+def test_trial_trail_marks_only_current_leader_with_a_star():
+    from study.terminal import trial_trail
+    trail = trial_trail(sample()).plain
+    assert '↑1' in trail and '★2' in trail and '·3' in trail
+    assert trail.count('★') == 1
+
+
 def test_chart_labels_bounds_and_never_invents_missing_scores():
     from study.terminal import score_chart
     state = sample()
