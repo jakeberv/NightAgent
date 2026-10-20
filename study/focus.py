@@ -87,20 +87,22 @@ def narrative(state):
         if guidance.get('stage') == 'framing':
             heading = 'Supervisor framing'
         contract = guidance["contract"]
-        fields = (("Assessment", "assessment"), ("Suggested next test", "recommendation"),
+        fields = (("Observed", "assessment"), ("Suggested next test", "recommendation"),
                   ("Open question", "unresolved_question")) if guidance["role"] == "supervisor" else (
-                      ("Learning", "what_changed"), ("Suggested next test", "next_comparison"),
+                      ("Observed", "what_changed"), ("Suggested next test", "next_comparison"),
                       ("Uncertainty", "uncertainty"))
         rows = [(label, contract.get(key), 1 if index < 2 else 2)
                 for index, (label, key) in enumerate(fields) if contract.get(key)]
+        if contract.get("comparison_scope"):
+            rows.append(("Comparison limits", contract["comparison_scope"], 1))
         if guidance['role'] == 'supervisor':
             alternatives = contract.get('alternative_explanations', [])
             if alternatives:
-                rows.append(('Alternatives', ' '.join(alternatives), 2))
+                rows.append(('Hypotheses', ' '.join(alternatives), 2))
             rows.extend((label, contract[key], 2) for label, key in (
-                ('Motivation', 'motivation'), ('Hypothesis', 'hypothesis'),
-                ('Cross-field connection', 'cross_field_connection'),
-                ('Expected', 'expected_outcome'), ('Would weaken it', 'falsifying_outcome'),
+                ('Rationale (unverified)', 'motivation'), ('Hypothesis', 'hypothesis'),
+                ('Analogy (unverified)', 'cross_field_connection'),
+                ('Prediction (unverified)', 'expected_outcome'), ('Would weaken it', 'falsifying_outcome'),
                 ('Resource limits', 'resource_check')) if contract.get(key))
         summary = contract.get("summary") or guidance["summary"]
         return heading, rows or [("Agent interpretation", summary, 1)], summary
@@ -112,7 +114,7 @@ def narrative(state):
     rows = [("Agent hypothesis" if intent.get("hypothesis") else "Agent summary",
              intent.get("hypothesis") or lab.rationale, 1),
             ("Change", intent.get("change"), 2),
-            ("Expected", intent.get("expected_outcome"), 2)]
+            ("Prediction (unverified)", intent.get("expected_outcome"), 2)]
     if not any(value for _, value, _ in rows):
         rows = [("Comparison", experiment_summary(lab), 1)]
     return f"{heading}: trial {lab.trial_id} · {model}", rows, lab.rationale or experiment_summary(lab)

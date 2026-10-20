@@ -57,6 +57,7 @@ def contract_schema(role, memory=False, *, supervisor_strategy='night_science', 
     else:
         raise ValueError(f"Unknown contract role: {role}")
     required = list(properties)
+    properties.update(interpretation_status={'const': 'unverified'}, comparison_scope=prose(240))
     if memory:
         properties["lesson_updates"] = {"type": "array", "maxItems": 2, "items": deepcopy(LESSON)}
     return {"type": "object", "properties": properties, "required": required,
@@ -67,6 +68,8 @@ def request_contract_schema(role, memory=False, *, supervisor_strategy='night_sc
     """Model input contains references; measurements and interpretation labels are harness-owned."""
     schema = contract_schema(role, memory, supervisor_strategy=supervisor_strategy, framing=framing)
     schema['properties']['evidence'] = deepcopy(EVIDENCE_REFERENCES)
+    for field in ('interpretation_status', 'comparison_scope'):
+        del schema['properties'][field]
     if memory:
         lesson = schema['properties']['lesson_updates']['items']
         lesson['properties']['evidence'] = {**deepcopy(EVIDENCE_REFERENCES), 'minItems': 1}
@@ -282,7 +285,7 @@ def observed_scope(evidence, history):
     return result if len(result) <= 240 else fallback
 
 
-def ground_contract(contract, history):
+def ground_contract(contract, history, *, targets=(), capacity=None):
     """Generate factual lessons and demote recognizable unsupported assertions.
 
     Invoke only after schema and citation validation. Explicit hypothesis and
@@ -301,8 +304,74 @@ def ground_contract(contract, history):
                         'reason': 'Single-split observations do not establish this broader conclusion.'})
         return True
 
-    for field in ('summary', 'assessment', 'what_changed', 'change', 'expected_outcome', 'response_reason'):
-        replace_field(result, field, field, result.get('evidence', []))
+    def assign(field, value, reason):
+        if result.get(field) != value:
+            changes.append({'field': field, 'original': result.get(field),
+                            'replacement': value, 'reason': reason})
+            result[field] = value
+
+    # Facts are derived from cited records, not a vocabulary-based truth test.
+    # Plans and predictions remain unverified, including conditional causal ideas.
+    if 'summary' in result:
+        result['interpretation_status'] = 'unverified'
+        if result.get('evidence'):
+            result['comparison_scope'] = observed_scope(result['evidence'], history)
+        for field in ('assessment', 'what_changed'):
+            if field in result:
+                assign(field, observed_summary(result.get('evidence', [])),
+                       'Factual observations are generated from cited measurements.')
+        if 'assessment' in result or 'what_changed' in result:
+            assign('summary', observed_summary(result.get('evidence', [])),
+                   'Factual observations are generated from cited measurements.')
+        else:
+            # Researcher summaries describe a plan; obvious factual overclaims
+            # still become observations, while hypothesis/expected fields survive.
+            for field in ('summary', 'change', 'response_reason'):
+                replace_field(result, field, field, result.get('evidence', []))
+
+    # Replace target commentary sentence-by-sentence using measured state. This
+    # keeps independent action sentences; originals remain in contract_grounded.
+    def normalize_targets(text, field):
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        normalized = []
+        for sentence in sentences:
+            matches = []
+            for target in targets:
+                label = target['name'].replace('_', ' ')
+                names = [target['name'], label, label.split()[-1]]
+                number = re.search(r'(?<![\d.])' + re.escape(f"{target['threshold']:g}") + r'(?![\d.])', sentence)
+                named = any(re.search(r'\b' + re.escape(name) + r'\b', sentence, re.I) for name in names)
+                target_language = re.search(r'\b(target|threshold|goal|milestone|stretch)\b', sentence, re.I)
+                if (named and target_language) or (number and re.search(r'\b(target|reach|approach|gap|headroom)\w*\b', sentence, re.I)):
+                    matches.append(target['sentence'])
+            factual_status = re.search(r'\b(?:(?:still need to|yet to) (?:reach|achieve|meet)|(?:has|have)(?: not)? (?:yet )?(?:been )?(?:reached|achieved|met)|(?:not yet|already) (?:reached|achieved|met))\b', sentence, re.I)
+            purpose = None
+            if matches and field in ('recommendation', 'next_comparison', 'summary', 'change'):
+                # Keep an action before a target-purpose clause, e.g. "Test X
+                # to approach the stretch target." Never invent an experiment.
+                purpose = re.search(r'\s+(?:(?:to|and)\s+(?:reach|approach|meet|exceed|achieve|attain)\w*|towards?)\s+(?:the\s+)?(?=(?:\d|stretch|milestone|calibration))', sentence, re.I)
+                if purpose and not factual_status:
+                    normalized.append(sentence[:purpose.start()].rstrip(' ,;:.') + '.')
+            # A target mention alone is not a factual attainment assertion.
+            # Preserve proposed actions and questions without a separable clause.
+            normalized.extend(matches if matches and (purpose or factual_status) else [sentence])
+        unique = list(dict.fromkeys(normalized))
+        limit = 240 if field == 'summary' else 500
+        chosen = []
+        for sentence in unique:
+            if len(' '.join(chosen + [sentence])) <= limit:
+                chosen.append(sentence)
+        return ' '.join(chosen) or 'The full proposal is retained in the trace; use the recorded target status.'
+
+    for field, value in list(result.items()):
+        if isinstance(value, str) and field in ('summary', 'assessment', 'what_changed',
+                                                   'recommendation', 'next_comparison', 'change', 'response_reason'):
+            assign(field, normalize_targets(value, field), 'Target statements use measured attainment, not agent arithmetic.')
+        # Alternative explanations remain distinct unverified hypotheses.
+        # Replacing their content with target status would erase the alternatives.
+    if 'resource_check' in result and capacity:
+        assign('resource_check', capacity['sentence'],
+               'Capacity is estimated by the runner including scheduled API calls.')
     for index, lesson in enumerate(result.get('lesson_updates', [])):
         interpretation = lesson.setdefault('interpretation', {
             'status': 'unverified', 'summary': lesson['summary'], 'scope': lesson['scope']})
@@ -373,9 +442,16 @@ With ten input features, sqrt and log2 both select three candidate features;
 changing other parameters at the same time does not isolate their effect.
 Use fit_diagnostics when present: max_iter is a ceiling, not the number of iterations
 actually trained. Early stopping before that ceiling does not establish underfitting.
-The current context includes remaining_trials, remaining_seconds and observed
-mean_model_call_seconds. Account for API calls and scheduled reviews/reflections;
-local fit duration alone does not estimate how many experiments remain feasible.
+The context supplies target_status with measured reached/pending states and gaps.
+Use this state; never describe a reached target as still ahead. Keep target status
+out of experiment recommendations; specify the action in a separate sentence.
+capacity_estimate is a runner calculation including scheduled API calls, reviews,
+reflections and observed local trial/queue durations. Do not estimate trial capacity
+from fit time alone or equate mean_model_call_seconds with local training time.
+An unavailable estimate means timing evidence is insufficient, not unlimited time.
+Plans, explanations and predictions are unverified hypotheses. Factual summary,
+assessment and what_changed fields are replaced with cited observations by the
+runner; comparison_scope records which settings changed and any confounding.
 Project metadata and recent trials are already in context. Researchers must submit
 the next experiment through run_analysis.
 """ + ("""You may provide at most two lesson_updates based on completed trials. Retain

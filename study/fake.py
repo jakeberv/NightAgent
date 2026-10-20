@@ -41,7 +41,7 @@ def scripted_contract(role, context):
     common = {"summary": "The scripted agent is comparing model capacity using recorded validation results.",
               "evidence": evidence}
     if role == "researcher":
-        has_feedback = context.get("last_supervisor_feedback") is not None
+        has_feedback = context.get("last_supervisor_feedback") is not None or context.get("initial_framing") is not None
         common.update(hypothesis="A different model capacity may improve validation performance.",
             baseline_trial_id=latest["trial_id"] if evidence else None,
             change="Run the next classifier in the fixed offline demonstration sequence.",

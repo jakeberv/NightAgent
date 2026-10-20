@@ -7,7 +7,7 @@ import math
 
 import sklearn
 
-DIAGNOSTICS_VERSION = 1
+DIAGNOSTICS_VERSION = 2
 
 
 def _feature_count(project):
@@ -69,6 +69,9 @@ def describe_experiment(config, *, problem, project, seed):
     pipeline = (adapter.build_pipeline if adapter else build_pipeline)(config, seed=seed)
     n_features = _feature_count(project)
     effective = pipeline_effective_config(pipeline, config, n_features=n_features)
+    # Constructor defaults do not describe the worker's training backend.
+    # Actual execution remains in actual_effective_config and fit_diagnostics.
+    effective["params"].pop("device", None)
     objective = problem.objective if generic else {'metric': 'roc_auc', 'direction': 'maximize'}
     provenance = {
         'diagnostics_version': DIAGNOSTICS_VERSION,

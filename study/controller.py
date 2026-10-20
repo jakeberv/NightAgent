@@ -54,12 +54,13 @@ def tools_for(role, config, problem=None):
 
 
 def agent_result(result):
-    return {key: value for key, value in result.items()
-            if key not in ("artifact", "artifact_hash", "fingerprint", "provenance")}
+    from .run_context import compact_result
+    return compact_result(result)
 
 
 def agent_project(project):
     """Describe generated feature indexes exactly without repeating a large name list."""
+    project = {k: v for k, v in project.items() if k != 'analysis_schema'}
     names = project.get('feature_names', [])
     if len(names) > 32 and names == [f'feature_{index:04d}' for index in range(len(names))]:
         return {**{key: value for key, value in project.items() if key != 'feature_names'},
@@ -190,6 +191,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     feedback = reflection = initial_framing = None
     accounting = Accounting()
     model_seconds = 0.0
+    call_durations = {}
     summary = initial_summary(config, problem, data_fingerprint)
     started = time.monotonic()
     deadline = started + config.allowance_seconds
@@ -212,14 +214,24 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
         if summary["trials"] >= config.trial_cap:
             raise StopRun("trial_cap")
 
+    from .run_context import target_status, capacity_estimate, compact_feedback, compact_lessons
+
+    def measured_targets():
+        return target_status(problem.targets, problem.objective, summary['best'], summary['target_selections'])
+
+    def capacity(role, framing=False, phase_completed=False):
+        return capacity_estimate(config, attempted=summary['trials'], remaining=remaining(),
+            history=history, call_durations=call_durations, role=role, framing=framing,
+            phase_completed=phase_completed)
+
     def context(role=None, *, framing=False):
         return json.dumps({"project": agent_project(project), "recent_trials": [agent_result(row) for row in history[-config.history_trials:]],
-            **({"permitted_experiments": permitted_experiments,
-                "supervisor_strategy": 'standard' if framing else config.supervisor_strategy,
+            **({"permitted_experiments": permitted_experiments} if role in ("supervisor", "reflection") else {}),
+            **({"supervisor_strategy": 'standard' if framing else config.supervisor_strategy,
                 "supervisor_stage": 'framing' if framing else 'review'} if role == "supervisor" else {}),
-            "best": agent_result(summary["best"] or {}), "last_supervisor_feedback": feedback,
-            "initial_framing": initial_framing,
-            "last_explicit_reflection": reflection, "trials_attempted": summary["trials"],
+            "best": agent_result(summary["best"] or {}), "last_supervisor_feedback": compact_feedback(feedback) if feedback != initial_framing else None,
+            "initial_framing": compact_feedback(initial_framing),
+            "last_explicit_reflection": compact_feedback(reflection), "trials_attempted": summary["trials"],
             "trial_cap": config.trial_cap, "remaining_trials": max(0, config.trial_cap - summary["trials"]),
             "remaining_seconds": max(0, remaining()), "accounting": accounting.snapshot(),
             "trial_timeout_seconds": config.trial_timeout_seconds,
@@ -228,7 +240,8 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             "review_every_trials": config.review_every, "reflection_after_each_trial": config.reflection,
             "objective": problem.objective,
             "targets": {target["name"]: target["value"] for target in problem.targets},
-            **({"lessons": memory.snapshot()} if config.lesson_memory else {})},
+            "target_status": measured_targets(), "capacity_estimate": capacity(role, framing),
+            **({"lessons": compact_lessons(memory.snapshot())} if config.lesson_memory else {})},
             allow_nan=False)
 
     async def model_call(role, messages, tools, *, framing=False):
@@ -269,7 +282,9 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                 if attempt == config.model_retries:
                     raise StopRun("model_failure") from error
                 continue
-            model_seconds += time.monotonic() - begin
+            duration = time.monotonic() - begin
+            model_seconds += duration
+            call_durations.setdefault(role, []).append(duration)
             accounting.add(response.get("usage"))
             journal.emit("model_call", role=role, attempt=attempt, status="completed",
                          response=response, usage=response.get("usage"),
@@ -284,8 +299,14 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             journal.emit("lesson_memory", lessons=memory.snapshot())
             atomic_json(run_dir / "lessons.json", {"scope": "this run only", "lessons": memory.snapshot()})
 
-    def ground_accepted(contract, role):
-        contract, changes = ground_contract(contract, history=history)
+    def ground_accepted(contract, role, *, framing=False):
+        contract, changes = ground_contract(contract, history=history, targets=measured_targets(),
+                                            capacity=capacity(role, framing, phase_completed=True))
+        errors = validate_contract(contract, role, history, has_feedback=feedback is not None,
+            memory=config.lesson_memory, supervisor_strategy=config.supervisor_strategy, framing=framing)
+        if errors:
+            journal.emit("failure", error="Runner-generated contract failed validation", details=errors)
+            raise StopRun("invalid_grounded_contract")
         if changes:
             journal.emit("contract_grounded", role=role, adjustments=changes)
         return contract
@@ -318,7 +339,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         errors = validate_contract(contract, role, history,
                             has_feedback=feedback is not None, memory=config.lesson_memory, **protocol)
                         if not errors:
-                            contract = ground_accepted(contract, role)
+                            contract = ground_accepted(contract, role, framing=framing)
                     except (ValueError, TypeError) as error:
                         errors = [str(error)]
                     journal.emit(role + "_contract", after_trial=summary["trials"],
@@ -462,6 +483,8 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                     if role == "supervisor" and other_calls >= config.review_tool_calls:
                         tools = []
                         schemas = {}
+                except StopRun:
+                    raise
                 except Exception as error:
                     detail = error.message if isinstance(error, jsonschema.ValidationError) else str(error)
                     result = {"error": f"{type(error).__name__}: {detail}"}
@@ -530,14 +553,14 @@ def recover_run(run_dir):
     if frozen_path.exists():
         frozen = json.loads(frozen_path.read_text())
         recorded_config = frozen["config"]
-        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1", "reasoning_policy": "grounded_v2", "supervisor_policy": "supervision_v2"})
+        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1", "reasoning_policy": "grounded_v3", "supervisor_policy": "supervision_v2"})
         data_fingerprint = frozen.get("data_fingerprint", data_fingerprint)
         problem = ProblemSpec.from_dict(frozen["problem"])
         if problem.fingerprint != frozen["problem_hash"]:
             raise ValueError("Frozen run problem fingerprint does not match")
     else:
         recorded_config = json.loads((run_dir / "config.json").read_text())
-        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1", "reasoning_policy": "grounded_v2", "supervisor_policy": "supervision_v2"})
+        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1", "reasoning_policy": "grounded_v3", "supervisor_policy": "supervision_v2"})
         if (run_dir / "problem.json").exists():
             problem = ProblemSpec.from_dict(json.loads((run_dir / "problem.json").read_text()))
         else:

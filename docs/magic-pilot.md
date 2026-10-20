@@ -317,7 +317,7 @@ if either fails or returns no useful results/text. It makes no model calls.
 The literature strategy remains optional retrieval: forcing browsing would be a
 different treatment and must be recorded separately.
 
-Current pilots use `grounded_v2`: agents cite trial IDs and metric names, while
+Current pilots use `grounded_v3`: agents cite trial IDs and metric names, while
 the runner supplies exact measurements; lesson facts are generated from recorded
 comparisons and explanations remain unverified interpretations. Equivalent
 configurations return prior observations without another fit or trial slot.

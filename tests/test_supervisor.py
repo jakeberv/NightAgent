@@ -91,7 +91,8 @@ def test_kickoff_precedes_first_experiment_only_in_supervised_conditions(tmp_pat
         assert len(framed) == 1 and framed[0]['after_trial'] == 0
         assert framed[0]['contract']['evidence'] == []
         first = model.observed[1][1]
-        assert first['initial_framing'] == first['last_supervisor_feedback'] == framed[0]['contract']
+        assert first['initial_framing'] == framed[0]['contract']
+        assert first['last_supervisor_feedback'] is None  # Framing is sent once.
         decision = next(e['contract'] for e in events if e['type'] == 'decision_contract' and e['valid'])
         assert decision['supervisor_response'] != 'not_applicable'
         assert summary['accounting']['calls'] == 2
@@ -175,11 +176,11 @@ def test_kickoff_and_review_fields_are_visible_in_live_narrative_and_report(tmp_
         tmp_path / 'run', FakeModel(), trial_runner=trial, project={}, progress=observe))
     heading, rows, _ = narratives[0]
     assert heading == 'Supervisor framing'
-    assert {label for label, _, _ in rows} >= {'Motivation', 'Hypothesis', 'Open question'}
+    assert {label for label, _, _ in rows} >= {'Rationale (unverified)', 'Hypothesis', 'Open question'}
     heading, rows, _ = narratives[1]
     assert heading == 'Supervisor advice after trial 1'
     assert {label for label, _, _ in rows} >= {
-        'Alternatives', 'Cross-field connection', 'Would weaken it', 'Resource limits', 'Motivation'}
+        'Hypotheses', 'Analogy (unverified)', 'Would weaken it', 'Resource limits', 'Rationale (unverified)'}
     row = build_report_data(tmp_path / 'run')['runs'][0]
     framing = next(e for e in row['trace'] if e['type'] == 'framing')
     assert framing['contract']['motivation'] and framing['contract']['hypothesis']
