@@ -23,6 +23,10 @@ Design decisions:
   never given it, and a hook blocks the student's tool calls that name the persona file.
 - Isolation from the machine's own Claude Code configuration: setting_sources=[] means neither agent
   loads CLAUDE.md files or settings.json, so behaviour depends only on the files in nightagent/.
+- Containment: the owner's own Claude Code policy is applied explicitly (SANDBOX, PERMISSIONS): Bash
+  runs in the OS sandbox (writes only inside the project) with no way to opt out, bypass-permissions
+  mode is off, and reads outside the project folder are blocked. The student runs in "dontAsk" mode,
+  so anything that would need a human's approval is denied rather than waiting.
 - Billing: by default the agents use whatever Claude Code is logged in with (a Claude subscription) or
   ANTHROPIC_API_KEY. With --provider openrouter they are pointed at OpenRouter's Anthropic-compatible
   endpoint instead, using OPENROUTER_API_KEY from the environment or the repository's .env file
@@ -52,6 +56,18 @@ DEFAULT_MODELS = {  # per provider; override with --model (OpenRouter uses its o
     "claude": "claude-opus-5-5",
     "openrouter": "~anthropic/claude-opus-latest[1m]",  # OpenRouter's alias; [1m] = 1M-token context
 }
+# The repository owner's Claude Code policy (~/.claude/settings.json), applied explicitly to both agents
+# because setting_sources=[] skips that file: Bash always runs in the OS sandbox with no escape hatch,
+# bypass-permissions mode is off, and tools can't read outside the project folder.
+SANDBOX = {
+    "enabled": True,
+    "failIfUnavailable": True,  # refuse to start rather than run unsandboxed
+    "allowUnsandboxedCommands": False,  # no dangerouslyDisableSandbox
+}
+PERMISSIONS = {"blockReadsOutsideWorkingDirectories": True, "disableBypassPermissionsMode": "disable"}
+# With bypass mode off, the student runs in "dontAsk": these tools are allowed, anything else is denied.
+STUDENT_TOOLS = ["Bash", "Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep",
+                 "WebSearch", "WebFetch", "TodoWrite"]
 
 
 def load_dotenv(path: Path = CORE.parent / ".env") -> None:
@@ -176,18 +192,22 @@ class Agent:
     def options(self):
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
-        # Both agents work in the project folder and ignore local Claude Code config (see docstring).
-        common = dict(cwd=str(self.project), setting_sources=[], model=self.model, effort=self.effort, env=self.env)
+        # Both agents work in the project folder, ignore local Claude Code config and run under the
+        # sandbox and permission policy above (see docstring).
+        common = dict(cwd=str(self.project), setting_sources=[], model=self.model, effort=self.effort, env=self.env,
+                      sandbox=SANDBOX, settings=json.dumps({"permissions": PERMISSIONS}))
         if self.role == "student":
             # Student: Claude Code's normal coding-agent prompt plus all three public protocols, so it
             # understands the whole process (including how the supervisor works), but not the persona.
-            # It runs unattended, so it needs full permissions (bypassPermissions) to install packages
-            # and run experiments. The Agent tool is removed so it cannot simulate a supervisor, and a
-            # PreToolUse hook (guard_student) checks every tool call.
+            # It runs unattended in "dontAsk" mode: STUDENT_TOOLS are pre-approved, Bash runs in the
+            # sandbox, and anything that would need a human's approval is denied. The Agent tool is
+            # removed so it cannot simulate a supervisor, and a PreToolUse hook (guard_student) checks
+            # every tool call.
             prompt = "\n\n".join([read("STUDENT.md"), read("MEETING.md"), read("SUPERVISOR.md")])
             return ClaudeAgentOptions(
                 system_prompt={"type": "preset", "preset": "claude_code", "append": prompt},
-                permission_mode="bypassPermissions",
+                permission_mode="dontAsk",
+                allowed_tools=STUDENT_TOOLS,
                 disallowed_tools=["Agent", "Task"],
                 hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[self.guard_student])]},
                 **common,
@@ -209,7 +229,7 @@ class Agent:
         - Any tool call whose arguments name the persona file is denied (Read, Grep, Bash `cat`, ...).
           This is best-effort: a shell glob that never spells the name would get past it.
         - File-tool writes (Write/Edit/...) outside the project folder are denied. Shell commands are
-          not sandboxed, so Bash writes elsewhere are prevented only by the student's instructions.
+          also stopped by the sandbox (SANDBOX), which confines Bash writes to the project folder.
         """
         tool, args = hook_input["tool_name"], hook_input["tool_input"]
         reason = None

@@ -20,7 +20,7 @@ The NightAgent application: the protocols that define a research student and its
 - **Separate agents:** the student and supervisor are separate sessions. The orchestrator relays each message verbatim and writes `meetings/MNN-transcript.md` itself, so the record of the meetings is neutral.
 - **Persona privacy:** the persona goes only into the supervisor's instructions. A hook also blocks any student tool call that names the persona file (best-effort: it checks the file name, so it is not a sandbox).
 - **Read-only supervisor:** the supervisor has only Read, Grep and Glob.
-- **Contained student:** the hook blocks file-tool writes outside the project folder, and the student can't use the Agent tool, so it can't simulate a supervisor. Shell commands are not sandboxed; staying inside the folder there relies on the student's instructions.
+- **Contained student:** both agents run under the repository owner's Claude Code policy, applied explicitly in `run.py` (`SANDBOX`, `PERMISSIONS`): shell commands run in the OS sandbox (writes only inside the project folder) with no way to opt out, bypass-permissions mode is off, and reads outside the project folder are blocked, which also keeps the persona out of reach. The student runs in `dontAsk` mode with a fixed tool list, so anything that would need approval is denied. The hook also blocks file-tool writes outside the project, and the student can't use the Agent tool, so it can't simulate a supervisor.
 - **Isolation from local settings:** both sessions ignore `CLAUDE.md` files and Claude Code settings on the machine (`setting_sources=[]`).
 - **Neutral sign-off:** the project ends only when the supervisor's own words in the transcript contain "Signed off".
 - **Errors stop the run:** if an agent's turn fails or produces no reply, the phase stops (nothing is relayed) and can be retried by running the command again.
@@ -76,7 +76,7 @@ Caveats:
 
 If a research phase stops without writing its brief, run the same command again: a fresh session picks up from the files.
 
-**The student runs unattended with full permissions** (`bypassPermissions`) inside the project folder: it installs packages and runs code there. A hook stops it writing outside the folder, but shell commands are not sandboxed. Run it on a machine where that is acceptable.
+**The student runs unattended** inside the project folder: it installs packages and runs code there without asking. Its shell commands run in the OS sandbox (macOS Seatbelt or Linux bubblewrap) and the run refuses to start if the sandbox is unavailable. Network access from the sandbox follows Claude Code's defaults; WebSearch and WebFetch are tools, not shell commands, so the sandbox does not cover them.
 
 ## How a run works
 
