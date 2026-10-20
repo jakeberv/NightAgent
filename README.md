@@ -18,32 +18,32 @@ After feedback, extract at most three actions or lessons. Check each for unclear
 
 ## Minimal prototype
 
-Following [autoresearch](https://github.com/karpathy/autoresearch), agent behaviour is defined in plain-language protocols, and Claude Code does the work. A small Python orchestrator ([prototype/run.py](prototype/run.py), using the Claude Agent SDK) runs a **student** and a **supervisor** as separate Claude Code sessions and relays the supervision meetings between them. The human only writes the question and starts the run. Memory is markdown files in the project folder.
+Following [autoresearch](https://github.com/karpathy/autoresearch), agent behaviour is defined in plain-language protocols, and Claude Code does the work. A small Python orchestrator ([nightagent/run.py](nightagent/run.py), using the Claude Agent SDK) runs a **student** and a **supervisor** as separate Claude Code sessions and relays the supervision meetings between them. The human only writes the question and starts the run. Memory is markdown files in the project folder.
 
 ### Repository layout
 
 This repository defines the agents and how they work. It does not store project work: the only project content kept here is each example project's starting `QUESTION.md` (enforced by `.gitignore`).
 
-- [nightagent/](nightagent/): how the agents behave.
+- [nightagent/](nightagent/): the NightAgent application: the agents' protocols and the orchestrator that runs them. See its [README](nightagent/README.md).
   - [STUDENT.md](nightagent/STUDENT.md): how the student works: phases, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
   - [MEETING.md](nightagent/MEETING.md): the meeting protocol: brief → present → feedback → clarification → agreed actions (about a week of student effort) → minutes and memory. Ends with a final meeting where the supervisor reviews the report.
   - [SUPERVISOR.md](nightagent/SUPERVISOR.md): how the supervisor behaves: checks the evidence, gives concise feedback, confirms actions, reviews the final report, signs off. Both agents read it, so the student understands the whole process.
   - [supervisor-persona.md](nightagent/supervisor-persona.md): what the supervisor values as good research. **Private to the supervisor**: the student is blocked from reading it, so it has to learn these values through meetings.
+  - [run.py](nightagent/run.py): the orchestrator. It runs the student and supervisor as separate Claude Code sessions, relays meetings between them and writes the transcripts.
   - [project-template/](nightagent/project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human, written in the supervisor's voice (the supervisor treats it as its own); the rest is the skeleton the agents work in (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`).
-- [prototype/](prototype/): the orchestrator that runs a project. See its [README](prototype/README.md).
 - [example-projects/](example-projects/): example projects, each starting with just `QUESTION.md`. [mnist/](example-projects/mnist/): "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
 
 ### Running a project
 
 ```bash
-python3 -m venv prototype/.venv && prototype/.venv/bin/pip install -r prototype/requirements.txt
+python3 -m venv nightagent/.venv && nightagent/.venv/bin/pip install -r nightagent/requirements.txt
 ```
 
 ```bash
-prototype/.venv/bin/python prototype/run.py example-projects/mnist
+nightagent/.venv/bin/python nightagent/run.py example-projects/mnist
 ```
 
-Each run executes the next phase (first the kickoff meeting) and stops; `--all` continues until the supervisor signs off. For a new question, create `example-projects/<name>/` with a filled-in copy of `nightagent/project-template/QUESTION.md`. Details, options and the safety notes are in the [prototype README](prototype/README.md).
+Each run executes the next phase (first the kickoff meeting) and stops; `--all` continues until the supervisor signs off. For a new question, create `example-projects/<name>/` with a filled-in copy of `nightagent/project-template/QUESTION.md`. Details, options and the safety notes are in the [nightagent README](nightagent/README.md).
 
 ### How the loop works
 
@@ -53,7 +53,7 @@ The outer loop is supervision meetings, where the supervisor steers. The inner l
 SETUP (human, once per project)
   mkdir example-projects/<name>; write QUESTION.md in the supervisor's voice
       (question, context, what "best" means, constraints); optional data/code
-  run prototype/run.py on that folder
+  run nightagent/run.py on that folder
 
 EACH RUN (orchestrator)
   copy any missing template files into the project (never overwrites)
@@ -118,7 +118,7 @@ The scientific task, dataset, analysis script, and role owners are still open. C
 - [NOTES.md](NOTES.md): design rationale, evaluation details, candidate tasks, and open decisions.
 - [Shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z): collaborative spec draft.
 
-Status as of 19 October 2026: orchestrator prototype with student and supervisor agents (`nightagent/`, `prototype/`, MNIST example project) on branch `dev-ben2`; kickoff run on MNIST; no evaluation results yet. Next, choose an accessible task and script, assign owners, and build the fixed baseline before adding the adaptive loop.
+Status as of 19 October 2026: orchestrator prototype with student and supervisor agents (`nightagent/`, MNIST example project) on branch `dev-ben2`; kickoff run on MNIST; no evaluation results yet. Next, choose an accessible task and script, assign owners, and build the fixed baseline before adding the adaptive loop.
 
 ## Name and guiding ideas
 

@@ -11,7 +11,7 @@ You alternate between two phases:
 
 ## Running the project
 
-The NightAgent orchestrator (`prototype/run.py`) runs the project one phase at a time, each in a fresh session, and tells you the current phase in its first message. A human operator starts the orchestrator but gives no research feedback: that is the supervisor's job. The orchestrator chooses the phase from `meetings/`:
+The NightAgent orchestrator (`nightagent/run.py`) runs the project one phase at a time, each in a fresh session, and tells you the current phase in its first message. A human operator starts the orchestrator but gives no research feedback: that is the supervisor's job. The orchestrator chooses the phase from `meetings/`:
 
 | State of `meetings/` (check in this order) | Next step |
 |---|---|

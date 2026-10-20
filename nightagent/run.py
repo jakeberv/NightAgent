@@ -1,13 +1,13 @@
 """NightAgent orchestrator: runs a student agent and a supervisor agent as separate Claude Code sessions.
 
 Usage:
-    python prototype/run.py <project_dir>            # run the next phase (one meeting or one research week)
-    python prototype/run.py <project_dir> --all      # run phases until the supervisor signs off
-    python prototype/run.py <project_dir> --dry-run  # exercise the loop with fake agents (no API calls)
+    python nightagent/run.py <project_dir>            # run the next phase (one meeting or one research week)
+    python nightagent/run.py <project_dir> --all      # run phases until the supervisor signs off
+    python nightagent/run.py <project_dir> --dry-run  # exercise the loop with fake agents (no API calls)
 
 The project folder needs a QUESTION.md. On first use, the rest of nightagent/project-template/ is
 copied in. Protocols (STUDENT.md, MEETING.md, SUPERVISOR.md) and the private persona are read from
-nightagent/; they describe how the orchestrator runs meetings and phases.
+this folder; they describe how the orchestrator runs meetings and phases.
 """
 
 from __future__ import annotations
@@ -23,8 +23,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parent.parent
-CORE = ROOT / "nightagent"
+CORE = Path(__file__).resolve().parent
 PERSONA = CORE / "supervisor-persona.md"
 TEMPLATE_SKIP = {".gitkeep", ".DS_Store"}
 END_MARKER = "END MEETING"

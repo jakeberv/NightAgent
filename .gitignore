@@ -1,5 +1,5 @@
 # Project work never belongs in this repo: only each example project's starting QUESTION.md.
 example-projects/*/*
 !example-projects/*/QUESTION.md
-prototype/.venv/
+.venv/
 __pycache__/

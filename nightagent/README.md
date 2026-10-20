@@ -1,8 +1,18 @@
-# NightAgent orchestrator
+# NightAgent
 
-`run.py` runs a NightAgent project. It drives the **student and the supervisor as separate Claude Code sessions** through the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk), and runs the meetings between them.
+The NightAgent application: the protocols that define a research student and its supervisor, and the orchestrator that runs them on a project.
 
-The agents' behaviour comes from [`../nightagent/`](../nightagent/): the protocols (`STUDENT.md`, `MEETING.md`, `SUPERVISOR.md`), the private persona (`supervisor-persona.md`) and `project-template/`. Each project is one folder, e.g. [`../example-projects/mnist/`](../example-projects/mnist/).
+| File | What it is |
+|---|---|
+| [STUDENT.md](STUDENT.md) | How the student works: phases, research-week procedure, night science principles, memory and reproducibility rules, the living paper |
+| [MEETING.md](MEETING.md) | The supervision meeting protocol, including the final report review |
+| [SUPERVISOR.md](SUPERVISOR.md) | How the supervisor behaves (public: both agents read it) |
+| [supervisor-persona.md](supervisor-persona.md) | What the supervisor values (private: only the supervisor sees it) |
+| [project-template/](project-template/) | The files every project starts with; `QUESTION.md` is the one the human fills in |
+| [run.py](run.py) | The orchestrator |
+| [requirements.txt](requirements.txt) | Its one dependency, the Claude Agent SDK |
+
+`run.py` drives the **student and the supervisor as separate Claude Code sessions** through the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk), and runs the meetings between them. Each project is one folder, e.g. [`../example-projects/mnist/`](../example-projects/mnist/).
 
 ## What the orchestrator guarantees
 
@@ -19,13 +29,13 @@ The agents' behaviour comes from [`../nightagent/`](../nightagent/): the protoco
 The Agent SDK ships its own Claude Code CLI, so a Python package is all you need (Python 3.10+). Run from the repository root:
 
 ```bash
-python3 -m venv prototype/.venv && prototype/.venv/bin/pip install -r prototype/requirements.txt
+python3 -m venv nightagent/.venv && nightagent/.venv/bin/pip install -r nightagent/requirements.txt
 ```
 
 It authenticates the same way Claude Code does: an existing `claude` login (e.g. after installing Claude Code and running `claude` once), or `ANTHROPIC_API_KEY` in the environment. Check with:
 
 ```bash
-prototype/.venv/bin/python -c "import claude_agent_sdk, pathlib, subprocess; subprocess.run([str(pathlib.Path(claude_agent_sdk.__file__).parent / '_bundled' / 'claude'), 'auth', 'status'])"
+nightagent/.venv/bin/python -c "import claude_agent_sdk, pathlib, subprocess; subprocess.run([str(pathlib.Path(claude_agent_sdk.__file__).parent / '_bundled' / 'claude'), 'auth', 'status'])"
 ```
 
 ## Running
@@ -33,7 +43,7 @@ prototype/.venv/bin/python -c "import claude_agent_sdk, pathlib, subprocess; sub
 The project folder only needs a `QUESTION.md`:
 
 ```bash
-prototype/.venv/bin/python prototype/run.py example-projects/mnist
+nightagent/.venv/bin/python nightagent/run.py example-projects/mnist
 ```
 
 That runs the **next phase** only (first, the kickoff meeting) and stops, so you can read the transcript before continuing. Run it again for each next phase. Options:
@@ -50,7 +60,7 @@ If a research phase stops without writing its brief, run the same command again:
 ## How a run works
 
 ```
-init:      copy missing nightagent/project-template files into the project (never overwrites)
+init:      copy missing project-template files into the project (never overwrites)
 next phase (from meetings/):
   minutes contain "Signed off"    → done
   no M00 minutes                  → meeting M00
