@@ -90,8 +90,18 @@ API waits and sharing the training budget. Researcher, supervisor and reflection
 calls within each run retain their required order. The USD guard remains **per
 run**, so two active runs each have their own allowance. Queue waiting consumes
 the run/trial time allowance but is excluded from recorded training wall time.
-The trace records allocations and queue durations; the dashboard CPU bar shows
-allocated capacity rather than sampled CPU utilization. During a suite the
+The trace records allocations and queue durations. The dashboard's **Host CPU**
+bar measures this machine's total CPU utilization once per second, including
+other applications; 100% means all logical CPUs are busy. **CPU hist** shows up
+to 30 measured samples on a fixed 0–100% scale (about 30 seconds), alongside a
+separately labeled `allocated` training-slot count. Allocation is not utilization:
+slots can be reserved during worker startup or IO, and usually drop to zero
+while awaiting API responses. The initial measurement shows `sampling`;
+unavailable readings stay unknown. Host CPU is display-only data, requires no API
+calls, and does not change scheduling. The `watch` display measures the machine
+running the watcher, while allocation counts come from the watched trace.
+Install the updated dependency lock to include `psutil` in older environments.
+During a suite the
 dashboard identifies the focused run, keeping its score and usage separate.
 Use the same resource policy for all runs in a strategy comparison, and record
 that concurrent runs compete for machine resources.

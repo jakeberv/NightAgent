@@ -25,6 +25,7 @@ class Findings:
         self.allowance = 0
         self.config = {}
         self.resources = {}
+        self.cpu = {}
         self.problem_id = ""
         self.recent = deque(maxlen=12)
         self.history = deque(maxlen=80)
@@ -63,7 +64,11 @@ class Findings:
             self.activity = f"{event.get('role', 'agent')} model call {event['status']}"
         elif kind == "trial_started":
             self.activity = f"local trial {event['trial_id']} in progress"
+            if self.config.get("max_cores") is None:
+                self.resources = {"max_cores": 1, "active_cores": 1}
         elif kind == "trial_finished":
+            if self.config.get("max_cores") is None:
+                self.resources = {"max_cores": 1, "active_cores": 0}
             result = event["result"]
             self.activity = f"trial {result['trial_id']} {result['status']}"
             score = result.get("score", result.get("validation_auc"))
@@ -116,6 +121,8 @@ class Findings:
             self.accounting = summary.get("accounting", self.accounting)
             self.activity = f"stopped: {summary['stop_reason']}"
             self.stopped = True
+            if self.config.get("max_cores") is None:
+                self.resources = {"max_cores": 1, "active_cores": 0}
         elif kind == "resources":
             self.resources = {key: event[key] for key in ("max_cores", "active_cores", "allocated_cores", "waiting")}
             if event["waiting"]:

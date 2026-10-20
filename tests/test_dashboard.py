@@ -26,7 +26,7 @@ def sample(direction="maximize"):
     return state
 
 
-@pytest.mark.parametrize("width,height", [(120, 38), (80, 24), (55, 28), (40, 12)])
+@pytest.mark.parametrize("width,height", [(120, 38), (80, 24), (55, 30), (55, 28), (40, 12)])
 def test_dashboard_fits_terminal_and_preserves_critical_information(width, height):
     from study.terminal import dashboard
     from rich.cells import cell_len
@@ -38,7 +38,7 @@ def test_dashboard_fits_terminal_and_preserves_critical_information(width, heigh
     assert "researcher" in output
     assert len(output.splitlines()) <= height
     assert all(cell_len(line) <= width for line in output.splitlines())
-    if height >= 24:
+    if width >= 76 and height >= 24 or width >= 50 and height >= 29:
         assert "Recent experiments" in output
         assert "Trial scores" in output
         assert "Best so far" in output

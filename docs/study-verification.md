@@ -211,3 +211,24 @@ tool schemas.
   preservation, and disabling escape sequences for pipes/plain-text mode. Scoped
   review found no material issue. The user's Termius session was not directly
   inspected; verification targets the reproduced clear-before-redraw behavior.
+
+## Dynamic host CPU indicator
+
+- The former CPU bar only displayed allocated training slots. The dashboard now
+  separately shows measured host CPU utilization, up to 30 recent samples on a
+  fixed 0–100% scale, and allocated slots. Narrow views keep the newest samples.
+  Serial runs without `max_cores` track their one-slot allocation too.
+- The display-only `psutil` sampler reads once per second without blocking,
+  discards its initial non-interval reading, and clears stale values after a read
+  failure. It includes other applications on the observer machine; it does not
+  claim per-run utilization or alter core scheduling. Pipes/quiet/verbose modes
+  do not sample. No telemetry is sent to an API or added to agent context.
+- A four-sample live local probe measured **16.4–47.0%** host CPU; each read took
+  under **0.3 ms**. Dashboard layouts were checked at 120, 80, 55 and 40 columns,
+  including a rendered 80-column preview. No paid inference or held-out scoring
+  was used. The project environment and lock include `psutil==7.2.2`.
+- Full suite: **279 passed in 46.28 seconds**. Compilation, whitespace and
+  dependency compatibility checks passed. Tests cover interval sampling,
+  failures/recovery, bounded history, missing dependencies, live updates without
+  experiment events, narrow history cropping, serial allocations and preserving
+  the flicker fix. Scoped review found no material issue.

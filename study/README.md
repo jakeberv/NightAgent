@@ -123,7 +123,14 @@ thread ceiling. The runner automatically grants up to four threads per fit,
 bounded by available capacity and logical CPUs, and prevents nested native
 thread pools from multiplying the allocation. A suite also overlaps up to two
 independent runs, sharing that budget while API requests wait. Dependent agent
-calls within each run remain sequential. The dashboard shows allocated cores;
+calls within each run remain sequential. The dashboard separately shows allocated
+training slots and actual **Host CPU** utilization (all applications on the local
+machine), measured once per second with a 30-sample history on a fixed 0–100%
+scale. Sampling makes no API calls and is disabled for non-graphical output.
+The first reading is `sampling`; failed readings are `unavailable`, not zero.
+The same display works without `--max-cores`, using the serial allocation count.
+In `watch`, host measurements describe the observer machine; allocations describe
+the recorded run. Host measurements are transient display data;
 traces preserve queue duration and allocation. Waiting counts against deadlines
 but not training wall time. API spending limits remain per run. Without a
 configured ceiling, execution retains the sequential single-thread baseline.

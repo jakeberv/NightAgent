@@ -40,6 +40,31 @@ def best_score(state):
     return state.best.get("score", state.best.get("validation_auc")) if state.best else None
 
 
+def cpu_label(state):
+    value = state.cpu.get("percent")
+    return f"{value:.0f}%" if value is not None else state.cpu.get("status", "sampling")
+
+
+def cpu_history(state, width=30):
+    return "".join("·" if value is None else "▁▂▃▄▅▆▇█"[round(value * 7 / 100)]
+                   for value in state.cpu.get("history", [])[-max(1, width):]) or "—"
+
+
+class CPUHistory:
+    def __init__(self, state):
+        self.state = state
+
+    def __rich_console__(self, console, options):
+        # Crop the oldest samples, so narrow budget cards remain current.
+        yield text(cpu_history(self.state, options.max_width), "cyan", no_wrap=True)
+
+
+def allocation_label(state):
+    ceiling = state.resources.get("max_cores", min(state.config.get("max_cores") or 1, os.cpu_count() or 1))
+    active = state.resources.get("active_cores", 0)
+    return f"{active}/{ceiling} allocated"
+
+
 def score_chart(state, width):
     """Two sparklines with shared explicit bounds; at most one column per trial."""
     points = list(state.history)[-max(1, width - 36):]
@@ -60,7 +85,7 @@ def score_chart(state, width):
 
 def budget(state, elapsed):
     table = Table.grid(padding=(0, 1), expand=True)
-    table.add_column(style="dim", width=6)
+    table.add_column(style="dim", width=8)
     table.add_column(ratio=1)
     table.add_column(justify="right")
     for label, value, limit, detail, style in (
@@ -74,12 +99,11 @@ def budget(state, elapsed):
         bar = ProgressBar(total=limit or 1, completed=min(value, limit or 1), width=None,
                           complete_style=style, finished_style=style)
         table.add_row(label, bar, text(detail, style))
-    if state.config.get("max_cores"):
-        resources = state.resources
-        ceiling = resources.get("max_cores", state.config["max_cores"])
-        active = resources.get("active_cores", 0)
-        table.add_row("CPU", ProgressBar(total=ceiling, completed=active, complete_style="cyan"),
-                      text(f"{active} / {ceiling} cores", "cyan"))
+    value = state.cpu.get("percent")
+    table.add_row("Host CPU", ProgressBar(total=100, completed=value or 0, complete_style="cyan")
+                  if value is not None else Text("—"), text(cpu_label(state), "cyan"))
+    table.add_row("CPU hist", CPUHistory(state),
+                  text(allocation_label(state), "dim"))
     table.add_row("Tokens", Text(""), text(
         f"{state.accounting.get('input_tokens', 0):,} in / {state.accounting.get('output_tokens', 0):,} out" +
         (" ?" if state.accounting and not state.accounting.get("token_usage_complete") else ""), "dim"))
@@ -127,14 +151,17 @@ def dashboard(state, *, width, height, spinner=None):
     elapsed = elapsed_now(state)
     activity = state.activity.replace(" model call in progress", " API").replace("local ", "")
     score = best_score(state)
-    if width < 50 or height < 23 or (width < 76 and height < 27):
+    if width < 50 or height < 23 or (width < 76 and height < 29):
         return Panel(Group(text(activity, "cyan", no_wrap=True),
             text(f"Best {score:.5f}" if score is not None else "No selected model yet", "bold green"),
             text(cost_label(state), "yellow" if not state.accounting.get("cost_complete") else "cyan"),
-            text(f"Time {duration(elapsed)}/{duration(state.allowance)} · {state.completed} ok", "dim")),
+            text(f"Time {duration(elapsed)}/{duration(state.allowance)} · {state.completed} ok", "dim"),
+            text(f"Host CPU {cpu_label(state)}", "cyan"),
+            text(f"{allocation_label(state)} · {cpu_history(state, width-7-len(allocation_label(state)))}",
+                 "dim", no_wrap=True, overflow="crop")),
             title="NIGHTAGENT", border_style="cyan", height=min(8, height))
     layout = Layout()
-    metrics_height = (6 if width >= 76 else 12) + bool(state.config.get("max_cores"))
+    metrics_height = 8 if width >= 76 else 14
     recent_height = min(8, max(4, height - 3 - metrics_height - 4 - 4))
     layout.split_column(Layout(name="header", size=3), Layout(name="metrics", size=metrics_height),
         Layout(name="recent", size=recent_height), Layout(name="chart", size=4), Layout(name="findings"))
@@ -152,7 +179,7 @@ def dashboard(state, *, width, height, spinner=None):
     if width >= 76:
         layout["metrics"].split_row(Layout(budget(state, elapsed)), Layout(result_panel(state)))
     else:
-        layout["metrics"].split_column(Layout(budget(state, elapsed), size=6 + bool(state.config.get("max_cores"))), Layout(result_panel(state)))
+        layout["metrics"].split_column(Layout(budget(state, elapsed), size=8), Layout(result_panel(state)))
     layout["recent"].update(recent_panel(state, max(1, recent_height - 3)))
     layout["chart"].update(Panel(score_chart(state, width - 4), title="Validation trend · shared scale", border_style="bright_black", padding=(0, 1)))
     facts = Text()
@@ -175,6 +202,7 @@ class StatusLine:
         self.console = Console(file=stream, force_terminal=self.enabled, markup=False, highlight=False)
         self.live = None
         self.spinner = Spinner("dots", style="cyan")
+        self.cpu = None
 
     def clear(self):
         if self.live is not None:
@@ -191,6 +219,10 @@ class StatusLine:
             return
         size = self.console.size
         if detailed:
+            if self.cpu is None:
+                from .cpu import HostCPU
+                self.cpu = HostCPU()
+            state.cpu = self.cpu.sample()
             content = dashboard(state, width=size.width, height=max(1, size.height - 1), spinner=self.spinner)
         else:
             self.spinner.update(text=text(f"{state.activity} | {duration(elapsed_now(state))}/{duration(state.allowance)} | {state.completed} ok | {cost_label(state)}", "cyan"))
