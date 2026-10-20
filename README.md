@@ -2,6 +2,15 @@
 
 NightAgent is a friendly AI apprentice that learns from our interactions and puts that learning into action.
 
+## Controlled experimental study
+
+The [study runner](study/README.md) implements the updated five-condition,
+equal-wall-time classification experiment using OpenRouter. It includes
+bounded classifier tools, scheduled supervision/reflection, supervisor-only
+literature access, isolated held-out evaluation, and offline verification.
+See its README for setup, the MAGIC feasibility pilot, and the overnight CLI.
+The conversational prototype below remains available separately.
+
 ## What we are building
 
 A supervised research apprentice for scientists. A supervisor sets the research direction, reviews results, and gives feedback; NightAgent performs analyses with tools and carries confirmed lessons into later work. Learning changes its stored context, not its model weights. In the current prototype the supervisor is itself an agent: the scientist writes the research question, and the supervisor's values are defined in a private persona.

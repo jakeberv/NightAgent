@@ -4,3 +4,7 @@ example-projects/*/*
 .venv/
 __pycache__/
 .env
+.pytest_cache/
+study-data/
+study-runs/
+.superpowers/
