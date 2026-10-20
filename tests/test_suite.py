@@ -19,25 +19,41 @@ def test_suite_requires_full_equal_allowances_and_reserve_before_any_call(tmp_pa
     assert called == []
 
 
-def test_suite_interleaves_all_conditions_with_matched_seeds_and_frozen_manifest(tmp_path):
+@pytest.mark.parametrize("seed", [42, 2**32 - 2])
+def test_suite_interleaves_all_conditions_with_matched_seeds_and_frozen_manifest(tmp_path, seed):
     configs = []
     async def runner(config, data_dir, run_dir, model):
         configs.append(config)
         run_dir.mkdir(parents=True)
         return {"stop_reason": "trial_cap"}
     directory = tmp_path / "suite"
-    asyncio.run(run_suite(StudyConfig(allowance_seconds=1), tmp_path, directory,
+    asyncio.run(run_suite(StudyConfig(allowance_seconds=1, training_seed=seed), tmp_path, directory,
         repeats=2, deadline=datetime.now(timezone.utc) + timedelta(seconds=60),
         reserve_seconds=5, model_factory=lambda config: None, runner=runner))
     assert len(configs) == 10
     for repeat in range(2):
         group = [c for c in configs if c.repeat == repeat]
         assert {c.condition for c in group} == set(CONDITIONS)
-        assert {c.training_seed for c in group} == {42 + repeat}
+        assert {c.training_seed for c in group} == {seed + repeat}
         assert {c.allowance_seconds for c in group} == {1}
     manifest = json.loads((directory / "suite.json").read_text())
     assert len(manifest["schedule"]) == 10
     assert manifest["reserve_seconds"] == 5
+
+
+def test_suite_rejects_repeat_seed_overflow_before_any_run(tmp_path):
+    calls = []
+    directory = tmp_path / "suite"
+    async def runner(config, data_dir, run_dir, model):
+        calls.append(config)
+        return {"stop_reason": "trial_cap"}
+    with pytest.raises(ValueError, match="training_seed"):
+        asyncio.run(run_suite(StudyConfig(training_seed=2**32 - 1, allowance_seconds=1),
+            tmp_path, directory, repeats=2,
+            deadline=datetime.now(timezone.utc) + timedelta(seconds=60),
+            reserve_seconds=5, model_factory=lambda config: calls.append(config), runner=runner))
+    assert calls == []
+    assert not directory.exists()
 
 
 def test_accounting_does_not_double_count_cached_or_reasoning_tokens():
