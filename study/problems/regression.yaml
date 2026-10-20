@@ -1,0 +1,19 @@
+schema_version: 1
+id: synthetic-regression-smoke
+task: tabular_regression
+brief: Predict the continuous synthetic response from numerical features; this is an offline implementation smoke problem.
+dataset:
+  format: synthetic
+  n_samples: 1000
+  n_features: 10
+  noise: 10
+evaluation:
+  split: {method: random_holdout, train: 0.6, validation: 0.2, test: 0.2, seed: 42}
+  objective: {metric: rmse, direction: minimize}
+  additional_metrics: [mae, r2]
+targets:
+  - {name: useful, value: 15}
+  - {name: strong, value: 11}
+search_space:
+  preset: tabular_regression_small
+  models: [ridge, random_forest, histogram_gradient_boosting]

@@ -1,0 +1,18 @@
+schema_version: 1
+id: local-classification
+task: tabular_classification
+brief: Predict the label from the numerical feature columns in the supplied local table.
+dataset:
+  format: csv
+  path: ./classification.csv
+  header: true
+  target_column: target
+evaluation:
+  split: {method: stratified_holdout, train: 0.6, validation: 0.2, test: 0.2, seed: 42}
+  objective: {metric: accuracy, direction: maximize}
+  additional_metrics: [macro_f1]
+targets:
+  - {name: useful, value: 0.8}
+search_space:
+  preset: tabular_classification_small
+  models: [logistic, random_forest, histogram_gradient_boosting]

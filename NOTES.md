@@ -125,6 +125,37 @@ The following sections record earlier proposals and rationale. Where they differ
 
 **Earlier direction:** the team initially proposed a human-supervised apprentice, then considered an autonomous experiment improver and an agent supervisor with a generic task. The current spec adopts researcher–supervisor roles for bounded classification experiments.
 
+### Operational pilot audit — 20 October 2026
+
+Reviewed `magic-pilot-20261020-164827`: 12 successful local fits in 266.896 seconds,
+31 completed model calls, complete $0.950805 accounting. Best validation AUC
+0.9326917831 was trial 6, tied by trial 9. All artifact hashes and 26 accepted
+contracts verified; this was validation-only, without held-out scoring.
+
+Found an execution/interpretation mismatch: trial 8 described all features but
+sent integer `max_features=1`, which the saved RF estimator interpreted as one
+candidate feature. The numeric enum had accepted both 1 and 1.0. New requests
+use explicit `sqrt`, `log2`, or `all`; numeric spellings are rejected, and `all`
+maps to float 1.0. Both adapters are version 2; the new MAGIC prepared directory
+is `study-data/magic-profile-v2`, with identical split arrays and updated provenance.
+Historical trials and their scores remain unmodified.
+
+Two supervisor responses needed repairs solely for prose surrounding fenced JSON.
+The additional calls consumed 12.831 seconds and $0.075930. Reviews now accept one
+unambiguous wrapped JSON object locally, while malformed or multiple objects,
+duplicate fields and invalid evidence still fail validation.
+
+Agent interpretations overclaimed optimality, ceilings, invariance and causal
+explanations. New `grounded_v1` reasoning applies a conservative lexical guard
+after citation validation: recognizable assertions become cited measurements,
+and affected lessons become inconclusive. Original responses and each replacement
+remain in audit logs; feedback, lessons and dashboard prose receive grounded text.
+This guard is not a semantic proof system. Explicit hypotheses and uncertainties
+remain labeled as such; other uncaught interpretations still need review. Actual
+fitted parameters now reach agents, including effective RF feature counts.
+Reports separate this policy from historical runs. The next API pilot must verify
+live response quality and overhead; offline replay does not establish either.
+
 NightAgent is a research apprentice supervised by a scientist. Its outer loop is a meeting: report results → receive feedback → clarify → agree on actions. Its inner loop uses tools to carry out those actions and produce evidence, artifacts, and a report.
 
 The harness manages memory, tool execution, validation, limits, and traces. The agent is the model plus that harness when the model chooses analyses and follow-ups. Memory is a persistent state that influences later behavior; this workshop prototype does not train model weights. Remembering feedback alone is not evidence of improvement.
@@ -242,3 +273,54 @@ The proposed autonomous pivot follows the same broad pattern as [Karpathy's auto
 - [Tutorial 1](https://github.com/ioanazelko/AgenticAI2026_Tutorial-1)
 - [Tutorial 2](https://github.com/Ameyapores/AgenticAI2026_Turorial-2)
 - [Night Science workshop approach](https://night-science.org/home/learn/): explore before judging, reframe questions, connect across fields, balance openness with structure, and test against evidence. These are our adapted guiding principles.
+
+## Completed MAGIC run audit — 20 October 2026
+
+Reviewed local `study-runs/magic-workshop-20261020-161817` after pushing the
+Focus improvements (`3b2249c`). Sources: immutable events, summary, progress log,
+saved model artifacts, and report accounting. Historical run files were not edited.
+
+- The 300-second periodic-reflection run completed nine successful local trials
+  with a four-core allocation cap. Supervisor reviews followed trials 3, 6 and 9;
+  reflections completed after trials 1–8. The final reflection exhausted the deadline.
+- Trial 1 reached validation ROC-AUC 0.931019. Trial 8 was best at 0.932815
+  (accuracy 0.873028, macro-F1 0.856442), using histogram gradient boosting,
+  standard preprocessing, learning rate 0.025, max_iter 400 and 31 leaves.
+  Improvement over trial 1 was 0.001796 AUC. The 0.95 stretch was not reached.
+  This single split/run cannot establish a superior interaction strategy or
+  statistical significance. No held-out test evaluation was performed.
+- All nine saved model SHA-256 hashes matched, and all 20 accepted decision,
+  supervisor and reflection contracts passed measurement/citation checks.
+  Researcher uptake records were four followed, two modified and three with no
+  prior feedback. Literature was correctly unavailable in this condition.
+- Local trial time totaled 19.049 seconds; API calls totaled 280.566 seconds.
+  Researcher: 11 calls, 94.792 seconds, $0.300543. Supervisor: 10 calls,
+  90.570 seconds, $0.424131. Reflection: 11 calls, 95.203 seconds, $0.287418 known.
+  The report cost no API calls. CPU parallelism is not the bottleneck in this run.
+- Five rejected contracts (four prose length violations and one JSON preamble)
+  consumed 68.396 seconds and $0.219639 before repairs. A final repair started
+  with about 0.39 seconds left, timed out, and correctly made the final cost/token
+  accounting incomplete: $1.012092 is a known subtotal, not a final bill.
+- The supervisor overestimated remaining capacity using fit time alone and an
+  out-of-date time snapshot, despite only three trial slots remaining. It also
+  overclaimed an optimum, significance, a ceiling and underfitting. Inspection
+  of the saved models showed trial 8 stopped at 392/400 iterations and trial 9
+  at 366/400, contradicting the explanation that trial 9 exhausted its limit.
+  Citation validation verifies numbers, not the truth of interpretations.
+
+Corrections: refresh time/trial budgets and observed API latency before every
+attempt; use concise multi-field format errors and explicit character limits;
+disable extra tools while repairing review/reflection output; add a frozen
+one-second API-start buffer with a logged skip (zero disables it); expose actual
+HGB iteration/early-stopping diagnostics; strengthen instructions about
+uncertainty, tested configurations and current-split scope. These changes retain
+review cadence and hard deadlines. They are verified offline; their effect on
+live response quality and cost still requires a subsequent API pilot.
+
+Verification: all 377 tests passed, including controlled-clock budget/repair
+regressions and a real worker fit with held-out data removed. The memory-enabled
+offline smoke passed all five schedules (20 local fits, zero invalid contracts,
+10 HGB iteration records, and eight report figures). Independent code review
+found no remaining issues after extending compact errors to researcher tool
+arguments. Smoke artifacts: `study-runs/log-review-smoke-20261020`. No paid API
+calls were made during this audit or verification.

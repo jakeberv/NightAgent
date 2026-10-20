@@ -1,0 +1,12 @@
+# Project work never belongs in this repo: only each example project's starting QUESTION.md.
+example-projects/*/*
+!example-projects/*/QUESTION.md
+.venv/
+__pycache__/
+.env
+.pytest_cache/
+study-data/
+study-runs/
+.superpowers/
+
+ci-results/

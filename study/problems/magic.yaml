@@ -1,0 +1,21 @@
+schema_version: 1
+id: magic
+task: tabular_classification
+brief: Predict gamma versus hadron events from ten numerical telescope measurements.
+dataset:
+  format: csv
+  path: ../../study-data/magic-source/magic04.data
+  header: false
+  columns: [fLength, fWidth, fSize, fConc, fConc1, fAsym, fM3Long, fM3Trans, fAlpha, fDist, class]
+  target_column: class
+  positive_class: g
+evaluation:
+  split: {method: stratified_holdout, train: 0.6, validation: 0.2, test: 0.2, seed: 42}
+  objective: {metric: roc_auc, direction: maximize}
+  additional_metrics: [accuracy, macro_f1]
+targets:
+  - {name: milestone, value: 0.93}
+  - {name: stretch, value: 0.95}
+search_space:
+  preset: tabular_classification_small
+  models: [logistic, random_forest, histogram_gradient_boosting]
