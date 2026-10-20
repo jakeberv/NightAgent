@@ -52,8 +52,27 @@ That runs the **next phase** only (first, the kickoff meeting) and stops, so you
 
 - `--all`: keep going until the supervisor signs off.
 - `--dry-run`: fake agents and no API calls; tests the loop and the files it writes.
-- `--model` (default `claude-opus-5-5`), `--effort` (default `high`).
+- `--provider` (`claude` or `openrouter`, see below), `--model` (default `claude-opus-5-5`, or OpenRouter's Opus alias with `--provider openrouter`), `--effort` (default `high`).
 - `--max-meeting-messages` (default 20): a safety limit on student replies within one meeting, so a stuck conversation can't loop forever. It is not a research limit; hitting it is logged.
+
+### Using OpenRouter instead of a Claude login
+
+By default the agents use Claude Code's login (your Claude subscription) or `ANTHROPIC_API_KEY`. To bill an OpenRouter account instead, put your key in the environment (not on the command line) and add `--provider openrouter`:
+
+```bash
+export OPENROUTER_API_KEY=your-key-here
+```
+
+```bash
+nightagent/.venv/bin/python nightagent/run.py example-projects/mnist --provider openrouter
+```
+
+This applies the settings from [OpenRouter's Claude Code guide](https://openrouter.ai/docs/guides/guides/claude-code-integration) to both agents only: `ANTHROPIC_BASE_URL=https://openrouter.ai/api`, the key in `ANTHROPIC_AUTH_TOKEN`, and an empty `ANTHROPIC_API_KEY`. Your normal Claude Code setup is not changed. The default model is OpenRouter's alias `~anthropic/claude-opus-latest[1m]`; pass `--model` with an OpenRouter model id to choose another. `meetings/harness-log.jsonl` records which provider and model each run used.
+
+Caveats:
+- **The key is visible to the agents' shell.** It is in the environment of both sessions, so a student command such as `env` would print it, and it would then appear in the session logs. Use a key with a spending limit.
+- **Provider routing:** OpenRouter only guarantees Claude Code compatibility with Anthropic as the serving provider; its guide recommends making Anthropic the top-priority provider in your OpenRouter settings.
+- **Costs:** the cost figures in the run log come from Claude Code's own estimate, not OpenRouter's billing; check OpenRouter's activity page for actual spend.
 
 If a research phase stops without writing its brief, run the same command again: a fresh session picks up from the files.
 

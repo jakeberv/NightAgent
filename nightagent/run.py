@@ -4,6 +4,7 @@ Usage:
     python nightagent/run.py <project_dir>            # run the next phase (one meeting or one research week)
     python nightagent/run.py <project_dir> --all      # run phases until the supervisor signs off
     python nightagent/run.py <project_dir> --dry-run  # exercise the loop with fake agents (no API calls)
+    OPENROUTER_API_KEY=... python nightagent/run.py <project_dir> --provider openrouter   # bill OpenRouter instead
 
 The project folder needs a QUESTION.md. On first use, the rest of nightagent/project-template/ is
 copied in. Protocols (STUDENT.md, MEETING.md, SUPERVISOR.md) and the private persona are read from
@@ -22,6 +23,10 @@ Design decisions:
   never given it, and a hook blocks the student's tool calls that name the persona file.
 - Isolation from the machine's own Claude Code configuration: setting_sources=[] means neither agent
   loads CLAUDE.md files or settings.json, so behaviour depends only on the files in nightagent/.
+- Billing: by default the agents use whatever Claude Code is logged in with (a Claude subscription) or
+  ANTHROPIC_API_KEY. With --provider openrouter they are pointed at OpenRouter's Anthropic-compatible
+  endpoint instead, using OPENROUTER_API_KEY from the environment (never a command-line argument, so
+  the key stays out of shell history and process listings).
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import re
 import shutil
 import sys
@@ -42,6 +48,25 @@ PERSONA = CORE / "supervisor-persona.md"
 TEMPLATE_SKIP = {".gitkeep", ".DS_Store"}  # placeholder/OS files not copied into projects
 END_MARKER = "END MEETING"  # the student ends a meeting with this line (see MEETING.md)
 SIGN_OFF = "Signed off"  # the supervisor ends the project with this phrase (see SUPERVISOR.md)
+DEFAULT_MODELS = {  # per provider; override with --model (OpenRouter uses its own model names)
+    "claude": "claude-opus-5-5",
+    "openrouter": "~anthropic/claude-opus-latest[1m]",  # OpenRouter's alias; [1m] = 1M-token context
+}
+
+
+def provider_env(provider: str) -> dict[str, str]:
+    """Environment for the agents' Claude Code processes (merged over this process's environment).
+
+    "claude": nothing extra; Claude Code uses its login or ANTHROPIC_API_KEY.
+    "openrouter": the settings from OpenRouter's Claude Code guide. ANTHROPIC_API_KEY must be set to
+    an empty string, or Claude Code may fall back to authenticating with Anthropic directly.
+    """
+    if provider == "claude":
+        return {}
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if not key:
+        sys.exit("Error: --provider openrouter needs OPENROUTER_API_KEY set in the environment.")
+    return {"ANTHROPIC_BASE_URL": "https://openrouter.ai/api", "ANTHROPIC_AUTH_TOKEN": key, "ANTHROPIC_API_KEY": ""}
 
 
 class AgentError(RuntimeError):
@@ -130,9 +155,10 @@ class Agent:
     the next phase.
     """
 
-    def __init__(self, role: str, project: Path, log: "RunLog", model: str | None, effort: str | None):
+    def __init__(self, role: str, project: Path, log: "RunLog", model: str | None, effort: str | None,
+                 env: dict[str, str] | None = None):
         self.role, self.project, self.log = role, project, log
-        self.model, self.effort = model, effort
+        self.model, self.effort, self.env = model, effort, env or {}
         self.client = None
         self.session_cost = 0.0  # running total reported by the SDK; used to log per-turn cost
 
@@ -140,7 +166,7 @@ class Agent:
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
         # Both agents work in the project folder and ignore local Claude Code config (see docstring).
-        common = dict(cwd=str(self.project), setting_sources=[], model=self.model, effort=self.effort)
+        common = dict(cwd=str(self.project), setting_sources=[], model=self.model, effort=self.effort, env=self.env)
         if self.role == "student":
             # Student: Claude Code's normal coding-agent prompt plus all three public protocols, so it
             # understands the whole process (including how the supervisor works), but not the persona.
@@ -349,7 +375,10 @@ async def main() -> None:
     ap.add_argument("project", type=Path, help="project folder containing QUESTION.md")
     ap.add_argument("--all", action="store_true", help="run phases until the supervisor signs off")
     ap.add_argument("--dry-run", action="store_true", help="use fake agents (no API calls)")
-    ap.add_argument("--model", default="claude-opus-5-5", help="model for both agents")
+    ap.add_argument("--provider", default="claude", choices=sorted(DEFAULT_MODELS),
+                    help="who serves the model: your Claude login/ANTHROPIC_API_KEY (default), or OpenRouter "
+                         "(needs OPENROUTER_API_KEY in the environment)")
+    ap.add_argument("--model", help="model for both agents (default depends on --provider)")
     ap.add_argument("--effort", default="high", choices=["low", "medium", "high", "xhigh", "max"])
     ap.add_argument("--max-meeting-messages", type=int, default=20,
                     help="safety limit on student replies per meeting (guards against a runaway loop)")
@@ -359,9 +388,12 @@ async def main() -> None:
     init_project(project)
     log = RunLog(project)
     agent_cls = FakeAgent if args.dry_run else Agent
+    model = args.model or DEFAULT_MODELS[args.provider]
+    env = {} if args.dry_run else provider_env(args.provider)
+    log.event("run_start", provider=args.provider, model=model, effort=args.effort, dry_run=args.dry_run)
 
     def make_agent(role: str):
-        return agent_cls(role, project, log, args.model, args.effort)
+        return agent_cls(role, project, log, model, args.effort, env)
 
     while True:
         phase = next_phase(project)
