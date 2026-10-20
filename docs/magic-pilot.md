@@ -232,3 +232,22 @@ tool calls. Literature fetches follow at most five redirects, validate every
 destination, and retain original/final URLs and the redirect chain. Publisher
 access restrictions, PDFs, and pages requiring JavaScript can still prevent
 useful retrieval; those outcomes remain visible to the supervisor.
+
+## Workshop-informed decision protocol
+
+New pilots use `structured_v1` automatically: the researcher supplies a hypothesis,
+comparison baseline, expected outcome, response to advice and a concise complete
+sentence for the dashboard. Validation citations are checked locally. Invalid
+responses consume the existing correction/time budgets and may stop the run with
+a nonzero exit; model interpretations are not treated as independently proven.
+
+Add `--lesson-memory` to the launch command to exercise bounded lessons within that
+run. Memory starts empty, keeps evidence and scope, and is a separately recorded
+experimental variant. It does not import other runs or test outcomes. No separate
+API request is made for UI summaries; normal response tokens and any necessary
+corrections remain metered.
+
+The output report now shows role-level time, tokens, costs and failures, advice
+uptake, and equivalent-configuration warnings. Matched statistical comparisons
+require multiple compatible condition runs; a single pilot cannot establish that
+supervision or memory improves results.

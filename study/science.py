@@ -33,6 +33,7 @@ from sklearn.preprocessing import StandardScaler
 from threadpoolctl import threadpool_limits
 
 MAGIC_FEATURES = ["fLength", "fWidth", "fSize", "fConc", "fConc1", "fAsym", "fM3Long", "fM3Trans", "fAlpha", "fDist"]
+LEGACY_CONSTRUCTOR_VERSION = 1
 PARAMETERS = {
     "logistic": {"C": {"type": "number", "minimum": .001, "maximum": 100}, "max_iter": {"type": "integer", "minimum": 50, "maximum": 1000}},
     "random_forest": {
@@ -347,7 +348,7 @@ def project_info(data_dir: Path) -> dict:
     if problem is not None:
         return get_adapter(problem).describe(data_dir)
     manifest = json.loads((Path(data_dir) / "manifest.json").read_text())
-    return {"dataset": manifest["dataset"], "feature_names": manifest["feature_names"], "positive_class": manifest["positive_class"], "counts": {name: manifest["partitions"][name]["rows"] for name in ("train", "validation")}, "metric": "validation ROC-AUC", "preprocessing": "Fit on training partition only", "analysis_schema": ANALYSIS_SCHEMA}
+    return {"dataset": manifest["dataset"], "feature_names": manifest["feature_names"], "positive_class": manifest["positive_class"], "counts": {name: manifest["partitions"][name]["rows"] for name in ("train", "validation")}, "metric": "validation ROC-AUC", "preprocessing": "Fit on training partition only", "analysis_schema": ANALYSIS_SCHEMA, "constructor": "legacy", "data_fingerprint": manifest['data_fingerprint'], "split_seed": manifest['seed']}
 
 
 def _worker_env(seed: int, cores=1, model=None) -> dict:
@@ -428,6 +429,10 @@ async def run_trial(data_dir: Path, trial_dir: Path, config: dict, *, seed: int,
         if time.monotonic() - started >= timeout:
             raise asyncio.TimeoutError()
         result = {'status': 'completed', 'artifact': str(artifact), 'artifact_hash': artifact_hash, 'config': config, 'seed': seed}
+        from .diagnostics import describe_experiment
+        result.update(describe_experiment(config, problem=problem, project=project_info(data_dir), seed=seed))
+        if 'actual_effective_config' in response:
+            result['actual_effective_config'] = response['actual_effective_config']
         if problem is not None:
             result.update(metrics=metrics, score=score)
             if problem.objective['metric'] == 'roc_auc':

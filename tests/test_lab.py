@@ -135,3 +135,61 @@ def test_trial_trail_keeps_newest_outcomes_when_ids_grow():
     rendered = trial_trail(state, 72)
     assert "111" in rendered.plain and "100" not in rendered.plain
     assert rendered.cell_len <= 72
+
+
+def test_structured_intent_uses_named_baseline_instead_of_latest_trial():
+    state = start()
+    finish(state, 1, .8, {"model": "random_forest", "params": {"n_estimators": 100}})
+    finish(state, 2, .9, {"model": "random_forest", "params": {"n_estimators": 300}})
+    emit(state, "decision", trial_id=3, message={"content": '{"summary": "Raw JSON must not appear. More text."}'})
+    emit(state, "trial_started", trial_id=3,
+         config={"model": "random_forest", "params": {"n_estimators": 200}},
+         intent={"summary": "More trees may improve on trial 1.", "baseline_trial_id": 1})
+    assert state.lab.rationale == "More trees may improve on trial 1."
+    assert state.lab.comparison == 1
+    assert state.lab.changes == ["n_estimators: 100 -> 200"]
+    output = io.StringIO()
+    Console(file=output, width=120, height=40, color_system=None).print(dashboard(state, width=120, height=40))
+    assert "More trees may improve on trial 1." in output.getvalue()
+    assert "Raw JSON" not in output.getvalue()
+
+
+@pytest.mark.parametrize("baseline", [None, 99])
+def test_missing_named_baseline_never_implies_previous_trial_comparison(baseline):
+    from study.focus import experiment_summary
+    state = start()
+    finish(state, 1, .8, {"model": "ridge", "params": {"alpha": 1}})
+    emit(state, "trial_started", trial_id=2, config={"model": "ridge", "params": {"alpha": 2}},
+         intent={"summary": "Test regularization.", "baseline_trial_id": baseline})
+    assert state.lab.comparison == baseline
+    assert state.lab.changes == []
+    summary = experiment_summary(state.lab)
+    assert "same explicit settings" not in summary and "changes" not in summary
+    assert ("99" in summary) if baseline else ("no baseline" in summary.lower())
+
+
+@pytest.mark.parametrize("content", [
+    '{"summary": "Try more trees. This is raw JSON."}',
+    '{"summary": "An invalid decision. Never display it.',
+])
+def test_raw_json_decisions_are_not_rationale(content):
+    state = start()
+    emit(state, "decision", trial_id=1, message={"content": content})
+    emit(state, "trial_started", trial_id=1, config={})
+    assert state.lab.rationale == ""
+
+
+def test_equivalence_warning_is_a_passive_discovery_while_trial_keeps_running():
+    state = start()
+    emit(state, "trial_started", trial_id=2, config={"model": "random_forest"},
+         intent={"summary": "Test a different scaler.", "baseline_trial_id": 1})
+    warning = "This trial is effectively equivalent to trial 1 for this model."
+    emit(state, "experiment_diagnostic", trial_id=2, equivalent_trial_ids=[1], warning=warning)
+    assert state.lab.discoveries[-1]["message"] == warning
+    assert state.lab.busy and state.lab.trial_id == 2
+    assert state.completed == 0 and state.unsuccessful == 0
+    for focus in (False, True):
+        output = io.StringIO()
+        Console(file=output, width=120, height=40, color_system=None).print(
+            dashboard(state, width=120, height=40, focus=focus))
+        assert warning in output.getvalue()

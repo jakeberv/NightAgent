@@ -37,6 +37,11 @@ def tools_for(role, config, problem=None):
         else:
             from .tasks import get_adapter
             schema = get_adapter(problem).analysis_schema
+        from copy import deepcopy
+        from .reasoning import contract_schema
+        schema = deepcopy(schema)
+        schema["properties"]["intent"] = contract_schema("researcher", config.lesson_memory)
+        schema["required"] = [*schema["required"], "intent"]
         tools.append(function_tool("run_analysis", "Run exactly one bounded experiment.", schema))
     if role == "supervisor" and config.literature:
         for name, field, description in (
@@ -51,7 +56,7 @@ def tools_for(role, config, problem=None):
 
 def agent_result(result):
     return {key: value for key, value in result.items()
-            if key not in ("artifact", "artifact_hash")}
+            if key not in ("artifact", "artifact_hash", "fingerprint", "provenance", "actual_effective_config")}
 
 
 def resolve_problem(config, data_dir, problem=None):
@@ -105,6 +110,8 @@ def select_result(summary, result, accounting, config, problem=None):
         return
     selected = {key: result[key] for key in (
         "trial_id", "elapsed_seconds", "artifact", "artifact_hash")}
+    if "config" in result:
+        selected["config"] = result["config"]
     selected.update(score=score, metrics=dict(result.get("metrics") or {metric: score}),
                     accounting=accounting.snapshot())
     if metric == "roc_auc":
@@ -161,6 +168,8 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     if provider_metadata is not None:
         atomic_json(run_dir / "provider.json", provider_metadata)
     history = []
+    from .reasoning import LessonMemory, validate_contract, parse_contract
+    memory = LessonMemory(config.memory_limit)
     feedback = reflection = None
     accounting = Accounting()
     summary = initial_summary(config, problem, data_fingerprint)
@@ -186,12 +195,13 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             raise StopRun("trial_cap")
 
     def context():
-        return json.dumps({"project": project, "recent_trials": history[-config.history_trials:],
+        return json.dumps({"project": project, "recent_trials": [agent_result(row) for row in history[-config.history_trials:]],
             "best": agent_result(summary["best"] or {}), "last_supervisor_feedback": feedback,
             "last_explicit_reflection": reflection, "trials_attempted": summary["trials"],
             "remaining_seconds": max(0, remaining()), "accounting": accounting.snapshot(),
             "objective": problem.objective,
-            "targets": {target["name"]: target["value"] for target in problem.targets}},
+            "targets": {target["name"]: target["value"] for target in problem.targets},
+            **({"lessons": memory.snapshot()} if config.lesson_memory else {})},
             allow_nan=False)
 
     async def model_call(role, messages, tools):
@@ -228,13 +238,22 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             check()
             return response["message"]
 
+    def accept_lessons(contract):
+        if config.lesson_memory and contract.get("lesson_updates"):
+            memory.update(contract["lesson_updates"], history)
+            journal.emit("lesson_memory", lessons=memory.snapshot())
+            atomic_json(run_dir / "lessons.json", {"scope": "this run only", "lessons": memory.snapshot()})
+
     async def phase(role):
         instructions = prompts.instructions_for(role, problem)
+        from .reasoning import instructions as contract_instructions
+        instructions += contract_instructions(role, memory=config.lesson_memory)
         tools = tools_for(role, config, problem)
         schemas = {tool["function"]["name"]: tool["function"]["parameters"] for tool in tools}
         messages = [{"role": "system", "content": instructions},
                     {"role": "user", "content": context()}]
         browser_calls = other_calls = 0
+        seen_calls = {}
         turns = config.max_turns_without_trial if role == "researcher" else config.review_tool_calls + 1
         for _ in range(turns):
             message = await model_call(role, messages, tools)
@@ -242,7 +261,20 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             calls = message.get("tool_calls") or []
             if not calls:
                 if role != "researcher":
-                    return message.get("content") or ""
+                    contract = None
+                    try:
+                        contract = parse_contract(message.get("content"))
+                        errors = validate_contract(contract, role, history,
+                            has_feedback=feedback is not None, memory=config.lesson_memory)
+                    except (ValueError, TypeError) as error:
+                        errors = [str(error)]
+                    journal.emit(role + "_contract", after_trial=summary["trials"],
+                                 contract=contract, valid=not errors, errors=errors)
+                    if errors:
+                        messages.append({"role": "user", "content": "Correct the contract: " + " ".join(errors)})
+                        continue
+                    accept_lessons(contract)
+                    return contract
                 messages.append({"role": "user", "content": "Choose the next experiment with run_analysis."})
                 continue
             # Multiple classifier calls would change review cadence. Reject the entire
@@ -253,20 +285,41 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                 name = call.get("function", {}).get("name", "")
                 raw_args = call.get("function", {}).get("arguments", "{}")
                 result = None
+                args = None
+                contract_recorded = False
                 try:
                     import jsonschema
-                    args = json.loads(raw_args)
+                    args = parse_contract(raw_args)
                     if name not in schemas:
                         raise ValueError("Tool not permitted for this role")
                     jsonschema.validate(args, schemas[name])
                     if multiple_trials:
                         raise ValueError("Call at most one run_analysis per decision")
+                    call_key = (name, json.dumps(args, sort_keys=True, separators=(",", ":")))
+                    seen_calls[call_key] = seen_calls.get(call_key, 0) + 1
+                    if seen_calls[call_key] > 1:
+                        journal.emit("repeated_tool_call", role=role, name=name,
+                                     repetitions=seen_calls[call_key], arguments=args)
                     if name == "run_analysis":
+                        intent = args.pop("intent", None)
+                        errors = validate_contract(intent, "researcher", history,
+                            has_feedback=feedback is not None, memory=config.lesson_memory)
+                        journal.emit("decision_contract", trial_id=summary["trials"] + 1,
+                                     contract=intent, valid=not errors, errors=errors)
+                        contract_recorded = True
+                        if errors:
+                            raise ValueError("Correct the decision contract: " + " ".join(errors))
+                        accept_lessons(intent)
+                        from .diagnostics import experiment_diagnostic
+                        diagnostic = experiment_diagnostic(args, problem=problem, project=project,
+                                                           seed=config.training_seed, history=history)
                         summary["trials"] += 1
                         trial_id = summary["trials"]
                         journal.emit("decision", trial_id=trial_id, message=message,
                                      supervisor_feedback=feedback, explicit_reflection=reflection)
-                        journal.emit("trial_started", trial_id=trial_id, config=args)
+                        journal.emit("experiment_diagnostic", trial_id=trial_id, **diagnostic)
+                        journal.emit("trial_started", trial_id=trial_id, config=args,
+                                     intent=intent)
                         begin = time.monotonic()
                         trial_limit = min(remaining(), config.trial_timeout_seconds)
                         resource_kwargs = {}
@@ -293,7 +346,11 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                             result.update(queue_seconds=queued, allocated_cores=allocation.get("cores", 0))
                             training_duration = max(0, duration - queued)
                         summary["training_seconds"] += training_duration
-                        result.update(trial_id=trial_id, config=args, elapsed_seconds=time.monotonic() - started,
+                        for key in ("effective_config", "fingerprint", "provenance"):
+                            result.setdefault(key, diagnostic[key])
+                        result["experiment_diagnostic"] = {key: diagnostic[key] for key in ("equivalent_trial_ids", "warning")}
+                        result.update(trial_id=trial_id, config=args, seed=config.training_seed,
+                                      elapsed_seconds=time.monotonic() - started,
                                       duration_seconds=duration, training_seconds=training_duration)
                         if remaining() <= 0 and result["status"] == "completed":
                             result["status"] = "late"
@@ -302,12 +359,12 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         journal.emit("selection", best=summary["best"], milestone=summary["milestone"],
                                      stretch=summary["stretch"], target_selections=summary["target_selections"])
                         atomic_json(run_dir / "checkpoint.json", summary)
-                        history.append(agent_result(result))
+                        history.append(result)
                         return agent_result(result)
                     if name == "inspect_project":
                         result = project
                     elif name == "read_results":
-                        result = history[-config.history_trials:]
+                        result = [agent_result(row) for row in history[-config.history_trials:]]
                     elif name.startswith("literature_"):
                         if browser_calls >= config.literature_calls_per_review:
                             raise ValueError("Per-review literature cap reached")
@@ -333,7 +390,12 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         tools = []
                         schemas = {}
                 except Exception as error:
-                    result = {"error": f"{type(error).__name__}: {error}"}
+                    detail = error.message if isinstance(error, jsonschema.ValidationError) else str(error)
+                    result = {"error": f"{type(error).__name__}: {detail}"}
+                    if name == "run_analysis" and not contract_recorded:
+                        journal.emit("decision_contract", trial_id=summary["trials"] + 1,
+                                     contract=args.get("intent") if isinstance(args, dict) else None,
+                                     valid=False, errors=[result["error"]])
                     if name.startswith("literature_") and getattr(error, "details", None):
                         result["evidence"] = error.details
                 journal.emit("tool_call", role=role, name=name, arguments=raw_args, result=result)
@@ -341,7 +403,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                                  "content": json.dumps(result, allow_nan=False)})
         if role == "researcher":
             raise StopRun("no_progress")
-        return "Review/reflection call limit reached; consult logged evidence."
+        raise StopRun("invalid_contract")
 
     stop_reason = "failure"
     try:
@@ -351,10 +413,12 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             check()  # No treatment calls if a safeguard/deadline precludes another trial.
             if config.review_every and summary["trials"] % config.review_every == 0:
                 feedback = await phase("supervisor")
-                journal.emit("review", after_trial=summary["trials"], feedback=feedback)
+                journal.emit("review", after_trial=summary["trials"],
+                             feedback=feedback["summary"], contract=feedback)
             if config.reflection:
                 reflection = await phase("reflection")
-                journal.emit("reflection", after_trial=summary["trials"], reflection=reflection)
+                journal.emit("reflection", after_trial=summary["trials"],
+                             reflection=reflection["summary"], contract=reflection)
     except StopRun as stop:
         stop_reason = str(stop)
     except asyncio.CancelledError:
@@ -363,6 +427,8 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     except Exception as error:
         journal.emit("failure", error=f"{type(error).__name__}: {error}")
     finally:
+        if config.lesson_memory:
+            summary["lessons"] = memory.snapshot()
         summary.update(stop_reason=stop_reason, elapsed_seconds=time.monotonic() - started,
                        accounting=accounting.snapshot())
         journal.emit("run_stopped", summary=summary)
@@ -386,18 +452,23 @@ def recover_run(run_dir):
     frozen_path = run_dir / "resolved-config.json"
     if frozen_path.exists():
         frozen = json.loads(frozen_path.read_text())
-        config = StudyConfig(**frozen["config"])
+        recorded_config = frozen["config"]
+        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1"})
         data_fingerprint = frozen.get("data_fingerprint", data_fingerprint)
         problem = ProblemSpec.from_dict(frozen["problem"])
         if problem.fingerprint != frozen["problem_hash"]:
             raise ValueError("Frozen run problem fingerprint does not match")
     else:
-        config = StudyConfig(**json.loads((run_dir / "config.json").read_text()))
+        recorded_config = json.loads((run_dir / "config.json").read_text())
+        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1"})
         if (run_dir / "problem.json").exists():
             problem = ProblemSpec.from_dict(json.loads((run_dir / "problem.json").read_text()))
         else:
             problem = legacy_problem(milestone=config.milestone, stretch=config.stretch)
     summary = initial_summary(config, problem, data_fingerprint)
+    summary["config"] = {**recorded_config, "decision_protocol": recorded_config.get("decision_protocol", "legacy")}
+    if config.lesson_memory:
+        summary["lessons"] = []
     accounting = Accounting()
     started_calls = finished_calls = 0
     for event in events:
@@ -406,6 +477,8 @@ def recover_run(run_dir):
         elif event["type"] == "model_call":
             finished_calls += 1
             accounting.add(event.get("usage"))
+        elif event["type"] == "lesson_memory" and config.lesson_memory:
+            summary["lessons"] = event["lessons"]
         elif event["type"] == "trial_started":
             summary["trials"] += 1
         elif event["type"] == "trial_finished":

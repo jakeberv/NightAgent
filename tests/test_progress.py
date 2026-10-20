@@ -30,7 +30,7 @@ def test_live_progress_matches_durable_trace_and_usage(tmp_path):
     assert completed[-1]["accounting"]["output_tokens"] == 240
     log = (run / "progress.log").read_text()
     assert "trial 4" in log and "trial_cap" in log
-    assert "Compare nonlinear capacity" in log
+    assert "The scripted agent is comparing model capacity" in log
 
 
 def test_unknown_usage_is_labelled_and_token_subsets_are_separate():

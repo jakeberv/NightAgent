@@ -193,7 +193,7 @@ def experiment_panel(state, width):
                        f"preprocessing {lab.config.get('preprocessing', 'default')}", "bold cyan",
                        no_wrap=True, overflow="ellipsis")
         comparison = fitting_summary(experiment_summary(lab), width - 4, 1,
-                                     f"Trial {lab.trial_id} has {len(lab.changes)} changed settings.")
+                                     f"Trial {lab.trial_id} is recorded in the trace.")
         rationale = fitting_summary(lab.rationale, width - 4 - len("Agent interpretation: "), 2, "")
         interpretation = text("Agent interpretation: " + rationale, "magenta") if rationale else text(
             "The full agent rationale is saved in the trace.", "dim")

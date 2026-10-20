@@ -208,6 +208,8 @@ def test_anthropic_receives_supported_analysis_schema_and_local_rules_stay_stric
     local_schema = tools[2]["function"]["parameters"]
     valid = {"model": "ridge" if profile == "regression" else "logistic",
              "preprocessing": "standard", "params": {"alpha": 2} if profile == "regression" else {"C": 2}}
+    from study.fake import scripted_contract
+    valid["intent"] = scripted_contract("researcher", {})
     wrong_model_params = valid | {"params": {"n_estimators": 30}}
     async def handler(request):
         payload = json.loads(request.content)

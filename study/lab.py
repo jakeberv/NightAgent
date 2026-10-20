@@ -75,7 +75,10 @@ class Lab:
         self.rationale = ""
         self.pending = None
         self.previous = None
+        self.completed_configs = deque(maxlen=80)
+        self.intent = None
         self.comparison = None
+        self.comparison_available = False
         self.changes = []
         self.discoveries = deque(maxlen=6)
         self.last_result = None
@@ -99,18 +102,31 @@ class Lab:
             self.role, self.busy = event.get("role"), False
             self.action = f"Tool returned: {event.get('name', 'tool')}"
         elif kind == "decision":
-            self.pending = (event["trial_id"], sentence_summary(event.get("message", {}).get("content")))
+            content = event.get("message", {}).get("content")
+            # Legacy traces used prose decisions; contract payloads are not prose.
+            rationale = (sentence_summary(content) if isinstance(content, str)
+                         and not content.lstrip().startswith(("{", "[")) else "")
+            self.pending = (event["trial_id"], rationale)
         elif kind == "trial_started":
             self.role, self.busy = "local", True
             self.trial_id = event["trial_id"]
             self.config = deepcopy(event.get("config", {}))
-            self.rationale = self.pending[1] if self.pending and self.pending[0] == self.trial_id else ""
+            self.intent = event.get("intent")
+            if isinstance(self.intent, dict):
+                self.rationale = sentence_summary(self.intent.get("summary"))
+                self.comparison = self.intent.get("baseline_trial_id")
+                baseline = next((row for row in reversed(self.completed_configs)
+                                 if row["trial_id"] == self.comparison), None)
+            else:
+                self.rationale = self.pending[1] if self.pending and self.pending[0] == self.trial_id else ""
+                baseline = self.previous
+                self.comparison = baseline["trial_id"] if baseline else None
             self.pending = None
             self.action = f"Fitting and validating trial {self.trial_id} on this machine"
-            self.comparison = self.previous["trial_id"] if self.previous else None
+            self.comparison_available = baseline is not None
             self.changes = []
-            if self.previous:
-                before, after = settings(self.previous.get("config", {})), settings(self.config)
+            if baseline:
+                before, after = settings(baseline.get("config", {})), settings(self.config)
                 def value(config, key):
                     return json.dumps(config[key], ensure_ascii=False) if key in config else "(default)"
                 self.changes = [f"{key}: {value(before, key)} -> {value(after, key)}"
@@ -128,8 +144,14 @@ class Lab:
             self.last_result = deepcopy(result)
             if result["status"] == "completed":
                 self.previous = deepcopy(result)
+                self.completed_configs.append({"trial_id": result["trial_id"],
+                                               "config": deepcopy(result.get("config", {}))})
             else:
                 self.record(f"Trial {result['trial_id']} ended with status {result['status']}.", "red")
+        elif kind == "experiment_diagnostic":
+            warning = sentence_summary(event.get("warning"), limit=480)
+            if warning:
+                self.record(warning, "yellow")
         elif kind == "selection" and event.get("best"):
             best = event["best"]
             score = score_of(best)

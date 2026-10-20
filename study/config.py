@@ -33,8 +33,17 @@ class StudyConfig:
     literature_timeout_seconds: float = 15
     allow_unknown_cost: bool = False
     max_cores: int | None = None
+    decision_protocol: str = "structured_v1"
+    lesson_memory: bool = False
+    memory_limit: int = 6
 
     def __post_init__(self):
+        if self.decision_protocol != "structured_v1":
+            raise ValueError("decision_protocol must be structured_v1")
+        if type(self.lesson_memory) is not bool:
+            raise ValueError("lesson_memory must be boolean")
+        if type(self.memory_limit) is not int or not 1 <= self.memory_limit <= 12:
+            raise ValueError("memory_limit must be an integer from 1 to 12")
         if self.max_cores is not None:
             from .resources import validate_cores
             validate_cores(self.max_cores)

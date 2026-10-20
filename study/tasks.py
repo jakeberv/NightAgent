@@ -191,7 +191,7 @@ class TabularAdapter:
 
     def describe(self, data_dir):
         manifest = json.loads((Path(data_dir) / 'manifest.json').read_text())
-        return {'dataset': self.problem.id, 'task': self.problem.task, 'brief': self.problem.brief, 'objective': self.problem.objective, 'targets': self.problem.targets, 'feature_names': manifest['feature_names'], 'counts': {name: manifest['partitions'][name]['rows'] for name in ('train', 'validation')}, 'preprocessing': 'Fit on training partition only', 'analysis_schema': copy.deepcopy(self.analysis_schema), 'adapter': {'id': self.id, 'version': self.version}}
+        return {'dataset': self.problem.id, 'task': self.problem.task, 'brief': self.problem.brief, 'objective': self.problem.objective, 'targets': self.problem.targets, 'feature_names': manifest['feature_names'], 'counts': {name: manifest['partitions'][name]['rows'] for name in ('train', 'validation')}, 'preprocessing': 'Fit on training partition only', 'analysis_schema': copy.deepcopy(self.analysis_schema), 'adapter': {'id': self.id, 'version': self.version}, 'data_fingerprint': manifest['data_fingerprint'], 'split_seed': manifest['seed']}
 
     async def run_trial(self, data_dir, trial_dir, config, *, seed, timeout):
         from study.science import run_trial

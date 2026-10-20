@@ -24,6 +24,15 @@ class ScriptedModel:
                                            {"model": "logistic", "preprocessing": "standard", "params": {}})}}]}
         else:
             message = {"role": "assistant", "content": "Compare capacity; retain a controlled comparison."}
+        from study.fake import scripted_contract
+        context = json.loads(messages[1]["content"])
+        contract = scripted_contract(role.removeprefix("ROLE: "), context)
+        if role == "ROLE: researcher":
+            arguments = json.loads(message["tool_calls"][0]["function"]["arguments"])
+            arguments["intent"] = contract
+            message["tool_calls"][0]["function"]["arguments"] = json.dumps(arguments)
+        else:
+            message["content"] = json.dumps(contract)
         return {"message": message, "usage": {"prompt_tokens": 10, "completion_tokens": 3,
                  "cost": 0.001}, "id": str(len(self.roles)), "provider": "fake", "model": "fake", "raw": {}}
 
@@ -168,7 +177,7 @@ def test_literature_cap_limits_actual_io_and_keeps_unhelpful_evidence(tmp_path):
     class Searching(ScriptedModel):
         async def complete(self, messages, tools, *, timeout):
             response = await super().complete(messages, tools, timeout=timeout)
-            if messages[0]["content"].startswith("ROLE: supervisor"):
+            if messages[0]["content"].startswith("ROLE: supervisor") and len(messages) == 2:
                 response["message"]["tool_calls"] = [{
                     "id": f"search-{i}", "type": "function", "function": {
                         "name": "literature_search", "arguments": '{"query":"tree capacity"}'}}
@@ -290,12 +299,16 @@ def test_profile_controls_prompts_tools_and_frozen_recovery(tmp_path, regression
     manifest = prepare_dataset(data, problem=regression_problem)
     observed = []
 
+    from study.fake import scripted_contract
+
     class Regressor:
         async def complete(self, messages, tools, *, timeout):
             observed.append((messages, tools))
             return {"message": {"role": "assistant", "tool_calls": [{"id": "fit", "type": "function",
                 "function": {"name": "run_analysis", "arguments": json.dumps(
-                    {"model": "ridge", "preprocessing": "standard", "params": {}})}}]},
+                    {"model": "ridge", "preprocessing": "standard", "params": {},
+                     "intent": scripted_contract(
+                         "researcher", json.loads(messages[1]["content"]))})}}]},
                 "usage": {"prompt_tokens": 1, "completion_tokens": 1, "cost": 0}}
 
     scores = iter((14.0, 8.0, 11.0))
@@ -316,7 +329,11 @@ def test_profile_controls_prompts_tools_and_frozen_recovery(tmp_path, regression
     assert regression_problem.brief in instructions and "rmse (minimize)" in instructions
     assert regression_problem.fingerprint in instructions and "ROC-AUC" not in instructions
     analysis_tool = next(t for t in observed[0][1] if t["function"]["name"] == "run_analysis")
-    assert analysis_tool["function"]["parameters"] == get_adapter(regression_problem).analysis_schema
+    scientific_schema = json.loads(json.dumps(analysis_tool["function"]["parameters"]))
+    assert "intent" in scientific_schema["required"]
+    scientific_schema["required"].remove("intent")
+    scientific_schema["properties"].pop("intent")
+    assert scientific_schema == get_adapter(regression_problem).analysis_schema
     frozen = json.loads((directory / "resolved-config.json").read_text())
     assert frozen["problem"] == regression_problem.to_dict()
     assert frozen["problem_hash"] == regression_problem.fingerprint

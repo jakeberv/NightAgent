@@ -99,6 +99,89 @@ No test labels were evaluated and no language model was called. The local
 ignored `study-runs/magic-pilot` directory contains the predeclared configurations,
 environment, hashes, reproduction script, and results. Runtime varies by host.
 
+## Evidence, hypotheses, and run-local lessons
+
+New runs use the `structured_v1` decision protocol. `run_analysis` requires an
+`intent` object containing a hypothesis, completed baseline trial ID (or null),
+change, expected informative outcome, supervisor response and reason, a short
+complete-sentence summary, and validation evidence. Supervisor and reflection
+responses use role-specific JSON contracts. The harness verifies each cited trial,
+metric, validation split and exact measurement before accepting it. These checks
+verify recorded evidence, not the truth of a model's interpretation. A supervisor
+response records stated uptake; it does not prove advice caused an improvement.
+
+Invalid contracts return actionable errors and consume the existing bounded
+turn/review budget. Exhausted repairs stop unsuccessfully; they cannot silently
+become valid feedback. All attempts retain usage and raw responses. There is no
+extra model call just to summarize the interface. The contract does add bounded
+input/output tokens to existing requests; all are included in normal accounting.
+Old JSON config files adopt the new protocol automatically. Protocol identity is
+frozen in every new run; reports label old logs as legacy for comparison purposes.
+
+Effective-configuration diagnostics resolve constructor defaults and safe aliases.
+For example, `sqrt` and `log2` both select three random-forest features on a ten-feature
+dataset. Equivalent successful trials generate an advisory warning, visible in the
+trace, interface, and subsequent agent context. The requested trial still runs.
+Preprocessing, training seed, data/split, implementation version and objective are
+part of equivalence; scaling is never assumed interchangeable. Unknown metadata
+cannot establish an alias equivalence. Changing seeds still requires a separate
+run with its seed recorded, rather than letting the agent alter a matched study.
+
+Add `--lesson-memory` to `run`, `suite`, or `smoke` to enable a bounded lesson
+register. It holds six lessons by default (`memory_limit`, from 1 to 12), each with
+an ID, scope, complete-sentence finding, validation citations, and status:
+`supported`, `inconclusive`, or `superseded`. Reusing an ID revises that lesson;
+least recently updated entries are evicted at the cap. Up to two updates may be
+included in an existing agent response. Memory starts empty for every run, survives
+the recent-trial context window, and is saved in `lessons.json` and the event log.
+No other run's memory or test feedback is loaded. Supported is an agent assessment
+of cited observations, not a claim of independent replication.
+
+Memory is **off by default** and recorded as a separate experimental variant.
+`--no-lesson-memory` overrides a config that enables it. A memory-enabled suite
+applies the same memory setting independently to all five schedules; it is a
+separate suite, not a sixth condition mixed into the original comparison. Review
+cadence remains fixed. No RL training, adaptive scheduling, or extra agent roles
+are introduced.
+
+The offline demonstration exercises the same contracts with real local fits:
+
+```bash
+.venv/bin/python -m study smoke --lesson-memory --quiet \
+  --output "study-runs/workshop-smoke-$(date +%Y%m%d-%H%M%S)"
+```
+
+## Coordination and matched-comparison reports
+
+Reports add per-role request counts, failed/cancelled/unfinished attempts, retry
+counts, known cost and token subtotals, and model wall time. Missing accounting
+stays unknown. Cached and reasoning tokens remain subsets, never added a second
+time. Time charts separate API calls from local training and queue time. The
+report records self-reported advice uptake, invalid contracts, repeated tool
+calls and equivalent experiments. Observed score changes are descriptive rather
+than causal estimates of advice quality.
+
+Matched comparisons require the same frozen problem, data, objective, allowance,
+configuration, repeat and training seed, allowing only condition to vary within a
+pair. Protocol and memory variants are not pooled. Duplicate units and unknown
+identities are excluded explicitly. Tables retain all-run counts, stop reasons,
+unmatched runs and matched pairs missing a valid score. Numerical differences use
+complete pairs and are always condition B minus A; consult metric direction.
+For two or more complete pairs, the report gives a two-sided 95% Student-t interval
+for the mean paired difference; with fewer pairs, no interval is produced. These
+exploratory intervals assume independent repeats and approximately normal paired
+differences, are unstable with small samples, and are not adjusted for multiple
+comparisons. Repeats share the frozen dataset split, so they do not measure
+uncertainty across new datasets or resampled splits.
+
+`report.html` embeds the graphics; `figures/roles.svg` and `figures/roles.png` expose
+role charts, and `paired-comparisons.json` preserves matched analysis details.
+Regenerating a report reads frozen artifacts and makes no model requests:
+
+```bash
+.venv/bin/python -m study report --output RUN_DIRECTORY
+```
+
 ## Configure OpenRouter
 
 For a bounded first run, follow the [short MAGIC pilot](../docs/magic-pilot.md).
@@ -113,18 +196,19 @@ The research-lab header highlights the actual active role. At 100 columns or wid
 each role has a distinct ASCII robot avatar; only a busy role animates. API waiting
 has no invented completion percentage. Disabled roles are labeled for the run's
 condition. With at least 76 columns and 33 terminal rows, an experiment notebook
-shows the latest trial's actual settings, changes versus the previous completed
-trial (not necessarily the agent's chosen baseline), and whole-sentence researcher
-commentary labeled **Agent interpretation**. More space reveals the four avatar
+shows the latest trial's actual settings, changes versus the agent's named completed
+baseline, and its complete-sentence summary labeled **Agent interpretation**.
+When the named baseline is outside the bounded display history, the view says that
+the comparison is unavailable instead of substituting another trial. More space reveals the four avatar
 stations; use a 100-column, 35-row window or larger for a demo.
 Measured discoveries announce new bests, ties, targets and unsuccessful trials,
 with a brief sparkle for improvements and target crossings. The connected trial
 trail uses `★` for new best, `=` for tied best, `×` for unsuccessful and `·` for other
 completed trials. Compact windows prioritize activity, scores, budgets and findings.
 All lab state comes from recorded events, adding no model calls or token usage;
-full rationale and configuration remain in the trace. Summaries select complete
-sentences; if none fit, the notebook describes the recorded configuration change
-in a complete sentence. It never clips commentary in the middle of a sentence.
+full rationale and configuration remain in the trace. New runs supply a short, validated summary within the existing agent response.
+Historical logs use complete sentences; if none fit, the notebook describes the
+recorded configuration change in a complete sentence. It never clips commentary in the middle of a sentence.
 Press **`f`** (no Enter) to toggle **Focus** and **Details** during a live run or
 `study watch`. Details remains the default. Focus uses one panel, one active
 avatar, the best score and target status, the latest discovery and experiment,

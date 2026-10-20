@@ -2,6 +2,43 @@
 import json
 
 
+def scripted_contract(role, context):
+    """Observable, explicitly scripted reasoning for the offline demonstration."""
+    metric = context.get("objective", {}).get("metric", "roc_auc")
+    latest = next((row for row in reversed(context.get("recent_trials", []))
+                   if row.get("status") == "completed"), None)
+    evidence = []
+    if latest:
+        value = (latest.get("metrics") or {}).get(metric, latest.get("score", latest.get("validation_auc")))
+        if value is not None:
+            evidence = [{"trial_id": latest["trial_id"], "metric": metric, "split": "validation", "value": value}]
+    common = {"summary": "The scripted agent is comparing model capacity using recorded validation results.",
+              "evidence": evidence}
+    if role == "researcher":
+        has_feedback = context.get("last_supervisor_feedback") is not None
+        common.update(hypothesis="A different model capacity may improve validation performance.",
+            baseline_trial_id=latest["trial_id"] if evidence else None,
+            change="Run the next classifier in the fixed offline demonstration sequence.",
+            expected_outcome="The validation score will describe the next classifier's performance.",
+            supervisor_response="modified" if has_feedback else "not_applicable",
+            response_reason="The offline sequence is fixed and does not adapt to advice." if has_feedback
+                            else "No supervisor feedback has been recorded in this run.")
+    elif role == "supervisor":
+        common.update(assessment="The recorded trials provide validation observations for comparison.",
+            unresolved_question="Would another model capacity improve validation performance?",
+            recommendation="Compare another bounded model configuration.",
+            expected_outcome="The next result will provide another validation observation.")
+    else:
+        common.update(what_changed="The latest trial added a validation observation.",
+            uncertainty="A single observation does not establish generalization beyond this split.",
+            next_comparison="Compare the next configuration in the fixed offline sequence.")
+    if "lessons" in context and evidence:
+        common["lesson_updates"] = [{"id": "latest_observation", "status": "inconclusive",
+            "summary": "The latest trial provides an observation that still needs independent replication.",
+            "scope": "This observation applies only to this run and validation split.", "evidence": evidence}]
+    return common
+
+
 class FakeModel:
     def __init__(self, options=None):
         self.trials = 0
@@ -10,7 +47,9 @@ class FakeModel:
     async def complete(self, messages, tools, *, timeout):
         role = messages[0]["content"].splitlines()[0]
         calls = []
-        content = "Compare nonlinear capacity against the completed validation evidence."
+        context = json.loads(messages[1]["content"]) if len(messages) > 1 else {}
+        contract = scripted_contract(role.removeprefix("ROLE: "), context)
+        content = json.dumps(contract)
         if role == "ROLE: researcher":
             options = self.options or [
                 {"model": "logistic", "preprocessing": "standard", "params": {"C": 1}},
@@ -18,7 +57,7 @@ class FakeModel:
                 {"model": "histogram_gradient_boosting", "preprocessing": "none", "params": {"max_iter": 40}},
                 {"model": "histogram_gradient_boosting", "preprocessing": "standard", "params": {"max_iter": 80}},
             ]
-            config = options[self.trials % len(options)]
+            config = {**options[self.trials % len(options)], "intent": contract}
             self.trials += 1
             calls = [{"id": f"fake-{self.trials}", "type": "function",
                       "function": {"name": "run_analysis", "arguments": json.dumps(config)}}]

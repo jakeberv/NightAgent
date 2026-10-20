@@ -174,7 +174,8 @@ def test_report_exports_graphics_and_preserves_missing_resource_measurements(tmp
         assert png.read_bytes().startswith(b'\x89PNG')
         assert '<svg' in svg.read_text()
         assert f'figures/{name}.svg' in document
-    assert document.count('data:image/png;base64,') == 2
+    assert document.count('data:image/png;base64,') == 3
+    assert 'figures/roles.svg' in document
     assert 'incomplete' in document
     assert json.loads((tmp_path / 'report-accounting.json').read_text())['api_calls'] == 0
 

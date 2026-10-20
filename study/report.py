@@ -13,6 +13,9 @@ from pathlib import Path
 from statistics import mean, stdev
 from typing import Any
 
+from .report_analysis import (assign_analysis_groups, paired_comparisons,
+                              recommendation_uptake, role_metrics)
+
 TOKEN_FIELDS = ("input_tokens", "output_tokens", "cached_tokens", "reasoning_tokens")
 
 
@@ -231,6 +234,9 @@ def _run_data(path: Path, warnings: list[str], summary_override=None, shared_tes
     row = {
         "run_id": summary.get("run_id", path.parent.name),
         "condition": str(summary.get("condition", "unknown")),
+        "config": summary.get("config") or {},
+        "decision_protocol": (summary.get("config") or {}).get("decision_protocol", "legacy"),
+        "lesson_memory": (summary.get("config") or {}).get("lesson_memory"),
         "repeat": summary.get("repeat"), "allowance_seconds": allowance,
         "objective": objective, "problem_hash": summary.get("problem_hash"),
         "data_fingerprint": _data_fingerprint(summary, path.parent, events, warnings),
@@ -257,8 +263,11 @@ def _run_data(path: Path, warnings: list[str], summary_override=None, shared_tes
         "reporting_seconds": _number(postrun.get("reporting_seconds")),
         "postrun_accounting": postrun,
         "event_counts": dict(Counter(e.get("type", "unknown") for e in events)),
+        "role_metrics": role_metrics(events),
+        "recommendation_uptake": recommendation_uptake(events, trials, valid),
         "trace": [e for e in events if e.get("type") in
-                  ("review", "reflection", "selection", "run_stopped")],
+                  ("review", "reflection", "selection", "run_stopped", "decision_contract",
+                   "experiment_diagnostic", "repeated_tool_call", "lesson_memory")],
         "targets": {},
     }
     for definition in definitions:
@@ -326,8 +335,11 @@ def build_report_data(root: Path) -> dict:
                 interrupted = (path.parent / "events.jsonl").exists()
                 warnings.append(f"Incomplete suite: {entry['run_id']} "
                                 + ("needs recovery after interruption." if interrupted else "has not started."))
+                run_config = {**config, "condition": entry["condition"], "repeat": entry["repeat"]}
+                if type(config.get("training_seed")) is int:
+                    run_config["training_seed"] = config["training_seed"] + entry["repeat"]
                 summary = {**metadata, "run_id": entry["run_id"], "condition": entry["condition"],
-                           "repeat": entry["repeat"], "config": config,
+                           "repeat": entry["repeat"], "config": run_config,
                            "allowance_seconds": config.get("allowance_seconds"),
                            "stop_reason": "interrupted_unrecovered" if interrupted else "not_started"}
             runs.append(_run_data(path, warnings, summary, shared_test_cache))
@@ -347,9 +359,11 @@ def build_report_data(root: Path) -> dict:
     objective = runs[0]["objective"] if runs else _objective(metadata)
     if any(r["stop_reason"].startswith(("not_started", "interrupted")) for r in runs):
         warnings.append("Incomplete comparison: some planned runs did not finish; do not interpret it as a matched study.")
+    assign_analysis_groups(runs)
+    comparisons = paired_comparisons(runs, warnings)
     grouped = defaultdict(list)
     for row in runs:
-        grouped[row["condition"]].append(row)
+        grouped[row["analysis_group"]].append(row)
     conditions = {}
     for condition, rows in grouped.items():
         values = [r["best_score"] for r in rows if r["best_score"] is not None]
@@ -384,7 +398,8 @@ def build_report_data(root: Path) -> dict:
     postrun_path = root / "postrun.json"
     postrun = _read(postrun_path, warnings) if postrun_path.exists() else {}
     first = runs[0] if runs else metadata
-    return {"runs": runs, "conditions": conditions, "warnings": warnings, "objective": objective,
+    return {"runs": runs, "conditions": conditions, "paired_comparisons": comparisons,
+            "warnings": warnings, "objective": objective,
             "problem_hash": first.get("problem_hash"), "problem": first.get("problem"),
             "data_fingerprint": first.get("data_fingerprint"),
             "postrun_accounting": postrun}
@@ -420,7 +435,7 @@ def _plots(data: dict, root: Path) -> str:
     metric = data["objective"]["metric"]
     metric_label = {"roc_auc": "ROC-AUC", "roc_auc_ovr_macro": "ROC-AUC (macro one-vs-rest)"}.get(metric, metric)
     for row in data["runs"]:
-        name = row["condition"]
+        name = row["analysis_group"]
         curve = row["best_curve"]
         label = name if name not in labels_seen else None
         if curve:
@@ -474,6 +489,8 @@ def generate_report(root: Path) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     data = build_report_data(root)
     runs = data["runs"]
+    (root / "paired-comparisons.json").write_text(
+        json.dumps(data["paired_comparisons"], indent=2, ensure_ascii=False), encoding="utf-8")
     fields = [key for row in runs for key in row if key not in
               ("best_curve", "postrun_accounting", "event_counts", "trace")]
     fields = list(dict.fromkeys(fields)) or ["run_id", "condition", "best_validation_auc"]
@@ -491,7 +508,7 @@ def generate_report(root: Path) -> Path:
                 f"({html.escape(objective['direction'])}) within each run's scheduled allowance. "
                 "Every scheduled run is listed, including failures and runs with no valid model. "
                 "Held-out test results are separate generalization checks.</p>"]
-    from .report_graphics import overview, workflow_plot
+    from .report_graphics import overview, workflow_plot, role_plot, paired_plot
     sections.append(overview(data))
     if data["problem_hash"] is not None:
         sections.append("<p>Frozen problem hash: " + _display(data["problem_hash"]) + "</p>")
@@ -512,6 +529,38 @@ def generate_report(root: Path) -> Path:
                     "Early stops carry their last completed score to the scheduled deadline; no uncompleted work is credited. "
                     "Dotted vertical lines mark allowances; dashed horizontal lines mark frozen targets.</p>")
     sections.append(_plots(data, root) if runs else "<p>No run summaries found.</p>")
+    sections.append("<h2>Matched condition comparisons</h2><p>Pairs share the frozen problem, data, objective, "
+                    "allowance, training seed, repeat and every configuration setting except condition. "
+                    "Protocol and lesson-memory variants remain separate. Duplicate units are excluded. "
+                    "Differences are condition B minus condition A; a positive score difference favors B for maximization "
+                    "and A for minimization. Unmatched runs and runs without valid models remain in the failure denominators.</p>")
+    sections.append("<p>Exploratory 95% Student t intervals describe the mean within-pair difference, assuming independent "
+                    "repeats and approximately normal differences. They are unavailable with fewer than two complete pairs "
+                    "and are not adjusted for multiple comparisons. Score and cost differences use only pairs with both "
+                    "measurements; cost and token differences require complete accounting. These estimates can be biased "
+                    "when outcomes are missing. Target attainment includes every matched scheduled pair; crossing-time "
+                    "differences use only pairs that both attained the target.</p>")
+    if not data["paired_comparisons"]:
+        sections.append("<p>No comparable configuration groups with two conditions are available.</p>")
+    for index, comparison in enumerate(data["paired_comparisons"], 1):
+        sections.append(f"<h3>Comparison {index}: {_display(comparison['condition_b'])} minus "
+                        f"{_display(comparison['condition_a'])}</h3>")
+        sections.append("<details><summary>Frozen configuration and matched run identifiers</summary><pre>" +
+                        html.escape(json.dumps({"config": comparison["config"], "pairs": comparison["pair_ids"]},
+                                              indent=2, ensure_ascii=False)) + "</pre></details>")
+        sections.append(_table(["Condition", "All runs", "No valid model", "Unmatched runs", "Stop reasons"],
+            [[comparison["condition_" + side], comparison["runs_" + side], comparison["no_valid_model_" + side],
+              comparison["unmatched_runs_" + side], json.dumps(comparison["stop_reasons_" + side], sort_keys=True)]
+             for side in ("a", "b")]))
+        sections.append(f"<p>There are {comparison['matched_pairs']} matched pairs, including "
+                        f"{comparison['missing_score_pairs']} pairs missing at least one valid score.</p>")
+        sections.append(_table(["Measurement", "Complete pairs", "Mean B − A", "SD of differences", "95% interval"],
+            [[field, value["n"], value["mean_delta"], value["sd_delta"], value["ci95"]]
+             for field, value in comparison["metrics"].items()] +
+            [[f"{target}: {field}", value["n"], value["mean_delta"], value["sd_delta"], value["ci95"]]
+             for target, measures in comparison["targets"].items() for field, value in measures.items()]))
+    if runs:
+        sections.append(paired_plot(data, root))
     if runs:
         sections.append("<h2>Trial outcomes and resource use</h2><p>Completed trials have a valid score within the allowance. "
                         "Late results and missing outcomes stay separate. Resource bars sum recorded component wall time across runs; "
@@ -519,10 +568,13 @@ def generate_report(root: Path) -> Path:
                         "An asterisk marks an incomplete subtotal; unknown durations are not zero.</p>")
         sections.append(workflow_plot(data, root))
     sections.append("<h2>Every run: primary outcome and stop reason</h2>")
-    sections.append(_table(["Run", "Condition", "Repeat", "Allowance (s)", "Actual stop (s)", "Stop reason",
+    sections.append(_table(["Run", "Analysis group", "Protocol", "Lesson memory", "Repeat", "Allowance (s)", "Actual stop (s)", "Stop reason",
                             f"Best validation {metric}", "Attempts"],
-                           [[r[k] for k in ("run_id", "condition", "repeat", "allowance_seconds", "elapsed_seconds",
+                           [[r[k] for k in ("run_id", "analysis_group", "decision_protocol", "lesson_memory", "repeat", "allowance_seconds", "elapsed_seconds",
                                             "stop_reason", "best_score", "trial_attempts")] for r in runs]))
+    sections.append("<details><summary>Frozen run configurations</summary><pre>" +
+                    html.escape(json.dumps({r["run_id"]: {"analysis_group": r["analysis_group"], "config": r["config"]}
+                                           for r in runs}, indent=2, ensure_ascii=False)) + "</pre></details>")
     sections.append("<h2>Named validation target crossings</h2>")
     sections.append(_table(["Run", "Target", f"Threshold ({metric})", "Reached", "First crossing (s)"],
                            [[r["run_id"], name, t["threshold"], t["reached"], t["seconds"]]
@@ -542,6 +594,33 @@ def generate_report(root: Path) -> Path:
                             "Reasoning tokens", "Complete token total", "Usage complete"],
                            [[r[k] for k in ("run_id", "known_cost", "total_cost", "input_tokens", "output_tokens", "cached_tokens",
                                             "reasoning_tokens", "total_tokens", "token_usage_complete")] for r in runs]))
+    sections.append("<h3>API usage by role</h3><p>Every recorded call attempt contributes, including retries, failures "
+                    "and cancellations. Unfinished calls retain unknown usage and outcomes. Known subtotals never imply "
+                    "complete accounting. The failure fraction includes failed and cancelled attempts; it is unknown "
+                    "when any attempt has an unresolved outcome. Missing role records do not imply zero usage.</p>")
+    sections.append(_table(["Run", "Role", "Attempts", "Completed", "Failed", "Cancelled", "Unfinished", "Unknown status",
+                            "Failure fraction", "Recorded seconds", "Time complete", "Known USD", "Complete USD",
+                            "Input tokens", "Output tokens", "Cached tokens", "Reasoning tokens", "Complete tokens"],
+        [[r["run_id"], role] + [values[key] for key in ("attempts", "completed", "failed", "cancelled", "unfinished",
+          "unknown_status", "failure_fraction", "model_seconds", "model_seconds_complete", "known_cost", "total_cost",
+          "input_tokens", "output_tokens", "cached_tokens", "reasoning_tokens", "total_tokens")]
+         for r in runs for role, values in r["role_metrics"].items()]))
+    if runs:
+        sections.append(role_plot(data, root))
+    sections.append("<h2>Recommendation uptake</h2><p>Valid decision contracts record whether the researcher followed, "
+                    "modified or rejected supervisor advice. The followed fraction uses those three responses as its "
+                    "denominator; not-applicable, unknown and invalid responses are separate. Without contracts, uptake is "
+                    "unknown. Differences from a referenced baseline are observed validation outcomes, not evidence that "
+                    "advice caused an improvement. Repeated-experiment diagnostics are observational and do not imply failure.</p>")
+    sections.append(_table(["Run", "Recorded contracts", "Applicable", "Followed", "Modified", "Rejected", "Not applicable",
+                            "Unknown", "Invalid", "Followed fraction"],
+        [[r["run_id"]] + [r["recommendation_uptake"][key] for key in ("recorded_contracts", "applicable", "followed",
+            "modified", "rejected", "not_applicable", "unknown", "invalid", "followed_fraction")] for r in runs]))
+    sections.append(_table(["Run", "Trial", "Baseline", "Response", "Reason", "Trial status", "Baseline validation",
+                            "Trial validation", "Observed validation difference"],
+        [[r["run_id"]] + [item[key] for key in ("trial_id", "baseline_trial_id", "supervisor_response", "response_reason",
+            "trial_status", "baseline_score", "trial_score", "validation_delta")]
+         for r in runs for item in r["recommendation_uptake"]["outcomes"]]))
     sections.append("<h3>Accounting at first target attainment</h3>")
     sections.append(_table(["Run", "Target", "Reached", "Time (s)", "Known USD", "Complete USD", "Complete tokens"],
                            [[r["run_id"], name, t["reached"], t["seconds"], t["known_cost"], t["total_cost"], t["total_tokens"]]

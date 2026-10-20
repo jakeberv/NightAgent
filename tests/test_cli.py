@@ -141,7 +141,9 @@ def test_offline_model_can_execute_adapter_configuration_without_classifier_assu
     config = {"model": "ridge", "preprocessing": "standard", "params": {"alpha": 2}}
     response = asyncio.run(FakeModel(options=[config]).complete(
         [{"role": "system", "content": "ROLE: researcher\nMinimize RMSE"}], [], timeout=1))
-    assert json.loads(response["message"]["tool_calls"][0]["function"]["arguments"]) == config
+    arguments = json.loads(response["message"]["tool_calls"][0]["function"]["arguments"])
+    assert arguments.pop("intent")["supervisor_response"] == "not_applicable"
+    assert arguments == config
 
 
 def test_invalid_problem_is_rejected_before_model_or_network(tmp_path, monkeypatch):
@@ -281,3 +283,26 @@ def test_suite_evaluates_identical_selected_artifact_once_across_runs(tmp_path):
     evaluate(data, suite)
     assert cache_path.read_bytes() == cache_before
     assert json.loads((suite / "runs/a/test-results.json").read_text()) == a
+
+
+def test_cli_enables_run_local_memory_and_freezes_treatment(tmp_path, monkeypatch, capsys):
+    import sys
+    from study.__main__ import main
+    from study.fake import FakeModel
+    data, output = tmp_path / 'data', tmp_path / 'run'
+    prepare_dataset(data, synthetic=True)
+    config = tmp_path / 'config.json'
+    config.write_text('{"trial_cap":2,"allowance_seconds":30}')
+    class Offline(FakeModel):
+        async def describe(self):
+            return {'offline': True}
+    monkeypatch.setattr('study.__main__.live_model', lambda config: Offline())
+    monkeypatch.setattr(sys, 'argv', ['study', 'run', '--config', str(config), '--data', str(data),
+        '--output', str(output), '--lesson-memory', '--quiet'])
+    main()
+    summary = json.loads((output / 'summary.json').read_text())
+    assert summary['config']['lesson_memory'] is True
+    assert summary['config']['decision_protocol'] == 'structured_v1'
+    assert summary['lessons']
+    assert (output / 'lessons.json').exists()
+    assert not (output / 'test-results.json').exists()

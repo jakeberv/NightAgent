@@ -33,7 +33,11 @@ def experiment_summary(lab):
         return "The first experiment has not started."
     model = MODEL_NAMES.get(lab.config.get("model"), lab.config.get("model", "the selected model"))
     if lab.comparison is None:
+        if isinstance(lab.intent, dict):
+            return f"Trial {lab.trial_id} tests {model}; no baseline was named."
         return f"Trial {lab.trial_id} tests {model}; no completed trial is available for comparison."
+    if not lab.comparison_available:
+        return f"Settings for baseline trial {lab.comparison} are unavailable in this view."
     if not lab.changes:
         return f"Trial {lab.trial_id} uses the same explicit settings as completed trial {lab.comparison}."
     if len(lab.changes) == 1:

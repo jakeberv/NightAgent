@@ -1,6 +1,6 @@
 # Tutorial sources and design adaptations
 
-The standalone `study` harness uses ideas reviewed in the three sibling workshop
+The standalone `study` harness uses ideas reviewed in the four sibling workshop
 repositories. The files linked below were inspected locally. Public repository
 links come from each sibling checkout's configured origin; this review did not
 fetch their current online contents. No tutorial source was copied verbatim into
@@ -79,6 +79,34 @@ not grant agent-controlled execution or an MCP shell.
 Tutorial 3 is [MIT licensed](../../AgenticAI2026_Tutorial-3/LICENSE), copyright
 2026 Afeez Popoola. The same license-preservation rule applies to any future
 copied or substantial adapted source. The study code is independently written.
+
+## Tutorial 4: reliability and coordination overhead
+
+Source: [local Tutorial 4](../../AgenticAI2026_Tutorial-4/README.md),
+[notebook](../../AgenticAI2026_Tutorial-4/errors_reliability_coordination.ipynb).
+
+The notebook contrasts single-agent and delegated work while recording request
+counts, tokens, latency, tool choice, handoffs and answer checks. The study applies
+those measurement principles to the existing researcher, supervisor and reflection
+roles. Per-role reports retain failures and retries, while structured decision
+contracts record the researcher's stated response to advice. Matched-repeat
+comparisons use frozen identities and report missing outcomes explicitly. Answer
+similarity alone is not treated as scientific correctness. Unlike the teaching
+retry example, the study keeps failed-attempt costs and full elapsed time.
+
+The implementation is independent and does not copy tutorial source, introduce
+Langfuse data export, migrate frameworks, or infer a license from public visibility.
+
+## Workshop-informed protocol update
+
+The `structured_v1` runtime implements evidence references as trial/metric/split/value
+checks rather than merely checking whether a number occurs in a trace (Tutorial 1).
+It records repetitive calls and resolved-configuration equivalence without silently
+skipping experiments. Scientific constructors remain the source of defaults and
+aliases (Tutorial 3). Optional bounded, revisable lessons remain confined to a
+single run and are separately identified in comparisons (Tutorial 2). This is
+context memory, not weight training or proof of self-improvement. The full behavior
+and limitations are documented in the [study guide](../study/README.md).
 
 ## Experimental design and reporting provenance
 

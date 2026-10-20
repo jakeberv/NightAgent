@@ -15,5 +15,8 @@
   "review_tool_calls": 6,
   "literature_calls_per_review": 3,
   "literature_timeout_seconds": 15,
-  "allow_unknown_cost": false
+  "allow_unknown_cost": false,
+  "decision_protocol": "structured_v1",
+  "lesson_memory": false,
+  "memory_limit": 6
 }

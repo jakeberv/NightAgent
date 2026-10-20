@@ -59,6 +59,8 @@ def execute(request: dict) -> dict:
     finally:
         temporary.unlink(missing_ok=True)
     result = {'status': 'completed', 'artifact_hash': hashlib.sha256(artifact.read_bytes()).hexdigest()}
+    from study.diagnostics import pipeline_effective_config
+    result['actual_effective_config'] = pipeline_effective_config(pipeline, request['config'], n_features=int(pipeline.steps[-1][1].n_features_in_))
     if adapter is None:
         result['validation_auc'] = score
     else:

@@ -221,7 +221,8 @@ async def _dispatch(args, progress):
         summaries = []
         for condition in CONDITIONS:
             config = StudyConfig(condition=condition, model="offline-script", provider="offline",
-                allowance_seconds=60, trial_cap=4, trial_timeout_seconds=15)
+                allowance_seconds=60, trial_cap=4, trial_timeout_seconds=15,
+                lesson_memory=bool(getattr(args, "lesson_memory", False)))
             summaries.append(await run_one(config, data_dir, args.output / "runs" / condition,
                 FakeModel(options=options), literature=FakeLiterature(), problem=problem, progress=progress))
         atomic_json(args.output / "smoke.json", {"offline": True, "provenance": provenance(data_dir),
@@ -232,6 +233,8 @@ async def _dispatch(args, progress):
             raise RuntimeError("Offline smoke did not complete every condition")
     elif args.command in ("run", "suite"):
         config = load_config(args.config)
+        if getattr(args, "lesson_memory", None) is not None:
+            config = replace(config, lesson_memory=args.lesson_memory)
         if getattr(args, "max_cores", None) is not None:
             config = replace(config, max_cores=args.max_cores)
         problem = preflight_problem(problem_path, args.data)
@@ -298,6 +301,8 @@ def main():
         p.add_argument("--env-file", type=Path, help="Read OpenRouter credentials from this env file (no shell execution)")
         p.add_argument("--summary-interval", type=float, default=15,
                        help="Seconds between findings summaries (default 15; 0 disables summaries)")
+        p.add_argument("--lesson-memory", action=argparse.BooleanOptionalAction, default=None,
+                       help="Enable bounded lessons within each run; a separately recorded experimental variant")
         p.add_argument("--max-cores", type=int, help="Maximum local training threads; automatically balances independent suite runs")
         p.add_argument("--no-animation", action="store_true", help="Disable the interactive status line")
         display = p.add_mutually_exclusive_group()
@@ -322,6 +327,7 @@ def main():
         if command == "evaluate":
             p.add_argument("--data", type=Path, required=True)
         if command == "smoke":
+            p.add_argument("--lesson-memory", action="store_true", help="Exercise run-local lessons offline")
             p.add_argument("--problem", type=Path, help="Optional profile for a scripted all-condition smoke run")
             display = p.add_mutually_exclusive_group()
             display.add_argument("--verbose", action="store_true")
