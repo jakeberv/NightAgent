@@ -62,8 +62,48 @@ def activity_sentence(state):
         if state.lab.role == "local":
             return ("The experiment is waiting for available cores." if "Waiting" in state.lab.action else
                     f"Trial {state.lab.trial_id} is running locally.")
-        return f"The {state.lab.role} is waiting for an API response."
+        return {"researcher": "The researcher is choosing the next experiment.",
+                "supervisor": "The supervisor is reviewing the validation evidence.",
+                "reflection": "The reflection agent is reassessing the search strategy."}.get(
+                    state.lab.role, "The agent is waiting for an API response.")
+    if state.lab.role in ("supervisor", "reflection") and not state.stopped:
+        return state.lab.action.rstrip(".") + "."
     return state.activity[:1].upper() + state.activity[1:].rstrip(".") + "."
+
+
+def narrative(state):
+    """Describe recorded intent/advice, without guessing the pending response.
+
+    Each row has a factual source label, prose, and resize priority. Advice is
+    explicitly attributed and remains visible while the researcher considers it.
+    """
+    lab = state.lab
+    guidance = lab.guidance
+    if guidance and (lab.role == "researcher" or (lab.role == guidance["role"] and not lab.busy)):
+        role = "Supervisor advice" if guidance["role"] == "supervisor" else "Reflection"
+        after = guidance["after_trial"]
+        heading = f"{role} after trial {after}" if after is not None else role
+        contract = guidance["contract"]
+        fields = (("Assessment", "assessment"), ("Suggested next test", "recommendation"),
+                  ("Open question", "unresolved_question")) if guidance["role"] == "supervisor" else (
+                      ("Learning", "what_changed"), ("Suggested next test", "next_comparison"),
+                      ("Uncertainty", "uncertainty"))
+        rows = [(label, contract.get(key), 1 if index < 2 else 2)
+                for index, (label, key) in enumerate(fields) if contract.get(key)]
+        summary = contract.get("summary") or guidance["summary"]
+        return heading, rows or [("Agent interpretation", summary, 1)], summary
+    if lab.trial_id is None:
+        return "", [], ""
+    model = MODEL_NAMES.get(lab.config.get("model"), lab.config.get("model", "model"))
+    heading = "Current experiment" if lab.role == "local" and lab.busy else "Last experiment"
+    intent = lab.intent or {}
+    rows = [("Agent hypothesis" if intent.get("hypothesis") else "Agent summary",
+             intent.get("hypothesis") or lab.rationale, 1),
+            ("Change", intent.get("change"), 2),
+            ("Expected", intent.get("expected_outcome"), 2)]
+    if not any(value for _, value, _ in rows):
+        rows = [("Comparison", experiment_summary(lab), 1)]
+    return f"{heading}: trial {lab.trial_id} · {model}", rows, lab.rationale or experiment_summary(lab)
 
 
 def focus_dashboard(state, *, width, height, shortcut=False):
@@ -78,12 +118,33 @@ def focus_dashboard(state, *, width, height, shortcut=False):
     def add(value, style="", priority=1):
         rows.append((text(value, style), priority))
 
-    # Resource constraints and results outrank optional explanations on resize.
-    add(active_role(state, elapsed), "bold cyan")
+    # Keep the explanation ahead of decoration and resource detail on resize.
+    add(active_role(state, elapsed), "bold cyan", 3)
     add(fitting_summary(activity_sentence(state), inner, 2, "The run is active."), priority=0)
-    if state.event_at is not None and elapsed - state.elapsed > 30:
-        add(f"No new events for {int(elapsed - state.elapsed)} seconds.", "yellow")
-    add("", priority=3)
+    if state.lab.busy and state.lab.phase_started is not None:
+        pending = "Local work" if state.lab.role == "local" else "API response pending"
+        add(f"{pending} · {duration(max(0, elapsed - state.lab.phase_started))} elapsed", "dim", 2)
+    add("", priority=4)
+    heading, explanation, fallback = narrative(state)
+    if heading:
+        # Group the source label with its prose so resizing never orphans it.
+        paragraphs = []
+        for label, value, priority in explanation:
+            prose = fitting_summary(value, max(1, inner - len(label) - 2),
+                                    3 if height >= 28 else 2, "")
+            if not prose and label == "Agent hypothesis":
+                label = "Agent summary"
+                prose = fitting_summary(state.lab.rationale, max(1, inner - len(label) - 2), 2, "")
+            if prose:
+                paragraphs.append((f"{label}: {prose}", priority))
+        if not paragraphs:
+            paragraphs = [(fitting_summary(fallback, inner, 2,
+                           "The full explanation is available in Details."), 1)]
+        first, priority = paragraphs[0]
+        add(heading + "\n" + first, "magenta", priority)
+        for prose, priority in paragraphs[1:]:
+            add(prose, "magenta", priority)
+    add("", priority=4)
     add(f"{score:.5f}  best {state.objective['metric']}" if score is not None else "No selected model yet", "bold green", 0)
     if score is not None and state.first_score is not None:
         gain = state.first_score - score if state.objective["direction"] == "minimize" else score - state.first_score
@@ -95,23 +156,27 @@ def focus_dashboard(state, *, width, height, shortcut=False):
             reached = score is not None and (score <= target["value"] if minimize else score >= target["value"])
             targets.append(f"{target['name']} {target['value']:g}: {'reached' if reached else 'pending'}")
         add(" · ".join(targets), "dim", 2)
-    add("", priority=3)
-    discovery = state.lab.discoveries[-1] if state.lab.discoveries else {"message": state.fact, "style": "dim"}
-    add(fitting_summary(discovery["message"], inner, 2, "A new result has been recorded." if state.lab.discoveries else "No experiment has completed yet."), discovery["style"])
-    if state.lab.trial_id is not None:
-        model = MODEL_NAMES.get(state.lab.config.get("model"), state.lab.config.get("model", "model"))
-        add(f"Latest experiment: trial {state.lab.trial_id} · {model}", "bold", 2)
-        summary = fitting_summary(state.lab.rationale, inner - len("Agent interpretation: "), 2, "")
-        if summary:
-            add("Agent interpretation: " + summary, "magenta", 2)
-        else:
-            add(fitting_summary(experiment_summary(state.lab), inner, 2), "dim", 2)
-    add("", priority=3)
+    # Measurements stay distinct from agent expectations and incidental warnings.
+    from .lab import score_of
+    result = state.lab.last_result
+    if result and result.get("status") != "completed":
+        evidence = f"Trial {result['trial_id']} ended with status {result['status']}."
+    elif result and score_of(result) is not None:
+        evidence = f"Trial {result['trial_id']} measured {score_of(result):.5f} validation {state.objective['metric']}."
+    else:
+        evidence = state.fact
+    add(fitting_summary(evidence, inner, 2, "A result has been recorded." if result else
+                        "No experiment has completed yet."), "dim", 1)
+    if state.lab.discoveries:
+        discovery = state.lab.discoveries[-1]
+        add(fitting_summary(discovery["message"], inner, 2, "A new result has been recorded."),
+            discovery["style"], 2)
+    add("", priority=4)
     add(f"Time left {duration(remaining)} · API {cost_label(state)} / ${state.config.get('dollar_cap', 0):g}", "cyan", 0)
     add(f"Trials {state.completed + state.unsuccessful}/{state.config.get('trial_cap', '?')} · {state.unsuccessful} unsuccessful", "dim", 0)
-    add(f"CPU {cpu_label(state)} · {allocation_label(state)}", "dim")
+    add(f"CPU {cpu_label(state)} · {allocation_label(state)}", "dim", 3)
     if state.accounting and not state.accounting.get("cost_complete"):
-        add("API total is incomplete; only known charges are shown.", "yellow")
+        add("API total is incomplete; only known charges are shown.", "yellow", 0)
 
     # Remove entire low-priority blocks; never crop a prose sentence at the bottom.
     console = Console(width=width)
@@ -121,4 +186,4 @@ def focus_dashboard(state, *, width, height, shortcut=False):
         remove = max(range(len(rows)), key=lambda index: (rows[index][1], index))
         rows.pop(remove)
     return Align.center(Panel(Group(*(row[0] for row in rows)), title=text(f"FOCUS · {state.run_id or state.problem_id}"),
-        subtitle="f  Details" if shortcut else "FOCUS", border_style="cyan", padding=(0, 1), width=width))
+        subtitle="f  Details · l  Log" if shortcut else "FOCUS", border_style="cyan", padding=(0, 1), width=width))

@@ -212,8 +212,16 @@ recorded configuration change in a complete sentence. It never clips commentary 
 Press **`f`** (no Enter) to toggle **Focus** and **Details** during a live run or
 `study watch`. Details remains the default. Focus uses one panel, one active
 avatar, the best score and target status, the latest discovery and experiment,
-and remaining time, API spending and CPU allocation. This puts activity, results
-and constraints ahead of diagnostics; histories, token totals and the four-role
+and remaining time, API spending and CPU allocation. Its narrative shows the
+recorded agent hypothesis, proposed change and expected result in complete
+sentences, separately from measured validation scores. Recorded supervisor
+advice or reflection stays visible while the researcher considers the next
+experiment, with its source and trial number. Pending calls explain the role's
+purpose and show elapsed time for that call (reset on retry); they do not claim
+to stream the model's private thinking. When space is tight, explanations take
+priority over avatars and CPU detail. Long hypotheses fall back to the recorded
+short summary when it fits. This puts activity, results and constraints ahead
+of diagnostics; histories, token totals and the four-role
 map remain one keypress away in Details. The panel is capped at 96 columns to
 keep text readable on wide screens. Smaller windows drop whole low-priority
 blocks rather than cut sentences. Known-cost warnings and unsuccessful trial

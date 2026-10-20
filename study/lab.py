@@ -69,6 +69,8 @@ class Lab:
     def __init__(self):
         self.role = None
         self.busy = False
+        self.phase_started = None
+        self.guidance = None
         self.action = "Waiting for the first recorded action"
         self.trial_id = None
         self.config = {}
@@ -94,6 +96,7 @@ class Lab:
         kind = event["type"]
         if kind == "model_call_started":
             self.role, self.busy = event.get("role"), True
+            self.phase_started = state.elapsed
             self.action = "Waiting for API response · no progress estimate"
         elif kind == "model_call":
             self.role, self.busy = event.get("role"), False
@@ -109,9 +112,10 @@ class Lab:
             self.pending = (event["trial_id"], rationale)
         elif kind == "trial_started":
             self.role, self.busy = "local", True
+            self.phase_started = state.elapsed
             self.trial_id = event["trial_id"]
             self.config = deepcopy(event.get("config", {}))
-            self.intent = event.get("intent")
+            self.intent = deepcopy(event.get("intent"))
             if isinstance(self.intent, dict):
                 self.rationale = sentence_summary(self.intent.get("summary"))
                 self.comparison = self.intent.get("baseline_trial_id")
@@ -180,6 +184,11 @@ class Lab:
             self.action = f"{'Review' if kind == 'review' else 'Reflection'} recorded"
             if "after_trial" in event:
                 self.action += f" after trial {event['after_trial']}"
+            # Only accepted review/reflection events enter the narrative, never
+            # attempted contracts (which may have failed validation).
+            self.guidance = {"role": self.role, "after_trial": event.get("after_trial"),
+                             "contract": deepcopy(event.get("contract") or {}),
+                             "summary": event.get("feedback" if kind == "review" else "reflection", "")}
         elif kind in ("failure", "run_stopped"):
             self.busy = False
             self.action = "Run stopped" if kind == "run_stopped" else "Run failure recorded"

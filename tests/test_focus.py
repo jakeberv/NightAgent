@@ -27,6 +27,134 @@ def state_for_focus():
     return state
 
 
+def render_focus(state, width=80, height=24):
+    output = io.StringIO()
+    Console(file=output, width=width, height=height, color_system=None).print(
+        dashboard(state, width=width, height=height, focus=True, shortcut=True))
+    return output.getvalue()
+
+
+def structured_focus():
+    state = state_for_focus()
+    state.update({"type": "trial_started", "run_id": "magic-demo", "elapsed_seconds": 120,
+                  "trial_id": 2, "config": {"model": "random_forest", "params": {"n_estimators": 200}},
+                  "intent": {"summary": "Test a larger forest.", "baseline_trial_id": 1,
+                             "hypothesis": "More trees may reduce prediction variance.",
+                             "change": "Increase the forest from 100 to 200 trees.",
+                             "expected_outcome": "Validation AUC may improve over trial 1."}})
+    return state
+
+
+def test_focus_explains_hypothesis_change_and_expected_outcome_without_extra_calls():
+    state = structured_focus()
+    rendered = render_focus(state)
+    assert "More trees may reduce prediction variance." in rendered
+    assert "Increase the forest from 100 to 200 trees." in rendered
+    assert "Validation AUC may improve over trial 1." in rendered
+    assert "Agent hypothesis:" in rendered and "Expected:" in rendered
+    assert "0.91000" in rendered and "$0.2400 known" in rendered
+    assert "l  Log" in rendered
+
+
+@pytest.mark.parametrize("role,purpose", [
+    ("researcher", "choosing the next experiment"),
+    ("supervisor", "reviewing the validation evidence"),
+    ("reflection", "reassessing the search strategy"),
+])
+def test_focus_explains_pending_role_and_times_call_not_last_event(monkeypatch, role, purpose):
+    state = structured_focus()
+    state.update({"type": "model_call_started", "run_id": "magic-demo", "role": role,
+                  "elapsed_seconds": 130})
+    # An unrelated recorded event must not reset the call timer.
+    state.update({"type": "experiment_diagnostic", "run_id": "magic-demo", "elapsed_seconds": 139,
+                  "warning": "The same settings were previously evaluated."})
+    monkeypatch.setattr("study.terminal.elapsed_now", lambda state: 145)
+    rendered = render_focus(state, height=30)
+    assert purpose in rendered
+    assert "API response pending · 0:15 elapsed" in rendered
+    assert "Last experiment" in rendered  # Old intent is not the new agent's live thinking.
+
+
+@pytest.mark.parametrize("kind,role,fields,expected", [
+    ("review", "supervisor", {"assessment": "The improvement is still uncertain.",
+                              "recommendation": "Compare a shallower forest next."},
+     "Compare a shallower forest next."),
+    ("reflection", "reflection", {"what_changed": "Larger forests have stopped improving.",
+                                  "next_comparison": "Compare gradient boosting with the forest."},
+     "Compare gradient boosting with the forest."),
+])
+def test_focus_keeps_recorded_guidance_during_next_researcher_call(kind, role, fields, expected):
+    state = structured_focus()
+    state.update({"type": kind, "run_id": "magic-demo", "after_trial": 2,
+                  "feedback": "A different comparison is warranted.",
+                  "reflection": "A different comparison is warranted.",
+                  "contract": {"summary": "A different comparison is warranted.", **fields}})
+    assert expected in render_focus(state)
+    state.update({"type": "model_call_started", "run_id": "magic-demo", "role": "researcher"})
+    rendered = render_focus(state)
+    assert expected in rendered and "after trial 2" in rendered
+    assert "Expected: Validation AUC" not in rendered
+    # A new experiment replaces the previous advice in the main narrative.
+    state.update({"type": "trial_started", "run_id": "magic-demo", "trial_id": 3,
+                  "config": {"model": "random_forest"},
+                  "intent": {"hypothesis": "Shallower trees may generalize better."}})
+    assert "Shallower trees may generalize better." in render_focus(state)
+    assert expected not in render_focus(state)
+
+
+def test_focus_preserves_whole_explanation_before_cpu_on_small_screen():
+    rendered = render_focus(structured_focus(), width=55, height=20)
+    prose = " ".join(line.strip("│ ") for line in rendered.splitlines())
+    assert "More trees may reduce prediction variance." in prose
+    assert "0.91000" in rendered and "known" in rendered and "3:00" in rendered
+    assert len(rendered.splitlines()) <= 20
+
+
+def test_focus_run_reset_discards_guidance_and_timer():
+    state = structured_focus()
+    state.update({"type": "review", "run_id": "magic-demo", "after_trial": 2,
+                  "feedback": "Try a smaller forest.", "contract": {"summary": "Try a smaller forest."}})
+    state.update({"type": "run_started", "run_id": "next-run", "config": {}})
+    assert state.lab.guidance is None and state.lab.phase_started is None
+
+
+def test_focus_long_hypothesis_uses_complete_summary_and_ignores_rejected_advice():
+    state = structured_focus()
+    state.lab.intent["hypothesis"] = "A very long explanation " * 30 + "."
+    state.update({"type": "supervisor_contract", "run_id": "magic-demo", "after_trial": 1,
+                  "valid": False, "errors": ["Missing evidence."],
+                  "contract": {"summary": "Unsupported advice must stay out of the narrative."}})
+    rendered = render_focus(state)
+    assert "Agent summary: Test a larger forest." in rendered
+    assert "A very long explanation" not in rendered
+    assert "Unsupported advice" not in rendered
+    assert "…" not in rendered
+
+
+def test_focus_call_timer_restarts_on_retry_and_stops_after_response(monkeypatch):
+    state = structured_focus()
+    for start in (130, 150):
+        state.update({"type": "model_call_started", "run_id": "magic-demo", "role": "researcher",
+                      "elapsed_seconds": start})
+    monkeypatch.setattr("study.terminal.elapsed_now", lambda state: 155)
+    assert "API response pending · 0:05 elapsed" in render_focus(state)
+    state.update({"type": "model_call", "run_id": "magic-demo", "role": "researcher",
+                  "status": "ok", "elapsed_seconds": 155})
+    assert "API response pending" not in render_focus(state)
+
+
+def test_focus_long_advice_falls_back_to_its_own_summary():
+    state = structured_focus()
+    state.update({"type": "review", "run_id": "magic-demo", "after_trial": 2,
+                  "feedback": "Try a shallower forest.", "contract": {
+                      "summary": "Try a shallower forest.",
+                      "assessment": "A very long assessment " * 30 + ".",
+                      "recommendation": "A very long recommendation " * 30 + "."}})
+    rendered = render_focus(state)
+    assert "Try a shallower forest." in rendered
+    assert "Test a larger forest." not in rendered
+
+
 @pytest.mark.parametrize("width,height", [(120,38), (80,24), (55,30), (40,16)])
 def test_focus_view_prioritizes_activity_results_and_constraints_without_dense_tables(width, height):
     state = state_for_focus()
