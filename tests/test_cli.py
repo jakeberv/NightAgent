@@ -17,7 +17,9 @@ def test_live_cli_failure_exits_nonzero_and_preserves_results(tmp_path, monkeypa
     data, output = tmp_path / "data", tmp_path / "output"
     prepare_dataset(data, synthetic=True)
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"model_retries": 0, "allowance_seconds": 1}))
+    # Exercise a provider failure, rather than the API-start deadline guard.
+    config.write_text(json.dumps({"model_retries": 0, "allowance_seconds": 1,
+                                  "model_start_buffer_seconds": 0}))
     class FailedProvider:
         async def describe(self):
             return {"offline": True}

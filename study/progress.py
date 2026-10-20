@@ -85,7 +85,7 @@ def format_event(event, *, verbose=False):
         if event.get("waiting"):
             body += " (waiting for allocation)"
     elif kind in ("decision_contract", "supervisor_contract", "reflection_contract",
-                  "experiment_diagnostic", "repeated_tool_call", "lesson_memory"):
+                  "experiment_diagnostic", "repeated_tool_call", "lesson_memory", "model_call_skipped"):
         body = kind.replace("_", " ") + ": " + _text(
             {key: value for key, value in event.items()
              if key not in ("type", "run_id", "elapsed_seconds", "timestamp")}, verbose)

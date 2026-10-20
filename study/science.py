@@ -433,6 +433,8 @@ async def run_trial(data_dir: Path, trial_dir: Path, config: dict, *, seed: int,
         result.update(describe_experiment(config, problem=problem, project=project_info(data_dir), seed=seed))
         if 'actual_effective_config' in response:
             result['actual_effective_config'] = response['actual_effective_config']
+        if 'fit_diagnostics' in response:
+            result['fit_diagnostics'] = response['fit_diagnostics']
         if problem is not None:
             result.update(metrics=metrics, score=score)
             if problem.objective['metric'] == 'roc_auc':

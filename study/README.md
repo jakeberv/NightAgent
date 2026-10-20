@@ -118,6 +118,15 @@ input/output tokens to existing requests; all are included in normal accounting.
 Old JSON config files adopt the new protocol automatically. Protocol identity is
 frozen in every new run; reports label old logs as legacy for comparison purposes.
 
+Each API attempt refreshes the remaining time, remaining trial count and observed
+average call latency. Review/reflection format repairs disable further tool calls
+and report up to six concise field errors with explicit character limits. A frozen
+`model_start_buffer_seconds` setting (default 1 second; zero disables it) prevents
+starting a request with less than that much time left. Such a stop is recorded as
+`deadline`, with a `model_call_skipped` event explaining the buffer; it incurs no
+call charge. In-flight calls still obey the hard deadline and may leave unknown
+charges if cancelled. The buffer does not predict latency or guarantee completion.
+
 Effective-configuration diagnostics resolve constructor defaults and safe aliases.
 For example, `sqrt` and `log2` both select three random-forest features on a ten-feature
 dataset. Equivalent successful trials generate an advisory warning, visible in the
@@ -126,6 +135,12 @@ Preprocessing, training seed, data/split, implementation version and objective a
 part of equivalence; scaling is never assumed interchangeable. Unknown metadata
 cannot establish an alias equivalence. Changing seeds still requires a separate
 run with its seed recorded, rather than letting the agent alter a matched study.
+Completed histogram-gradient-boosting trials also report actual iterations,
+the iteration ceiling and early-stopping behavior in `fit_diagnostics`. These
+observations reach the agents, preventing confusion between a requested maximum
+and the number of iterations actually trained. They do not establish underfitting
+or convergence. Prompts require claims to stay scoped to tested settings and the
+current split; citation validation alone cannot guarantee sound interpretation.
 
 Add `--lesson-memory` to `run`, `suite`, or `smoke` to enable a bounded lesson
 register. It holds six lessons by default (`memory_limit`, from 1 to 12), each with

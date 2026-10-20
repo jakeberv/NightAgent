@@ -61,6 +61,15 @@ def execute(request: dict) -> dict:
     result = {'status': 'completed', 'artifact_hash': hashlib.sha256(artifact.read_bytes()).hexdigest()}
     from study.diagnostics import pipeline_effective_config
     result['actual_effective_config'] = pipeline_effective_config(pipeline, request['config'], n_features=int(pipeline.steps[-1][1].n_features_in_))
+    if request['config']['model'] == 'histogram_gradient_boosting':
+        estimator = pipeline.steps[-1][1]
+        # Report observed stopping behavior; this is not a diagnosis of
+        # convergence, underfitting, or performance on another split.
+        result['fit_diagnostics'] = {
+            'iterations_completed': int(estimator.n_iter_),
+            'iteration_limit': int(estimator.max_iter),
+            'early_stopping_enabled': bool(estimator.do_early_stopping_),
+            'stopped_before_limit': bool(estimator.n_iter_ < estimator.max_iter)}
     if adapter is None:
         result['validation_auc'] = score
     else:

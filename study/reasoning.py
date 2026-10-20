@@ -62,11 +62,25 @@ def evidence_errors(evidence, history):
     return errors
 
 
+def schema_errors(value, schema, label):
+    """Bounded actionable errors shared by tool arguments and prose contracts."""
+    from itertools import islice
+    errors = []
+    validator = jsonschema.Draft202012Validator(schema)
+    for error in islice(validator.iter_errors(value), 6):
+        location = '.'.join(map(str, error.path)) or 'root'
+        if error.validator == "maxLength":
+            detail = f"Use at most {error.validator_value} characters (received {len(error.instance)}); rewrite as short complete sentences."
+        else:
+            detail = error.message[:240]
+        errors.append(f"Invalid {label} at {location}: {detail}")
+    return errors
+
+
 def validate_contract(contract, role, history, *, has_feedback=False, memory=False):
-    try:
-        jsonschema.validate(contract, contract_schema(role, memory))
-    except jsonschema.ValidationError as error:
-        return [f"Invalid {role} contract at {'.'.join(map(str, error.path)) or 'root'}: {error.message}"]
+    errors = schema_errors(contract, contract_schema(role, memory), f"{role} contract")
+    if errors:
+        return errors
     errors = evidence_errors(contract["evidence"], history)
     if role == "researcher":
         baseline = contract["baseline_trial_id"]
@@ -132,11 +146,27 @@ def instructions(role, *, memory=False):
     prefix = ("Place the decision contract in run_analysis.intent. " if role == "researcher" else
               "When finished with tools, return only one JSON object matching this contract. ")
     return "\n" + prefix + """Use short complete sentences, not fragments or Markdown lists.
+Return no preamble, code fences or extra fields. Aim for one short sentence per
+prose field: summary at most 240 characters; other prose fields at most 500.
+Prefer under 200 characters per field to leave room for the evidence. Lesson
+summary and scope are each limited to 240 characters. These limits are characters,
+not tokens. Before returning, check every field against its length limit.
 Cite only completed validation measurements from this run with their exact recorded
 metric and value. Evidence checks validate references and measurements, not whether
 your hypothesis or interpretation is true. Use an empty evidence list before the
 first completed trial. A baseline is null for an initial or independent experiment.
 Recommendation uptake is your stated response, not a causal attribution.
+Describe the best observed setting among the tested configurations on this split.
+A small score difference alone does not establish statistical significance,
+causality, underfitting, an optimum or a performance ceiling. Unmeasured model
+behavior and explanations remain hypotheses. Do not generalize to untested settings.
+Use fit_diagnostics when present: max_iter is a ceiling, not the number of iterations
+actually trained. Early stopping before that ceiling does not establish underfitting.
+The current context includes remaining_trials, remaining_seconds and observed
+mean_model_call_seconds. Account for API calls and scheduled reviews/reflections;
+local fit duration alone does not estimate how many experiments remain feasible.
+Project metadata and recent trials are already in context; use inspect_project
+or read_results only if you need information absent from that context.
 """ + ("""You may provide at most two lesson_updates based on completed trials. Retain
 scope, uncertainty and citations. Reuse an id to revise a lesson; use superseded
 when a conclusion no longer applies. Supported means supported by cited observations,

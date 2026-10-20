@@ -76,3 +76,54 @@ Main dependency: accessible data and an approved script. Proposed Tuesday-noon s
 - [Tutorial 1](https://github.com/ioanazelko/AgenticAI2026_Tutorial-1)
 - [Tutorial 2](https://github.com/Ameyapores/AgenticAI2026_Turorial-2)
 - [Night Science workshop approach](https://night-science.org/home/learn/): explore before judging, reframe questions, connect across fields, balance openness with structure, and test against evidence. These are our adapted guiding principles.
+
+## Completed MAGIC run audit — 20 October 2026
+
+Reviewed local `study-runs/magic-workshop-20261020-161817` after pushing the
+Focus improvements (`3b2249c`). Sources: immutable events, summary, progress log,
+saved model artifacts, and report accounting. Historical run files were not edited.
+
+- The 300-second periodic-reflection run completed nine successful local trials
+  with a four-core allocation cap. Supervisor reviews followed trials 3, 6 and 9;
+  reflections completed after trials 1–8. The final reflection exhausted the deadline.
+- Trial 1 reached validation ROC-AUC 0.931019. Trial 8 was best at 0.932815
+  (accuracy 0.873028, macro-F1 0.856442), using histogram gradient boosting,
+  standard preprocessing, learning rate 0.025, max_iter 400 and 31 leaves.
+  Improvement over trial 1 was 0.001796 AUC. The 0.95 stretch was not reached.
+  This single split/run cannot establish a superior interaction strategy or
+  statistical significance. No held-out test evaluation was performed.
+- All nine saved model SHA-256 hashes matched, and all 20 accepted decision,
+  supervisor and reflection contracts passed measurement/citation checks.
+  Researcher uptake records were four followed, two modified and three with no
+  prior feedback. Literature was correctly unavailable in this condition.
+- Local trial time totaled 19.049 seconds; API calls totaled 280.566 seconds.
+  Researcher: 11 calls, 94.792 seconds, $0.300543. Supervisor: 10 calls,
+  90.570 seconds, $0.424131. Reflection: 11 calls, 95.203 seconds, $0.287418 known.
+  The report cost no API calls. CPU parallelism is not the bottleneck in this run.
+- Five rejected contracts (four prose length violations and one JSON preamble)
+  consumed 68.396 seconds and $0.219639 before repairs. A final repair started
+  with about 0.39 seconds left, timed out, and correctly made the final cost/token
+  accounting incomplete: $1.012092 is a known subtotal, not a final bill.
+- The supervisor overestimated remaining capacity using fit time alone and an
+  out-of-date time snapshot, despite only three trial slots remaining. It also
+  overclaimed an optimum, significance, a ceiling and underfitting. Inspection
+  of the saved models showed trial 8 stopped at 392/400 iterations and trial 9
+  at 366/400, contradicting the explanation that trial 9 exhausted its limit.
+  Citation validation verifies numbers, not the truth of interpretations.
+
+Corrections: refresh time/trial budgets and observed API latency before every
+attempt; use concise multi-field format errors and explicit character limits;
+disable extra tools while repairing review/reflection output; add a frozen
+one-second API-start buffer with a logged skip (zero disables it); expose actual
+HGB iteration/early-stopping diagnostics; strengthen instructions about
+uncertainty, tested configurations and current-split scope. These changes retain
+review cadence and hard deadlines. They are verified offline; their effect on
+live response quality and cost still requires a subsequent API pilot.
+
+Verification: all 377 tests passed, including controlled-clock budget/repair
+regressions and a real worker fit with held-out data removed. The memory-enabled
+offline smoke passed all five schedules (20 local fits, zero invalid contracts,
+10 HGB iteration records, and eight report figures). Independent code review
+found no remaining issues after extending compact errors to researcher tool
+arguments. Smoke artifacts: `study-runs/log-review-smoke-20261020`. No paid API
+calls were made during this audit or verification.

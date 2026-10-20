@@ -26,6 +26,7 @@ class StudyConfig:
     training_seed: int = 42
     history_trials: int = 12
     model_timeout_seconds: float = 90
+    model_start_buffer_seconds: float = 1.0
     model_retries: int = 1
     max_turns_without_trial: int = 8
     review_tool_calls: int = 6
@@ -49,6 +50,9 @@ class StudyConfig:
             validate_cores(self.max_cores)
         if self.condition not in CONDITIONS:
             raise ValueError(f"Unknown condition: {self.condition}")
+        value = self.model_start_buffer_seconds
+        if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+            raise ValueError("model_start_buffer_seconds must be finite and nonnegative")
         for name in ("allowance_seconds", "trial_timeout_seconds", "dollar_cap",
                      "model_timeout_seconds", "literature_timeout_seconds"):
             value = getattr(self, name)

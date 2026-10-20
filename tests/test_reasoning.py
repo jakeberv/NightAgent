@@ -84,3 +84,19 @@ def test_structured_contract_is_default_and_legacy_runtime_is_rejected():
     assert StudyConfig(lesson_memory=True).lesson_memory
     with pytest.raises(ValueError, match="structured"):
         StudyConfig(decision_protocol="legacy")
+
+
+def test_length_repairs_report_all_limits_without_echoing_long_responses():
+    contract = decision()
+    contract.update(summary="Long summary " * 50 + ".", hypothesis="Long hypothesis " * 50 + ".")
+    errors = reasoning().validate_contract(contract, "researcher", HISTORY)
+    assert any("summary" in error and "240" in error for error in errors)
+    assert any("hypothesis" in error and "500" in error for error in errors)
+    assert sum(map(len, errors)) < 400
+
+
+@pytest.mark.parametrize("value", [-1, float("nan"), float("inf"), True, "1"])
+def test_model_start_buffer_requires_finite_nonnegative_seconds(value):
+    from study.config import StudyConfig
+    with pytest.raises(ValueError, match="model_start_buffer_seconds"):
+        StudyConfig(model_start_buffer_seconds=value)

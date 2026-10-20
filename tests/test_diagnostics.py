@@ -112,3 +112,21 @@ def test_unknown_feature_count_preserves_integer_and_fraction_semantics():
     numeric = {'model': 'logistic', 'preprocessing': 'none', 'params': {'C': 1}}
     decimal = {'model': 'logistic', 'preprocessing': 'none', 'params': {'C': 1.0}}
     assert describe(numeric)['fingerprint'] == describe(decimal)['fingerprint']
+
+
+def test_worker_reports_fitted_iterations_in_agent_context(tmp_path):
+    import joblib
+    from study.science import prepare_dataset, run_trial
+    from study.controller import agent_result
+    data = tmp_path / 'data'
+    prepare_dataset(data, synthetic=True, seed=3)
+    (data / 'test.npz').unlink()
+    config = {'model': 'histogram_gradient_boosting', 'preprocessing': 'standard',
+              'params': {'max_iter': 100}}
+    result = asyncio.run(run_trial(data, tmp_path / 'trial', config, seed=7, timeout=20))
+    assert result['status'] == 'completed', result
+    estimator = joblib.load(result['artifact'])['pipeline'].steps[-1][1]
+    fit = agent_result(result)['fit_diagnostics']
+    assert fit == {'iterations_completed': int(estimator.n_iter_), 'iteration_limit': 100,
+                   'early_stopping_enabled': bool(estimator.do_early_stopping_),
+                   'stopped_before_limit': bool(estimator.n_iter_ < 100)}

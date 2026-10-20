@@ -86,7 +86,7 @@ def test_late_trial_is_cancelled_and_never_selected(tmp_path):
             await asyncio.sleep(1)
         finally:
             cancelled.append(True)
-    result = asyncio.run(run_one(StudyConfig(allowance_seconds=.04), tmp_path,
+    result = asyncio.run(run_one(StudyConfig(allowance_seconds=.04, model_start_buffer_seconds=0), tmp_path,
         tmp_path / "run", ScriptedModel(), trial_runner=slow, project={}))
     assert cancelled == [True]
     assert result["best"] is None

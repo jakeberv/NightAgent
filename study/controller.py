@@ -168,10 +168,11 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     if provider_metadata is not None:
         atomic_json(run_dir / "provider.json", provider_metadata)
     history = []
-    from .reasoning import LessonMemory, validate_contract, parse_contract
+    from .reasoning import LessonMemory, validate_contract, parse_contract, schema_errors
     memory = LessonMemory(config.memory_limit)
     feedback = reflection = None
     accounting = Accounting()
+    model_seconds = 0.0
     summary = initial_summary(config, problem, data_fingerprint)
     started = time.monotonic()
     deadline = started + config.allowance_seconds
@@ -198,15 +199,28 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
         return json.dumps({"project": project, "recent_trials": [agent_result(row) for row in history[-config.history_trials:]],
             "best": agent_result(summary["best"] or {}), "last_supervisor_feedback": feedback,
             "last_explicit_reflection": reflection, "trials_attempted": summary["trials"],
+            "trial_cap": config.trial_cap, "remaining_trials": max(0, config.trial_cap - summary["trials"]),
             "remaining_seconds": max(0, remaining()), "accounting": accounting.snapshot(),
+            "mean_model_call_seconds": model_seconds / accounting.calls if accounting.calls else None,
+            "review_every_trials": config.review_every, "reflection_after_each_trial": config.reflection,
             "objective": problem.objective,
             "targets": {target["name"]: target["value"] for target in problem.targets},
             **({"lessons": memory.snapshot()} if config.lesson_memory else {})},
             allow_nan=False)
 
     async def model_call(role, messages, tools):
+        nonlocal model_seconds
         for attempt in range(config.model_retries + 1):
             check()
+            available = remaining()
+            if available < config.model_start_buffer_seconds:
+                journal.emit("model_call_skipped", role=role, reason="deadline_buffer",
+                             remaining_seconds=max(0, available),
+                             model_start_buffer_seconds=config.model_start_buffer_seconds)
+                raise StopRun("deadline")
+            # Replace the initial snapshot, rather than appending duplicate
+            # history. Tool turns and repairs must see current budgets too.
+            messages[1] = {"role": "user", "content": context()}
             begin = time.monotonic()
             journal.emit("model_call_started", role=role, attempt=attempt, messages=messages, tools=tools)
             try:
@@ -214,11 +228,13 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                     timeout=min(remaining(), config.model_timeout_seconds)),
                     timeout=min(remaining(), config.model_timeout_seconds))
             except asyncio.CancelledError:
+                model_seconds += time.monotonic() - begin
                 accounting.add(None)
                 journal.emit("model_call", role=role, attempt=attempt, status="cancelled",
                     usage=None, accounting=accounting.snapshot(), duration_seconds=time.monotonic() - begin)
                 raise
             except Exception as error:
+                model_seconds += time.monotonic() - begin
                 details = getattr(error, "details", {})
                 usage = details.get("usage")
                 accounting.add(usage)
@@ -230,6 +246,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                 if attempt == config.model_retries:
                     raise StopRun("model_failure") from error
                 continue
+            model_seconds += time.monotonic() - begin
             accounting.add(response.get("usage"))
             journal.emit("model_call", role=role, attempt=attempt, status="completed",
                          response=response, usage=response.get("usage"),
@@ -271,7 +288,12 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                     journal.emit(role + "_contract", after_trial=summary["trials"],
                                  contract=contract, valid=not errors, errors=errors)
                     if errors:
-                        messages.append({"role": "user", "content": "Correct the contract: " + " ".join(errors)})
+                        # The review has finished gathering evidence. Repairs
+                        # only need the recorded measurements and format limits.
+                        tools, schemas = [], {}
+                        messages.append({"role": "user", "content":
+                            "Correct the contract using the evidence already supplied. Return only the JSON object, "
+                            "without a preamble or code fence. " + " ".join(errors)})
                         continue
                     accept_lessons(contract)
                     return contract
@@ -292,7 +314,9 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                     args = parse_contract(raw_args)
                     if name not in schemas:
                         raise ValueError("Tool not permitted for this role")
-                    jsonschema.validate(args, schemas[name])
+                    errors = schema_errors(args, schemas[name], name + " arguments")
+                    if errors:
+                        raise ValueError(" ".join(errors))
                     if multiple_trials:
                         raise ValueError("Call at most one run_analysis per decision")
                     call_key = (name, json.dumps(args, sort_keys=True, separators=(",", ":")))

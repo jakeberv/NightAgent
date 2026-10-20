@@ -138,3 +138,81 @@ def test_missing_intent_is_logged_as_invalid_before_repair(tmp_path):
     assert result['stop_reason'] == 'trial_cap'
     events = [json.loads(line) for line in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
     assert [e['valid'] for e in events if e['type'] == 'decision_contract'] == [False, True]
+
+
+def test_review_repair_refreshes_budget_and_disables_unneeded_tools(tmp_path, monkeypatch):
+    from study.fake import FakeModel, scripted_contract
+    from study import controller
+    from types import SimpleNamespace
+    clock = [100.0]
+    monkeypatch.setattr(controller, 'time', SimpleNamespace(monotonic=lambda: clock[0]))
+    seen = []
+    class Reviewer(FakeModel):
+        async def complete(self, messages, tools, *, timeout):
+            if messages[0]['content'].startswith('ROLE: supervisor'):
+                context = json.loads(messages[1]['content'])
+                seen.append((context, tools))
+                contract = scripted_contract('supervisor', context)
+                if len(seen) == 1:
+                    contract['assessment'] = 'A long explanation ' * 50 + '.'
+                    clock[0] += 10
+                return {'message': {'role': 'assistant', 'content': json.dumps(contract)},
+                        'usage': {'prompt_tokens': 2, 'completion_tokens': 2, 'cost': .01}}
+            return await super().complete(messages, tools, timeout=timeout)
+    result = asyncio.run(run_one(StudyConfig(condition='frequent', trial_cap=2, allowance_seconds=60),
+        tmp_path, tmp_path / 'run', Reviewer(), trial_runner=trial, project={}))
+    assert result['stop_reason'] == 'trial_cap'
+    assert seen[0][0]['remaining_seconds'] - seen[1][0]['remaining_seconds'] == 10
+    assert seen[1][0]['remaining_trials'] == 1
+    assert seen[1][0]['mean_model_call_seconds'] > 0
+    assert seen[0][1] and seen[1][1] == []
+
+
+def test_subsecond_review_retry_is_skipped_without_unknown_charge(tmp_path, monkeypatch):
+    from study.fake import FakeModel
+    from study import controller
+    from types import SimpleNamespace
+    clock = [100.0]
+    monkeypatch.setattr(controller, 'time', SimpleNamespace(monotonic=lambda: clock[0]))
+    class Reviewer(FakeModel):
+        reviews = 0
+        async def complete(self, messages, tools, *, timeout):
+            if messages[0]['content'].startswith('ROLE: supervisor'):
+                self.reviews += 1
+                clock[0] = 159.6
+                return {'message': {'role': 'assistant', 'content': 'Invalid review.'},
+                        'usage': {'prompt_tokens': 2, 'completion_tokens': 2, 'cost': .01}}
+            return await super().complete(messages, tools, timeout=timeout)
+    model = Reviewer()
+    result = asyncio.run(run_one(StudyConfig(condition='frequent', trial_cap=2, allowance_seconds=60),
+        tmp_path, tmp_path / 'run', model, trial_runner=trial, project={}))
+    assert result['stop_reason'] == 'deadline' and model.reviews == 1
+    assert result['accounting']['cost_complete'] and result['accounting']['calls'] == 2
+    assert result['best']['trial_id'] == 1
+    events = [json.loads(line) for line in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
+    skipped = [e for e in events if e['type'] == 'model_call_skipped']
+    assert len(skipped) == 1 and skipped[0]['remaining_seconds'] == pytest.approx(.4)
+    assert 'model call skipped' in (tmp_path / 'run/progress.log').read_text()
+
+
+def test_researcher_tool_schema_uses_compact_multi_field_repairs(tmp_path):
+    class LongIntent(StructuredModel):
+        async def complete(self, messages, tools, *, timeout):
+            response = await super().complete(messages, tools, timeout=timeout)
+            if self.calls == 1:
+                function = response['message']['tool_calls'][0]['function']
+                args = json.loads(function['arguments'])
+                args['intent'].update(summary='Long summary ' * 50 + '.',
+                                      hypothesis='Long hypothesis ' * 50 + '.')
+                function['arguments'] = json.dumps(args)
+            return response
+    model = LongIntent()
+    result = asyncio.run(run_one(StudyConfig(trial_cap=1), tmp_path, tmp_path / 'run',
+        model, trial_runner=trial, project={}))
+    assert result['trials'] == 1 and model.calls == 2
+    events = [json.loads(line) for line in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
+    invalid = next(e for e in events if e['type'] == 'decision_contract' and not e['valid'])
+    error = ' '.join(invalid['errors'])
+    assert 'intent.summary' in error and '240' in error
+    assert 'intent.hypothesis' in error and '500' in error
+    assert len(error) < 400
