@@ -98,7 +98,8 @@ def narrative(state):
             if alternatives:
                 rows.append(('Alternatives', ' '.join(alternatives), 2))
             rows.extend((label, contract[key], 2) for label, key in (
-                ('Motivation', 'motivation'), ('Cross-field connection', 'cross_field_connection'),
+                ('Motivation', 'motivation'), ('Hypothesis', 'hypothesis'),
+                ('Cross-field connection', 'cross_field_connection'),
                 ('Expected', 'expected_outcome'), ('Would weaken it', 'falsifying_outcome'),
                 ('Resource limits', 'resource_check')) if contract.get(key))
         summary = contract.get("summary") or guidance["summary"]

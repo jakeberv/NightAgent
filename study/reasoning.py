@@ -32,7 +32,7 @@ LESSON = {"type": "object", "properties": {
     "required": ["id", "status", "summary", "scope", "evidence"], "additionalProperties": False}
 
 
-def contract_schema(role, memory=False):
+def contract_schema(role, memory=False, *, supervisor_strategy='night_science', framing=False):
     """Schema for canonical contracts stored in logs, feedback and memory."""
     properties = {"summary": prose(240), "evidence": deepcopy(EVIDENCE)}
     if role == "researcher":
@@ -41,11 +41,17 @@ def contract_schema(role, memory=False):
             supervisor_response={"enum": ["followed", "modified", "rejected", "not_applicable"]},
             response_reason=prose())
     elif role == "supervisor":
-        properties.update(motivation=prose(), alternative_explanations={
-            "type": "array", "minItems": 2, "maxItems": 3, "uniqueItems": True,
-            "items": prose(240)}, assessment=prose(), unresolved_question=prose(),
-            cross_field_connection=prose(), recommendation=prose(),
-            expected_outcome=prose(), falsifying_outcome=prose(), resource_check=prose())
+        if supervisor_strategy == 'night_science' and not framing:
+            properties.update(motivation=prose(), alternative_explanations={
+                "type": "array", "minItems": 2, "maxItems": 3, "uniqueItems": True,
+                "items": prose(240)})
+        properties.update(assessment=prose(), unresolved_question=prose(),
+                          recommendation=prose(), expected_outcome=prose())
+        if framing:
+            properties.update(motivation=prose(), hypothesis=prose())
+        elif supervisor_strategy == 'night_science':
+            properties.update(cross_field_connection=prose(),
+                falsifying_outcome=prose(), resource_check=prose())
     elif role == "reflection":
         properties.update(what_changed=prose(), uncertainty=prose(), next_comparison=prose())
     else:
@@ -57,9 +63,9 @@ def contract_schema(role, memory=False):
             "additionalProperties": False}
 
 
-def request_contract_schema(role, memory=False):
+def request_contract_schema(role, memory=False, *, supervisor_strategy='night_science', framing=False):
     """Model input contains references; measurements and interpretation labels are harness-owned."""
-    schema = contract_schema(role, memory)
+    schema = contract_schema(role, memory, supervisor_strategy=supervisor_strategy, framing=framing)
     schema['properties']['evidence'] = deepcopy(EVIDENCE_REFERENCES)
     if memory:
         lesson = schema['properties']['lesson_updates']['items']
@@ -133,8 +139,10 @@ def schema_errors(value, schema, label):
     return errors
 
 
-def validate_contract(contract, role, history, *, has_feedback=False, memory=False):
-    errors = schema_errors(contract, contract_schema(role, memory), f"{role} contract")
+def validate_contract(contract, role, history, *, has_feedback=False, memory=False,
+                      supervisor_strategy='night_science', framing=False):
+    errors = schema_errors(contract, contract_schema(role, memory,
+        supervisor_strategy=supervisor_strategy, framing=framing), f"{role} contract")
     if errors:
         return errors
     errors = evidence_errors(contract["evidence"], history)
@@ -334,8 +342,8 @@ class LessonMemory:
         return deepcopy(list(self._lessons.values()))
 
 
-def instructions(role, *, memory=False):
-    schema = request_contract_schema(role, memory)
+def instructions(role, *, memory=False, supervisor_strategy='night_science', framing=False):
+    schema = request_contract_schema(role, memory, supervisor_strategy=supervisor_strategy, framing=framing)
     prefix = ("Place the decision contract in run_analysis.intent. " if role == "researcher" else
               "When finished with tools, return only one JSON object matching this contract. ")
     return "\n" + prefix + """Use short complete sentences, not fragments or Markdown lists.

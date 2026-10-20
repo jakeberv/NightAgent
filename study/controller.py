@@ -212,9 +212,11 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
         if summary["trials"] >= config.trial_cap:
             raise StopRun("trial_cap")
 
-    def context(role=None):
+    def context(role=None, *, framing=False):
         return json.dumps({"project": agent_project(project), "recent_trials": [agent_result(row) for row in history[-config.history_trials:]],
-            **({"permitted_experiments": permitted_experiments} if role == "supervisor" else {}),
+            **({"permitted_experiments": permitted_experiments,
+                "supervisor_strategy": 'standard' if framing else config.supervisor_strategy,
+                "supervisor_stage": 'framing' if framing else 'review'} if role == "supervisor" else {}),
             "best": agent_result(summary["best"] or {}), "last_supervisor_feedback": feedback,
             "initial_framing": initial_framing,
             "last_explicit_reflection": reflection, "trials_attempted": summary["trials"],
@@ -229,7 +231,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             **({"lessons": memory.snapshot()} if config.lesson_memory else {})},
             allow_nan=False)
 
-    async def model_call(role, messages, tools):
+    async def model_call(role, messages, tools, *, framing=False):
         nonlocal model_seconds
         for attempt in range(config.model_retries + 1):
             check()
@@ -241,7 +243,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                 raise StopRun("deadline")
             # Replace the initial snapshot, rather than appending duplicate
             # history. Tool turns and repairs must see current budgets too.
-            messages[1] = {"role": "user", "content": context(role)}
+            messages[1] = {"role": "user", "content": context(role, framing=framing)}
             begin = time.monotonic()
             journal.emit("model_call_started", role=role, attempt=attempt, messages=messages, tools=tools)
             try:
@@ -289,20 +291,19 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
         return contract
 
     async def phase(role, *, framing=False):
-        instructions = prompts.instructions_for(role, problem)
-        if framing:
-            instructions += prompts.FRAMING
+        protocol = {'supervisor_strategy': config.supervisor_strategy, 'framing': framing}
+        instructions = prompts.instructions_for(role, problem, **protocol)
         from .reasoning import instructions as contract_instructions
-        instructions += contract_instructions(role, memory=config.lesson_memory)
+        instructions += contract_instructions(role, memory=config.lesson_memory, **protocol)
         tools = [] if framing else tools_for(role, config, problem)
         schemas = {tool["function"]["name"]: tool["function"]["parameters"] for tool in tools}
         messages = [{"role": "system", "content": instructions},
-                    {"role": "user", "content": context(role)}]
+                    {"role": "user", "content": context(role, framing=framing)}]
         browser_calls = other_calls = 0
         seen_calls = {}
         turns = config.max_turns_without_trial if role == "researcher" else config.review_tool_calls + 1
         for _ in range(turns):
-            message = await model_call(role, messages, tools)
+            message = await model_call(role, messages, tools, framing=framing)
             messages.append(message)
             calls = message.get("tool_calls") or []
             if not calls:
@@ -310,12 +311,12 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                     contract = None
                     try:
                         contract = parse_contract(message.get("content"), allow_wrapper=True)
-                        input_errors = schema_errors(contract, request_contract_schema(role, config.lesson_memory), f'{role} request')
+                        input_errors = schema_errors(contract, request_contract_schema(role, config.lesson_memory, **protocol), f'{role} request')
                         if input_errors:
                             raise ValueError(' '.join(input_errors))
                         contract = resolve_contract_evidence(contract, history)
                         errors = validate_contract(contract, role, history,
-                            has_feedback=feedback is not None, memory=config.lesson_memory)
+                            has_feedback=feedback is not None, memory=config.lesson_memory, **protocol)
                         if not errors:
                             contract = ground_accepted(contract, role)
                     except (ValueError, TypeError) as error:
@@ -529,14 +530,14 @@ def recover_run(run_dir):
     if frozen_path.exists():
         frozen = json.loads(frozen_path.read_text())
         recorded_config = frozen["config"]
-        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1", "reasoning_policy": "grounded_v2"})
+        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1", "reasoning_policy": "grounded_v2", "supervisor_policy": "supervision_v2"})
         data_fingerprint = frozen.get("data_fingerprint", data_fingerprint)
         problem = ProblemSpec.from_dict(frozen["problem"])
         if problem.fingerprint != frozen["problem_hash"]:
             raise ValueError("Frozen run problem fingerprint does not match")
     else:
         recorded_config = json.loads((run_dir / "config.json").read_text())
-        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1", "reasoning_policy": "grounded_v2"})
+        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1", "reasoning_policy": "grounded_v2", "supervisor_policy": "supervision_v2"})
         if (run_dir / "problem.json").exists():
             problem = ProblemSpec.from_dict(json.loads((run_dir / "problem.json").read_text()))
         else:

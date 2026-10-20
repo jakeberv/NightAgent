@@ -110,13 +110,22 @@ metric, validation split and exact measurement before accepting it. These checks
 verify recorded evidence, not the truth of a model's interpretation. A supervisor
 response records stated uptake; it does not prove advice caused an improvement.
 
-New runs also freeze `supervisor_policy=night_science_v1`. In supervised
+New runs freeze `supervisor_policy=supervision_v2`, `supervisor_strategy`
+(`standard` or `night_science`, default `night_science`), and the `comparison`
+selection. In supervised
 conditions, the supervisor frames the brief before the first researcher decision.
 The accepted framing stays in `initial_framing` throughout the run, while
 `last_supervisor_feedback` tracks the latest advice. The first researcher decision
 must state whether it follows, modifies, or rejects that advice, with a reason.
 
-Every framing/review contract makes the six Night Science strategies observable:
+Both strategies use identical kickoff instructions and the same framing contract:
+motivation, hypothesis, assessment, testable question, recommendation, expected
+outcome, summary, and empty evidence. Later **standard** reviews use the earlier
+compact format: assessment, unresolved question, recommendation, expected outcome,
+summary, and evidence. Standard supervision can reason creatively but is not
+instructed to apply the Night Science checklist.
+
+Later **Night Science** reviews additionally make all six strategies observable:
 
 | Strategy | Required review content |
 |---|---|
@@ -128,7 +137,8 @@ Every framing/review contract makes the six Night Science strategies observable:
 | Respect limits | `resource_check` accounts for remaining trials/time, fit timeout, CPU/device constraints, and model/review overhead. |
 
 Fields are concise prose (at most 500 characters; alternatives at most 240 each).
-The harness requires these fields, distinct alternative strings, and at least one
+The harness requires the Night Science fields and distinct alternative strings
+only for that review strategy. Both strategies require at least one
 valid trial citation once completed trials exist. Before any completed trial,
 an empty evidence list is valid. Schema and citation checks do not establish the
 quality of the alternatives, usefulness of an analogy, or feasibility of advice;
@@ -139,15 +149,19 @@ experiment schema and current resource limits in context. Its call and repairs
 consume the same wall-time and API cost allowance as later work. Invalid framing
 or exhausted budgets stop the run before training. Accepted framing is recorded
 as a separate `framing` event and appears in the live narrative and report trace.
-Reports separate this policy from historical runs without the policy field;
-the added kickoff cost and expanded contracts change the supervision treatment.
+Reports separate this policy from historical runs, including `night_science_v1`,
+which used Night Science instructions during kickoff too. Recovery keeps the
+original frozen policy; it does not relabel historical results as current runs.
 
 Invalid contracts return actionable errors and consume the existing bounded
 turn/review budget. Exhausted repairs stop unsuccessfully; they cannot silently
 become valid feedback. All attempts retain usage and raw responses. There is no
 extra model call just to summarize the interface. The contract does add bounded
 input/output tokens to existing requests; all are included in normal accounting.
-Old JSON config files adopt the new protocol automatically. Protocol identity is
+JSON config files without an explicit policy adopt the new protocol automatically.
+An explicit old `supervisor_policy` is rejected for new execution; remove that
+setting only when intentionally starting a new run with the current policy.
+Protocol identity is
 frozen in every new run; reports label old logs as legacy for comparison purposes.
 
 Each API attempt refreshes the remaining time, remaining trial count and observed
@@ -457,8 +471,8 @@ After framing, the order is result → due review → enabled reflection → nex
 No extra treatment call is made after a cap/deadline prevents a next trial.
 Ordinary planning remains available in every condition.
 
-Every supervisor uses the same Night Science prompt and requested feedback
-fields. The researcher alone can invoke `run_analysis`; the supervisor can
+The selected `supervisor_strategy` applies across these five schedules. The
+researcher alone can invoke `run_analysis`; the supervisor can
 inspect the project and results. Literature tools exist only during the fifth
 condition's scheduled reviews. A fixed cap counts both search and fetch attempts.
 Search uses Crossref without an API key. Fetch accepts bounded public text,
@@ -475,6 +489,57 @@ resets because a review occurred. Each run starts fresh. No arbitrary code,
 shell, agent-chosen paths, or generated pipelines are executed.
 
 ## Overnight suite
+
+### Three-condition supervisor comparison
+
+Use `comparison: "supervisor_strategies"` in the config, or pass
+`--comparison supervisor_strategies` to `suite`. The supplied
+[`supervisor-comparison-config.json`](supervisor-comparison-config.json) retains
+the pilot's model and budget defaults and selects these arms:
+
+| Arm | Review schedule | Framing | Reflection / literature |
+|---|---|---|---|
+| `researcher_alone` | None | None | Disabled |
+| `standard_supervisor` | After every attempt | Shared kickoff | Disabled |
+| `night_science_supervisor` | After every attempt | Shared kickoff | Disabled |
+
+The runner randomizes the three arms within each repeat, gives them the same
+training seed, model, data, tools, limits, and memory setting, and stores unique
+run IDs plus each arm's strategy in the manifest. A requested run window must
+fit **three** full allowances per repeat (subject to configured concurrency),
+plus the reporting reserve. The standard and Night Science arms differ in their
+review prompt and response contract; actual token usage and experiment counts
+can differ within the matched budgets. This tests the complete review strategy,
+not a token-for-token prompt ablation.
+
+Verify the workflow without API or literature calls:
+
+```bash
+.venv/bin/python -m study smoke --comparison supervisor_strategies \
+  --output study-runs/supervisor-comparison-smoke
+```
+
+Launch a paid comparison after configuring the model/provider and preparing data:
+
+```bash
+.venv/bin/python -m study suite \
+  --config study/supervisor-comparison-config.json \
+  --data study-data/magic --output study-runs/supervisor-comparison \
+  --repeats 5 --deadline 2026-10-21T08:00:00-04:00 --reserve-seconds 3600
+```
+
+Adjust the example deadline to a future time. Add `--validation-only --repeats 1`
+for an operational pilot without held-out scoring. Reports retain all three arms,
+including missing/unstarted runs, and compute all three pairwise comparisons
+using matched seeds/repeats. Only the intended strategy field is ignored for
+matching; other configuration differences still prevent pairing.
+
+For a single supervised run, select `--condition frequent --supervisor-strategy
+standard`. For the original five-schedule suite, use `comparison: "schedules"`
+(the default) and select either supervisor strategy. The three-arm preset always
+includes both strategies regardless of the base config's strategy selection.
+
+### Five-schedule comparison
 
 Use an absolute deadline with a UTC offset and enough room for all full
 allowances, preparation overhead, and the reporting reserve:

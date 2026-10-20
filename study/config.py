@@ -6,6 +6,8 @@ CONDITIONS = (
     "researcher_alone", "frequent", "periodic", "periodic_reflection",
     "periodic_reflection_literature",
 )
+SUPERVISOR_STRATEGIES = ('standard', 'night_science')
+COMPARISONS = ('schedules', 'supervisor_strategies')
 
 
 @dataclass(frozen=True)
@@ -37,13 +39,19 @@ class StudyConfig:
     device: str = 'auto'
     decision_protocol: str = "structured_v1"
     reasoning_policy: str = "grounded_v2"
-    supervisor_policy: str = "night_science_v1"
+    supervisor_policy: str = "supervision_v2"
+    supervisor_strategy: str = "night_science"
+    comparison: str = "schedules"
     lesson_memory: bool = False
     memory_limit: int = 6
 
     def __post_init__(self):
-        if self.supervisor_policy != "night_science_v1":
-            raise ValueError("supervisor_policy must be night_science_v1")
+        if self.supervisor_policy != "supervision_v2":
+            raise ValueError("supervisor_policy must be supervision_v2")
+        if self.supervisor_strategy not in SUPERVISOR_STRATEGIES:
+            raise ValueError('Unknown supervisor_strategy')
+        if self.comparison not in COMPARISONS:
+            raise ValueError('Unknown comparison')
         if self.device not in ('auto', 'cpu', 'mps'):
             raise ValueError('device must be auto, cpu, or mps')
         if self.reasoning_policy != "grounded_v2":
@@ -86,8 +94,9 @@ class StudyConfig:
     def to_dict(self):
         return asdict(self)
 
-    def for_run(self, condition, repeat):
+    def for_run(self, condition, repeat, *, supervisor_strategy=None):
         return replace(self, condition=condition, repeat=repeat,
+                       supervisor_strategy=self.supervisor_strategy if supervisor_strategy is None else supervisor_strategy,
                        training_seed=self.training_seed + repeat)
 
     @property
@@ -101,3 +110,15 @@ class StudyConfig:
     @property
     def literature(self):
         return self.condition == CONDITIONS[4]
+
+
+def comparison_arms(config):
+    """Freeze the intended arms separately from review cadence and run identity."""
+    if config.comparison == 'supervisor_strategies':
+        return [
+            {'arm': 'researcher_alone', 'condition': 'researcher_alone', 'supervisor_strategy': 'night_science'},
+            {'arm': 'standard_supervisor', 'condition': 'frequent', 'supervisor_strategy': 'standard'},
+            {'arm': 'night_science_supervisor', 'condition': 'frequent', 'supervisor_strategy': 'night_science'},
+        ]
+    return [{'arm': condition, 'condition': condition, 'supervisor_strategy': config.supervisor_strategy}
+            for condition in CONDITIONS]

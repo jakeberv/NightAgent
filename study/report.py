@@ -387,6 +387,8 @@ def build_report_data(root: Path) -> dict:
                 warnings.append(f"Incomplete suite: {entry['run_id']} "
                                 + ("needs recovery after interruption." if interrupted else "has not started."))
                 run_config = {**config, "condition": entry["condition"], "repeat": entry["repeat"]}
+                if 'supervisor_strategy' in entry:
+                    run_config['supervisor_strategy'] = entry['supervisor_strategy']
                 if type(config.get("training_seed")) is int:
                     run_config["training_seed"] = config["training_seed"] + entry["repeat"]
                 summary = {**metadata, "run_id": entry["run_id"], "condition": entry["condition"],

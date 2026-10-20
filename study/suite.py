@@ -9,7 +9,7 @@ from pathlib import Path
 import platform
 import random
 
-from .config import CONDITIONS
+from .config import comparison_arms
 from .controller import initial_summary, prepared_fingerprint, resolve_problem, run_one
 from .events import atomic_json, utc_now
 
@@ -46,7 +46,8 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
     from .controller import execution_config
     config = execution_config(config, resolved_problem)
     concurrent_runs = 2 if config.max_cores is not None else 1
-    required = math.ceil(repeats * len(CONDITIONS) / concurrent_runs) * config.allowance_seconds
+    arms = comparison_arms(config)
+    required = math.ceil(repeats * len(arms) / concurrent_runs) * config.allowance_seconds
     balanced_trials = None
     execution = {"concurrent_runs": concurrent_runs, "max_cores": 1, "policy": "sequential"}
     if config.max_cores is not None:
@@ -65,11 +66,11 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
     rng = random.Random(order_seed)
     schedule = []
     for repeat in range(repeats):
-        order = list(CONDITIONS)
+        order = list(arms)
         rng.shuffle(order)
-        for condition in order:
-            schedule.append({"condition": condition, "repeat": repeat,
-                             "run_id": f"r{repeat:02d}-{condition}"})
+        for arm in order:
+            schedule.append({**arm, "repeat": repeat,
+                             "run_id": f"r{repeat:02d}-{arm['arm']}"})
     manifest = {"created_at": utc_now(), "config": config.to_dict(), "repeats": repeats,
         "schedule": schedule, "order_seed": order_seed, "deadline": deadline.isoformat(),
         "reserve_seconds": reserve_seconds, "execution": execution, "provenance": provenance(data_dir),
@@ -81,7 +82,8 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
     atomic_json(output / "suite.json", manifest)
     summaries = [None] * len(schedule)
     async def execute_entry(index, entry):
-        run_config = config.for_run(entry["condition"], entry["repeat"])
+        run_config = config.for_run(entry["condition"], entry["repeat"],
+                                    supervisor_strategy=entry['supervisor_strategy'])
         run_dir = output / "runs" / entry["run_id"]
         if search_deadline - datetime.now(timezone.utc).timestamp() < config.allowance_seconds:
             # Keep planned runs visible in the all-runs denominator.
