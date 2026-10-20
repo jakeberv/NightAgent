@@ -1,6 +1,8 @@
 # MEETING.md — supervision meeting protocol
 
-Your supervisor is an agent: the `supervisor` subagent defined for this project. You hold a meeting by talking to it with the Agent tool (`subagent_type: "supervisor"`). Within one meeting, continue the **same** supervisor conversation with SendMessage (to the agent id the first call returns) so it remembers what was said. If you cannot continue it, start a new supervisor call and include the meeting transcript so far, verbatim.
+Your supervisor is a separate agent, run by the NightAgent orchestrator. In a meeting, the orchestrator relays messages: the text of each of your replies goes to the supervisor verbatim, and its reply comes back to you as your next message. Write each reply as a message to your supervisor. Never simulate the supervisor yourself (for example with the Agent tool).
+
+When everything in the meeting is agreed (in the final meeting: once the supervisor has signed off), end your message with a line containing only `END MEETING`. The orchestrator then asks you to write the minutes.
 
 Meetings are numbered `M00` (kickoff), `M01`, `M02`, … Meeting `MNN` reviews the work done since `M(NN-1)`. You decide when to call a meeting (see STUDENT.md); meetings last as long as they need to. The supervisor sees only what you send it and what is in the project folder. It cannot see your context.
 
@@ -27,7 +29,7 @@ Written just before each meeting. At most ~1 page:
    - restate the proposed actions for the next research week, each with a done-criterion, and ask for agreement.
 4. **Agree.** If the supervisor amends anything, restate the final version and ask for "Agreed". Only agreed actions go into `ACTIONS.md`; anything left unresolved goes to `memory/pending.md`.
 5. **Record.**
-   - `meetings/MNN-transcript.md`: every message you sent and every reply, verbatim, in order.
+   - `meetings/MNN-transcript.md` is written by the orchestrator, verbatim. Do not write or edit it.
    - `meetings/MNN-minutes.md` (format below).
    - `ACTIONS.md`: only agreed actions. `memory/`: only confirmed items.
 

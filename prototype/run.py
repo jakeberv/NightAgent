@@ -1,4 +1,4 @@
-"""NightAgent orchestrator: runs a student agent and a supervisor agent as separate sessions.
+"""NightAgent orchestrator: runs a student agent and a supervisor agent as separate Claude Code sessions.
 
 Usage:
     python prototype/run.py <project_dir>            # run the next phase (one meeting or one research week)
@@ -7,7 +7,7 @@ Usage:
 
 The project folder needs a QUESTION.md. On first use, the rest of nightagent/project-template/ is
 copied in. Protocols (STUDENT.md, MEETING.md, SUPERVISOR.md) and the private persona are read from
-nightagent/, so there is a single source of truth for agent behaviour.
+nightagent/; they describe how the orchestrator runs meetings and phases.
 """
 
 from __future__ import annotations
@@ -26,34 +26,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 CORE = ROOT / "nightagent"
 PERSONA = CORE / "supervisor-persona.md"
-TEMPLATE_SKIP = {"CLAUDE.md", ".claude", ".gitkeep", ".DS_Store"}
+TEMPLATE_SKIP = {".gitkeep", ".DS_Store"}
 END_MARKER = "END MEETING"
-
-STUDENT_HARNESS_NOTE = f"""
-# How this harness runs (overrides the mechanics described above)
-
-- An orchestrator program runs the project one phase at a time, each in a fresh session. It tells you the
-  current phase in its first message. Ignore STUDENT.md's "Running the project" table and the operator
-  commands ("run the project", "next step"): the orchestrator decides the phase.
-- Your supervisor is a separate agent run by the orchestrator, not a subagent. Do not use the Agent tool.
-  In a meeting, the text of each of your replies is relayed verbatim to the supervisor, and its reply comes
-  back to you as the next message. Write each reply as a message to your supervisor.
-- When everything in the meeting is agreed, end your message with a line containing only: {END_MARKER}
-- The orchestrator writes `meetings/MNN-transcript.md` itself. Do not write or edit transcripts. You still
-  write the minutes, `ACTIONS.md` and `memory/` after each meeting.
-- Your session ends after each phase, so anything you need later must be written to files.
-- The supervisor's persona file is blocked for you, and you can only write inside this project folder.
-"""
-
-SUPERVISOR_HARNESS_NOTE = """
-# How this harness runs
-
-- The orchestrator relays the student's messages to you, and your replies (verbatim) to the student.
-- You are a fresh agent for every meeting, with no memory of earlier meetings except the project files:
-  read them as described under "Before every reply".
-- Your working directory is the project folder. You can read files (including figures), not write them.
-"""
-
 
 # ---------------------------------------------------------------------------------------------
 # Project state
@@ -120,13 +94,14 @@ class Agent:
         self.role, self.project, self.log = role, project, log
         self.model, self.effort = model, effort
         self.client = None
+        self.session_cost = 0.0
 
     def options(self):
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
         common = dict(cwd=str(self.project), setting_sources=[], model=self.model, effort=self.effort)
         if self.role == "student":
-            prompt = "\n\n".join([read("STUDENT.md"), read("MEETING.md"), read("SUPERVISOR.md"), STUDENT_HARNESS_NOTE])
+            prompt = "\n\n".join([read("STUDENT.md"), read("MEETING.md"), read("SUPERVISOR.md")])
             return ClaudeAgentOptions(
                 system_prompt={"type": "preset", "preset": "claude_code", "append": prompt},
                 permission_mode="bypassPermissions",
@@ -134,7 +109,7 @@ class Agent:
                 hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[self.guard_student])]},
                 **common,
             )
-        prompt = "\n\n".join([read("SUPERVISOR.md"), read("MEETING.md"), PERSONA.read_text(), SUPERVISOR_HARNESS_NOTE])
+        prompt = "\n\n".join([read("SUPERVISOR.md"), read("MEETING.md"), PERSONA.read_text()])
         return ClaudeAgentOptions(
             system_prompt=prompt,
             tools=["Read", "Glob", "Grep"],
@@ -180,8 +155,10 @@ class Agent:
                         print(f"    [{self.role}] {short(block.text)}")
             elif isinstance(msg, ResultMessage):
                 result = msg.result or ""
-                self.log.event("turn", role=self.role, session=msg.session_id, cost_usd=msg.total_cost_usd,
-                               turns=msg.num_turns, error=msg.is_error)
+                total = msg.total_cost_usd or 0.0
+                self.log.event("turn", role=self.role, session=msg.session_id, cost_usd=round(total - self.session_cost, 4),
+                               session_cost_usd=round(total, 4), turns=msg.num_turns, error=msg.is_error)
+                self.session_cost = total
         return result.strip()
 
     async def close(self) -> None:
