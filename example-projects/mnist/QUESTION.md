@@ -10,7 +10,7 @@ By "best" I mean the highest accuracy on the official 10k MNIST test set. For tu
 ## Constraints
 - Compute: my laptop: Apple M1 Max, 32 GB RAM (the PyTorch MPS backend may be available). No cloud GPUs.
 - Each experiment must run in at most 3 minutes.
-- Software: no ML libraries are installed. Set up a project-local `.venv` with Python 3.13 (`/opt/homebrew/bin/python3.13` if present), since PyTorch wheels may not support the system Python 3.14.
+- Software: no ML libraries are installed. Set up a project-local `.venv` with Python 3.13 (`/opt/homebrew/bin/python3.13` if present), since PyTorch wheels may not support the newest Python.
 - Data: download MNIST into `data/` (gitignored); do not commit it.
 
 ## Clarifications

@@ -15,7 +15,7 @@ The NightAgent orchestrator (`nightagent/run.py`) runs the project one phase at 
 
 | State of `meetings/` (check in this order) | Next step |
 |---|---|
-| Minutes of the final meeting say "Signed off" | Project finished: report this and stop |
+| The supervisor said "Signed off" in the latest meeting | Project finished |
 | No `M00-minutes.md` | Kickoff meeting M00 |
 | Latest file is `MNN-brief.md` with no minutes | Meeting MNN |
 | Latest file is `MNN-minutes.md` with agreed actions | Research week, ending with `M(NN+1)-brief.md` |

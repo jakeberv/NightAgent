@@ -4,7 +4,7 @@ NightAgent is a friendly AI apprentice that learns from our interactions and put
 
 ## What we are building
 
-A supervised research apprentice for scientists. The scientist sets the research direction, reviews results, and gives feedback; NightAgent performs bounded analyses with tools and carries confirmed lessons into later work. Learning changes its stored context, not its model weights.
+A supervised research apprentice for scientists. A supervisor sets the research direction, reviews results, and gives feedback; NightAgent performs analyses with tools and carries confirmed lessons into later work. Learning changes its stored context, not its model weights. In the current prototype the supervisor is itself an agent: the scientist writes the research question, and the supervisor's values are defined in a private persona.
 
 The workshop goal is to build a small, inspectable prototype and evaluate two things separately: whether it becomes a better research student, and whether its research produces useful, supported scientific insights.
 
@@ -14,7 +14,7 @@ The workshop goal is to build a small, inspectable prototype and evaluate two th
 2. **Research cycle:** choose approved analyses, run tools within limits, save reproducible results, and return for supervision.
 3. **Persistent memory:** retain confirmed lessons with their source and scope, so corrections influence later meetings and analyses.
 
-After feedback, extract at most three actions or lessons. Check each for unclear meaning, unclear scope, or conflicting instructions. Ask at most one consolidated clarification question per meeting; leave unresolved items pending and execute only agreed actions. This is an ambiguity check, not calibrated uncertainty about scientific truth.
+After feedback, the student extracts the actions and lessons and checks each for unclear meaning, unclear scope, or conflicting instructions. It asks batched clarification questions until the actions are clear, leaves unresolved items pending, and executes only agreed actions. This is an ambiguity check, not calibrated uncertainty about scientific truth.
 
 ## Minimal prototype
 
@@ -58,7 +58,7 @@ SETUP (human, once per project)
 EACH RUN (orchestrator)
   copy any missing template files into the project (never overwrites)
   decide the next phase from meetings/:
-      final minutes "Signed off" → stop
+      supervisor said "Signed off" → stop
       no M00 minutes             → MEETING (kickoff)
       brief newer than minutes   → MEETING
       otherwise                  → RESEARCH
@@ -101,7 +101,9 @@ Learning shows up in three places:
 
 The proof of concept is the record in the project's `meetings/` (briefs, transcripts and minutes: results, feedback, Q&A, agreed actions), the memory files showing what the student learned about its supervisor, and the final `REPORT.md`, written like a short paper.
 
-## Workshop scope and goals
+## Original workshop plan
+
+The plan the team proposed in [SPEC.md](SPEC.md). The prototype above departs from it in places: Claude Code's own tools instead of four prewritten tools, markdown memory instead of JSON, and a supervisor agent instead of a human. The evaluation ideas still apply.
 
 - Start with one scientist, one project, one model, a CLI, and editable JSON memory.
 - Provide four prewritten tools: `inspect_project`, `run_analysis`, `read_results`, and `save_report`.
@@ -118,7 +120,7 @@ The scientific task, dataset, analysis script, and role owners are still open. C
 - [NOTES.md](NOTES.md): design rationale, evaluation details, candidate tasks, and open decisions.
 - [Shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z): collaborative spec draft.
 
-Status as of 19 October 2026: orchestrator prototype with student and supervisor agents (`nightagent/`, MNIST example project) on branch `dev-ben2`; kickoff run on MNIST; no evaluation results yet. Next, choose an accessible task and script, assign owners, and build the fixed baseline before adding the adaptive loop.
+Status as of 20 October 2026: orchestrator prototype with student and supervisor agents (`nightagent/`, MNIST example project) on branch `dev-ben2`; kickoff run on MNIST; no evaluation results yet. Next, choose an accessible task and script, assign owners, and build the fixed baseline before adding the adaptive loop.
 
 ## Name and guiding ideas
 

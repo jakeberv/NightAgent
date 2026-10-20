@@ -18,11 +18,13 @@ The NightAgent application: the protocols that define a research student and its
 
 - **Phases:** it decides the next phase from `meetings/` and runs it in a fresh session, so the project files are the agents' only memory between phases.
 - **Separate agents:** the student and supervisor are separate sessions. The orchestrator relays each message verbatim and writes `meetings/MNN-transcript.md` itself, so the record of the meetings is neutral.
-- **Persona privacy:** the persona goes only into the supervisor's instructions. A hook blocks any student tool call that mentions the persona file.
+- **Persona privacy:** the persona goes only into the supervisor's instructions. A hook also blocks any student tool call that names the persona file (best-effort: it checks the file name, so it is not a sandbox).
 - **Read-only supervisor:** the supervisor has only Read, Grep and Glob.
-- **Contained student:** a hook blocks the student from writing outside the project folder, and the student can't use the Agent tool, so it can't simulate a supervisor.
+- **Contained student:** the hook blocks file-tool writes outside the project folder, and the student can't use the Agent tool, so it can't simulate a supervisor. Shell commands are not sandboxed; staying inside the folder there relies on the student's instructions.
 - **Isolation from local settings:** both sessions ignore `CLAUDE.md` files and Claude Code settings on the machine (`setting_sources=[]`).
-- **Run log:** `meetings/harness-log.jsonl` records phases, sessions, the cost of each turn and any blocked tool calls.
+- **Neutral sign-off:** the project ends only when the supervisor's own words in the transcript contain "Signed off".
+- **Errors stop the run:** if an agent's turn fails or produces no reply, the phase stops (nothing is relayed) and can be retried by running the command again.
+- **Run log:** `meetings/harness-log.jsonl` records phases, sessions, the cost of each turn, blocked tool calls and failures.
 
 ## Setup
 
@@ -62,7 +64,7 @@ If a research phase stops without writing its brief, run the same command again:
 ```
 init:      copy missing project-template files into the project (never overwrites)
 next phase (from meetings/):
-  minutes contain "Signed off"    → done
+  supervisor said "Signed off"     → done
   no M00 minutes                  → meeting M00
   brief newer than latest minutes → meeting MNN
   otherwise                       → research week, ending with the next brief
