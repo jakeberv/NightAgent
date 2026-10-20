@@ -115,7 +115,7 @@ def test_wrapped_overclaim_review_needs_no_extra_call_and_is_audited(tmp_path):
             context = json.loads(messages[1]['content'])
             self.contexts.append(context)
             response = await super().complete(messages, tools, timeout=timeout)
-            if messages[0]['content'].startswith('ROLE: supervisor'):
+            if messages[0]['content'].startswith('ROLE: supervisor') and context['trials_attempted'] > 0:
                 contract = json.loads(response['message']['content'])
                 contract['summary'] = 'The observed score proves that the configuration is optimal.'
                 contract['lesson_updates'][0].update(summary=contract['summary'], status='supported')
@@ -124,7 +124,7 @@ def test_wrapped_overclaim_review_needs_no_extra_call_and_is_audited(tmp_path):
     model = Reviewer()
     result = asyncio.run(run_one(StudyConfig(condition='frequent', trial_cap=2, lesson_memory=True),
         tmp_path, tmp_path / 'run', model, trial_runner=trial, project={}))
-    assert result['stop_reason'] == 'trial_cap' and model.calls == 3
+    assert result['stop_reason'] == 'trial_cap' and model.calls == 4
     assert 'optimal' not in model.contexts[-1]['lessons'][0]['summary']
     assert model.contexts[-1]['lessons'][0]['interpretation']['status'] == 'unverified'
     assert result['lessons'][0]['status'] == 'inconclusive'

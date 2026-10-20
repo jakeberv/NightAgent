@@ -33,6 +33,8 @@ def scripted_contract(role, context):
     metric = context.get("objective", {}).get("metric", "roc_auc")
     latest = next((row for row in reversed(context.get("recent_trials", []))
                    if row.get("status") == "completed"), None)
+    if latest is None:
+        latest = context.get("best") or None
     evidence = []
     if latest and metric in (latest.get("metrics") or {}):
         evidence = [{"trial_id": latest["trial_id"], "metric": metric}]
@@ -48,10 +50,17 @@ def scripted_contract(role, context):
             response_reason="The offline sequence is fixed and does not adapt to advice." if has_feedback
                             else "No supervisor feedback has been recorded in this run.")
     elif role == "supervisor":
-        common.update(assessment="The recorded trials provide validation observations for comparison.",
+        common.update(motivation="Compare model capacity to guide the use of this run's limited budget.",
+            alternative_explanations=["Model capacity may limit validation performance.",
+                                      "Differences may reflect variability on this fixed split."],
+            assessment=("The recorded trials provide validation observations for comparison." if evidence else
+                        "No completed trials yet distinguish these hypotheses."),
             unresolved_question="Would another model capacity improve validation performance?",
+            cross_field_connection="Bias-variance reasoning suggests a capacity test; its applicability remains untested.",
             recommendation="Compare another bounded model configuration.",
-            expected_outcome="The next result will provide another validation observation.")
+            expected_outcome="A higher score would support testing that capacity further on this split.",
+            falsifying_outcome="An equal or lower score would weaken the capacity prediction on this split.",
+            resource_check="Use one permitted fit within the remaining time and trial cap, reserving API overhead.")
     else:
         common.update(what_changed="The latest trial added a validation observation.",
             uncertainty="A single observation does not establish generalization beyond this split.",

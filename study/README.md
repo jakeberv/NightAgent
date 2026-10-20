@@ -110,6 +110,38 @@ metric, validation split and exact measurement before accepting it. These checks
 verify recorded evidence, not the truth of a model's interpretation. A supervisor
 response records stated uptake; it does not prove advice caused an improvement.
 
+New runs also freeze `supervisor_policy=night_science_v1`. In supervised
+conditions, the supervisor frames the brief before the first researcher decision.
+The accepted framing stays in `initial_framing` throughout the run, while
+`last_supervisor_feedback` tracks the latest advice. The first researcher decision
+must state whether it follows, modifies, or rejects that advice, with a reason.
+
+Every framing/review contract makes the six Night Science strategies observable:
+
+| Strategy | Required review content |
+|---|---|
+| Explore before judging | Two or three distinct `alternative_explanations`, followed by `assessment`. |
+| Reframe stalled work | `motivation` and a testable `unresolved_question`; explain revisions within the fixed brief. |
+| Connect across fields | `cross_field_connection` with a testable implication, or an explanation of why no useful analogy applies. |
+| Design an experiment | A bounded `recommendation`, `expected_outcome`, and `falsifying_outcome`, including what an inconclusive result means. |
+| Check evidence | `assessment` relates the recommendation to cited completed measurements and their limitations. |
+| Respect limits | `resource_check` accounts for remaining trials/time, fit timeout, CPU/device constraints, and model/review overhead. |
+
+Fields are concise prose (at most 500 characters; alternatives at most 240 each).
+The harness requires these fields, distinct alternative strings, and at least one
+valid trial citation once completed trials exist. Before any completed trial,
+an empty evidence list is valid. Schema and citation checks do not establish the
+quality of the alternatives, usefulness of an analogy, or feasibility of advice;
+those remain questions for trace review and empirical evaluation.
+
+Framing has no execution or literature tools. The supervisor receives the permitted
+experiment schema and current resource limits in context. Its call and repairs
+consume the same wall-time and API cost allowance as later work. Invalid framing
+or exhausted budgets stop the run before training. Accepted framing is recorded
+as a separate `framing` event and appears in the live narrative and report trace.
+Reports separate this policy from historical runs without the policy field;
+the added kickoff cost and expanded contracts change the supervision treatment.
+
 Invalid contracts return actionable errors and consume the existing bounded
 turn/review budget. Exhausted repairs stop unsuccessfully; they cannot silently
 become valid feedback. All attempts retain usage and raw responses. There is no
@@ -417,10 +449,11 @@ cross the ceiling, and timed-out requests may still incur an unknown charge.
 | `periodic_reflection` | After every three attempts | Between trials | No |
 | `periodic_reflection_literature` | After every three attempts | Between trials | Supervisor only, during review |
 
-There is no kickoff review. A completed, failed, or timed-out classifier attempt
+All four supervised conditions start with one framing step; `researcher_alone`
+starts directly with the researcher. A completed, failed, or timed-out classifier attempt
 counts toward cadence and the trial cap. Invalid tool/schema requests do not
 launch a trial; they consume time and can trigger the no-progress stop.
-The order is result → due review → enabled reflection → next researcher decision.
+After framing, the order is result → due review → enabled reflection → next researcher decision.
 No extra treatment call is made after a cap/deadline prevents a next trial.
 Ordinary planning remains available in every condition.
 
@@ -437,7 +470,7 @@ retained. Trace records link query/evidence, feedback, researcher response,
 and the resulting trial ID.
 
 Memory is rebuilt from the same bounded recent-trial window, current best,
-and latest condition-specific feedback/reflection on every call. It never
+initial framing, and latest condition-specific feedback/reflection on every call. It never
 resets because a review occurred. Each run starts fresh. No arbitrary code,
 shell, agent-chosen paths, or generated pipelines are executed.
 

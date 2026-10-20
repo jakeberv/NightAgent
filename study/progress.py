@@ -76,6 +76,8 @@ def format_event(event, *, verbose=False):
         body = f"best: trial {best['trial_id']} validation={best.get('score', best.get('validation_auc')):.6f}"
     elif kind == "tool_call":
         body = f"{role} {event['name']}: " + _text(event.get("result"), verbose)
+    elif kind == "framing":
+        body = "supervisor framing: " + _text(event['contract'], verbose)
     elif kind == "review":
         body = f"supervisor review after trial {event['after_trial']}: " + _text(event["feedback"], verbose)
     elif kind == "reflection":

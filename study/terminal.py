@@ -330,7 +330,7 @@ def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False
     facts.append(text(observed))
     if state.review:
         trial, feedback = state.review
-        label = f"Supervisor after trial {trial}: "
+        label = "Supervisor framing: " if trial == 0 else f"Supervisor after trial {trial}: "
         summary = fitting_summary(feedback, width - 4 - len(label), 1,
                                   "Review saved.")
         facts.append("\n" + label, "bold magenta")

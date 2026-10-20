@@ -183,9 +183,11 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     if provider_metadata is not None:
         atomic_json(run_dir / "provider.json", provider_metadata)
     history = []
+    from .tasks import get_adapter
+    permitted_experiments = get_adapter(problem).analysis_schema
     from .reasoning import LessonMemory, validate_contract, parse_contract, schema_errors, ground_contract, resolve_contract_evidence, request_contract_schema
     memory = LessonMemory(config.memory_limit)
-    feedback = reflection = None
+    feedback = reflection = initial_framing = None
     accounting = Accounting()
     model_seconds = 0.0
     summary = initial_summary(config, problem, data_fingerprint)
@@ -210,12 +212,16 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
         if summary["trials"] >= config.trial_cap:
             raise StopRun("trial_cap")
 
-    def context():
+    def context(role=None):
         return json.dumps({"project": agent_project(project), "recent_trials": [agent_result(row) for row in history[-config.history_trials:]],
+            **({"permitted_experiments": permitted_experiments} if role == "supervisor" else {}),
             "best": agent_result(summary["best"] or {}), "last_supervisor_feedback": feedback,
+            "initial_framing": initial_framing,
             "last_explicit_reflection": reflection, "trials_attempted": summary["trials"],
             "trial_cap": config.trial_cap, "remaining_trials": max(0, config.trial_cap - summary["trials"]),
             "remaining_seconds": max(0, remaining()), "accounting": accounting.snapshot(),
+            "trial_timeout_seconds": config.trial_timeout_seconds,
+            "compute_limits": {"max_cores": config.max_cores or 1, "device": config.device},
             "mean_model_call_seconds": model_seconds / accounting.calls if accounting.calls else None,
             "review_every_trials": config.review_every, "reflection_after_each_trial": config.reflection,
             "objective": problem.objective,
@@ -235,7 +241,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                 raise StopRun("deadline")
             # Replace the initial snapshot, rather than appending duplicate
             # history. Tool turns and repairs must see current budgets too.
-            messages[1] = {"role": "user", "content": context()}
+            messages[1] = {"role": "user", "content": context(role)}
             begin = time.monotonic()
             journal.emit("model_call_started", role=role, attempt=attempt, messages=messages, tools=tools)
             try:
@@ -282,14 +288,16 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             journal.emit("contract_grounded", role=role, adjustments=changes)
         return contract
 
-    async def phase(role):
+    async def phase(role, *, framing=False):
         instructions = prompts.instructions_for(role, problem)
+        if framing:
+            instructions += prompts.FRAMING
         from .reasoning import instructions as contract_instructions
         instructions += contract_instructions(role, memory=config.lesson_memory)
-        tools = tools_for(role, config, problem)
+        tools = [] if framing else tools_for(role, config, problem)
         schemas = {tool["function"]["name"]: tool["function"]["parameters"] for tool in tools}
         messages = [{"role": "system", "content": instructions},
-                    {"role": "user", "content": context()}]
+                    {"role": "user", "content": context(role)}]
         browser_calls = other_calls = 0
         seen_calls = {}
         turns = config.max_turns_without_trial if role == "researcher" else config.review_tool_calls + 1
@@ -313,6 +321,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                     except (ValueError, TypeError) as error:
                         errors = [str(error)]
                     journal.emit(role + "_contract", after_trial=summary["trials"],
+                                 stage="framing" if framing else "review",
                                  contract=contract, valid=not errors, errors=errors)
                     if errors:
                         # The review has finished gathering evidence. Repairs
@@ -470,6 +479,10 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
 
     stop_reason = "failure"
     try:
+        check()
+        if config.review_every:
+            initial_framing = feedback = await phase("supervisor", framing=True)
+            journal.emit("framing", after_trial=0, feedback=feedback["summary"], contract=feedback)
         while True:
             check()
             await phase("researcher")

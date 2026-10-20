@@ -137,7 +137,7 @@ class Findings:
                                       "Tied best" if row["score"] == best_score else "Not best")
                     if self.history and self.history[-1]["trial_id"] == row["trial_id"]:
                         self.history[-1]["best"] = best_score
-        elif kind == "review":
+        elif kind in ("framing", "review"):
             self.review = (event["after_trial"], event["feedback"])
         elif kind == "run_stopped":
             summary = event["summary"]

@@ -179,16 +179,16 @@ class Lab:
                     self.reached.add(key)
                     self.record(f"The {target['name']} target ({target['value']:g}) has been reached.", "green")
                     self.celebration_at = state.elapsed
-        elif kind in ("review", "reflection"):
-            self.role, self.busy = ("supervisor" if kind == "review" else "reflection"), False
-            self.action = f"{'Review' if kind == 'review' else 'Reflection'} recorded"
-            if "after_trial" in event:
+        elif kind in ("framing", "review", "reflection"):
+            self.role, self.busy = ("reflection" if kind == "reflection" else "supervisor"), False
+            self.action = f"{kind.capitalize()} recorded"
+            if "after_trial" in event and kind != "framing":
                 self.action += f" after trial {event['after_trial']}"
             # Only accepted review/reflection events enter the narrative, never
             # attempted contracts (which may have failed validation).
-            self.guidance = {"role": self.role, "after_trial": event.get("after_trial"),
+            self.guidance = {"role": self.role, "stage": kind, "after_trial": event.get("after_trial"),
                              "contract": deepcopy(event.get("contract") or {}),
-                             "summary": event.get("feedback" if kind == "review" else "reflection", "")}
+                             "summary": event.get("reflection" if kind == "reflection" else "feedback", "")}
         elif kind in ("failure", "run_stopped"):
             self.busy = False
             self.action = "Run stopped" if kind == "run_stopped" else "Run failure recorded"

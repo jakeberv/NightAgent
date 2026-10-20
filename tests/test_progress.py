@@ -11,7 +11,7 @@ def test_live_progress_matches_durable_trace_and_usage(tmp_path):
     from study.progress import ConsoleProgress
     stream = io.StringIO()
     async def trial(*args, **kwargs):
-        return {"status": "completed", "validation_auc": .94,
+        return {"status": "completed", "validation_auc": .94, "metrics": {"roc_auc": .94},
                 "artifact": "fixture.joblib", "artifact_hash": "fixture"}
     run = tmp_path / "run"
     result = asyncio.run(run_one(
@@ -20,14 +20,15 @@ def test_live_progress_matches_durable_trace_and_usage(tmp_path):
     output = stream.getvalue()
     assert "periodic_reflection" in output
     assert "researcher" in output and "supervisor" in output and "reflection" in output
+    assert "supervisor framing" in output
     assert "trial 4" in output and "0.940000" in output
     assert "trial_cap" in output and "USD" in output
-    assert "input=800" in output and "output=240" in output
-    assert result["accounting"]["calls"] == 8
+    assert "input=900" in output and "output=270" in output
+    assert result["accounting"]["calls"] == 9
     events = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
     completed = [event for event in events if event["type"] == "model_call"]
-    assert completed[-1]["accounting"]["input_tokens"] == 800
-    assert completed[-1]["accounting"]["output_tokens"] == 240
+    assert completed[-1]["accounting"]["input_tokens"] == 900
+    assert completed[-1]["accounting"]["output_tokens"] == 270
     log = (run / "progress.log").read_text()
     assert "trial 4" in log and "trial_cap" in log
     assert "The scripted agent is comparing model capacity" in log

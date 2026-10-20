@@ -5,6 +5,7 @@ import pytest
 from study.config import StudyConfig
 from study.controller import run_one, recover_run
 from test_reasoning import decision
+from study.fake import FakeModel
 
 
 async def trial(data_dir, trial_dir, config, *, seed, timeout):
@@ -73,9 +74,10 @@ def test_memory_is_run_local_survives_history_window_and_recovers(tmp_path):
 
 
 def test_invalid_review_is_not_accepted_as_feedback(tmp_path):
-    class Reviewer(StructuredModel):
+    class Reviewer(FakeModel):
         async def complete(self, messages, tools, *, timeout):
-            if messages[0]['content'].startswith('ROLE: supervisor'):
+            if (messages[0]['content'].startswith('ROLE: supervisor')
+                    and json.loads(messages[1]['content'])['trials_attempted'] > 0):
                 return {'message': {'role': 'assistant', 'content': 'An unsupported fragment'},
                         'usage': {'prompt_tokens': 2, 'completion_tokens': 2, 'cost': 0}}
             return await super().complete(messages, tools, timeout=timeout)
@@ -108,7 +110,8 @@ def test_model_supplied_review_measurement_requires_repair_even_when_correct(tmp
     class Reviewer(FakeModel):
         attempts = 0
         async def complete(self, messages, tools, *, timeout):
-            if messages[0]['content'].startswith('ROLE: supervisor'):
+            if (messages[0]['content'].startswith('ROLE: supervisor')
+                    and json.loads(messages[1]['content'])['trials_attempted'] > 0):
                 self.attempts += 1
                 contract = scripted_contract('supervisor', json.loads(messages[1]['content']))
                 if self.attempts == 1:
@@ -121,7 +124,7 @@ def test_model_supplied_review_measurement_requires_repair_even_when_correct(tmp
         tmp_path, tmp_path / 'run', model, trial_runner=trial, project={}))
     assert result['stop_reason'] == 'trial_cap' and model.attempts == 2
     events = [json.loads(line) for line in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
-    reviews = [event for event in events if event['type'] == 'supervisor_contract']
+    reviews = [event for event in events if event['type'] == 'supervisor_contract' and event['after_trial'] > 0]
     assert [review['valid'] for review in reviews] == [False, True]
     assert reviews[-1]['contract']['evidence'] == [
         {'trial_id': 1, 'metric': 'roc_auc', 'split': 'validation', 'value': .9}]
@@ -133,7 +136,8 @@ def test_nonfinite_review_citation_is_repaired_without_crashing_journal(tmp_path
     class Reviewer(FakeModel):
         attempts = 0
         async def complete(self, messages, tools, *, timeout):
-            if messages[0]['content'].startswith('ROLE: supervisor'):
+            if (messages[0]['content'].startswith('ROLE: supervisor')
+                    and json.loads(messages[1]['content'])['trials_attempted'] > 0):
                 self.attempts += 1
                 context = json.loads(messages[1]['content'])
                 contract = scripted_contract('supervisor', context)
@@ -149,7 +153,7 @@ def test_nonfinite_review_citation_is_repaired_without_crashing_journal(tmp_path
     assert result['stop_reason'] == 'trial_cap'
     assert model.attempts == 2
     events = [json.loads(line) for line in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
-    assert [e['valid'] for e in events if e['type'] == 'supervisor_contract'] == [False, True]
+    assert [e['valid'] for e in events if e['type'] == 'supervisor_contract' and e['after_trial'] > 0] == [False, True]
 
 
 def test_missing_intent_is_logged_as_invalid_before_repair(tmp_path):
@@ -178,7 +182,8 @@ def test_review_repair_refreshes_budget_and_disables_unneeded_tools(tmp_path, mo
     seen = []
     class Reviewer(FakeModel):
         async def complete(self, messages, tools, *, timeout):
-            if messages[0]['content'].startswith('ROLE: supervisor'):
+            if (messages[0]['content'].startswith('ROLE: supervisor')
+                    and json.loads(messages[1]['content'])['trials_attempted'] > 0):
                 context = json.loads(messages[1]['content'])
                 seen.append((context, tools))
                 contract = scripted_contract('supervisor', context)
@@ -206,7 +211,8 @@ def test_subsecond_review_retry_is_skipped_without_unknown_charge(tmp_path, monk
     class Reviewer(FakeModel):
         reviews = 0
         async def complete(self, messages, tools, *, timeout):
-            if messages[0]['content'].startswith('ROLE: supervisor'):
+            if (messages[0]['content'].startswith('ROLE: supervisor')
+                    and json.loads(messages[1]['content'])['trials_attempted'] > 0):
                 self.reviews += 1
                 clock[0] = 159.6
                 return {'message': {'role': 'assistant', 'content': 'Invalid review.'},
@@ -216,7 +222,7 @@ def test_subsecond_review_retry_is_skipped_without_unknown_charge(tmp_path, monk
     result = asyncio.run(run_one(StudyConfig(condition='frequent', trial_cap=2, allowance_seconds=60),
         tmp_path, tmp_path / 'run', model, trial_runner=trial, project={}))
     assert result['stop_reason'] == 'deadline' and model.reviews == 1
-    assert result['accounting']['cost_complete'] and result['accounting']['calls'] == 2
+    assert result['accounting']['cost_complete'] and result['accounting']['calls'] == 3
     assert result['best']['trial_id'] == 1
     events = [json.loads(line) for line in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
     skipped = [e for e in events if e['type'] == 'model_call_skipped']

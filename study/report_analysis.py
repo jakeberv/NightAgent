@@ -170,7 +170,8 @@ def assign_analysis_groups(runs):
     """Separate protocol and memory variants while preserving legacy summaries."""
     def variant(row):
         return json.dumps({key: (row.get("config") or {}).get(key)
-                           for key in ("decision_protocol", "reasoning_policy", "lesson_memory", "memory_limit")}, sort_keys=True)
+                           for key in ("decision_protocol", "reasoning_policy", "supervisor_policy",
+                                       "lesson_memory", "memory_limit")}, sort_keys=True)
     variants = defaultdict(set)
     for row in runs:
         variants[row["condition"]].add(variant(row))

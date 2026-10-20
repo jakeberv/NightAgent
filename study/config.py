@@ -37,10 +37,13 @@ class StudyConfig:
     device: str = 'auto'
     decision_protocol: str = "structured_v1"
     reasoning_policy: str = "grounded_v2"
+    supervisor_policy: str = "night_science_v1"
     lesson_memory: bool = False
     memory_limit: int = 6
 
     def __post_init__(self):
+        if self.supervisor_policy != "night_science_v1":
+            raise ValueError("supervisor_policy must be night_science_v1")
         if self.device not in ('auto', 'cpu', 'mps'):
             raise ValueError('device must be auto, cpu, or mps')
         if self.reasoning_policy != "grounded_v2":

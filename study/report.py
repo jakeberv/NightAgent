@@ -313,7 +313,7 @@ def _run_data(path: Path, warnings: list[str], summary_override=None, shared_tes
             events_available=(path.parent / "events.jsonl").exists()),
         "recommendation_uptake": recommendation_uptake(events, trials, valid),
         "trace": [e for e in events if e.get("type") in
-                  ("review", "reflection", "selection", "run_stopped", "decision_contract",
+                  ("framing", "review", "reflection", "selection", "run_stopped", "decision_contract",
                    "experiment_diagnostic", "experiment_reused", "repeated_tool_call", "lesson_memory")],
         "targets": {},
     }
