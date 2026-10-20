@@ -15,6 +15,7 @@ Account-level presets enabling retrieval must remain disabled.
 from __future__ import annotations
 
 import asyncio
+import copy
 from datetime import datetime, timezone
 import json
 import math
@@ -34,6 +35,34 @@ REVIEWED_PLAIN_MODELS = frozenset({
     "openai/gpt-4.1-mini",
     "google/gemini-2.5-pro",
 })
+
+
+def completion_tools(tools):
+    """Project our analysis schema into an API-compatible object envelope.
+
+    Anthropic rejects root-level combinators. Advertise the bounded parameter
+    alternatives inside `params`; the controller and worker still enforce the
+    original model-specific conditional schema before any trial can execute.
+    """
+    projected = copy.deepcopy(tools)
+    for tool in projected:
+        function = tool.get("function", {})
+        schema = function.get("parameters", {})
+        if function.get("name") != "run_analysis" or "allOf" not in schema:
+            continue
+        alternatives = []
+        for clause in schema.pop("allOf"):
+            model = clause["if"]["properties"]["model"]["const"]
+            parameters = clause["then"]["properties"]["params"]
+            parameters["description"] = f"Parameters for model={model}; use only with that model."
+            alternatives.append(parameters)
+        schema["properties"]["params"] = {
+            "type": "object",
+            "description": "Choose the parameter alternative matching the selected model. "
+                           "Model/parameter consistency is checked locally.",
+            "anyOf": alternatives,
+        }
+    return projected
 
 
 class ProviderError(RuntimeError):
@@ -149,9 +178,10 @@ class OpenRouter:
             "usage": {"include": True}, "stream": False,
         }
         if tools:
-            payload["tools"] = tools
+            payload["tools"] = completion_tools(tools)
         details = {"usage": None, "accounting_unknown": True,
                    "requested_model": self.model, "requested_provider": self.provider,
+                   "request_tools": payload.get("tools", []),
                    "request_metadata": {}}
         try:
             # The outer timer includes pool wait, upload, headers and full body.
@@ -189,6 +219,7 @@ class OpenRouter:
                 return {"message": message, "usage": details["usage"],
                         "id": raw.get("id"), "provider": raw.get("provider"),
                         "model": raw.get("model"), "raw": raw,
+                        "request_tools": details["request_tools"],
                         "request_metadata": details["request_metadata"]}
         except (TimeoutError, httpx.HTTPError) as error:
             details["error_type"] = type(error).__name__

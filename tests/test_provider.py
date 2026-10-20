@@ -191,3 +191,48 @@ def test_describe_has_total_deadline():
         finally:
             await client.aclose()
     run(scenario())
+
+
+@pytest.mark.parametrize("profile", ["magic", "regression", "legacy"])
+def test_anthropic_receives_supported_analysis_schema_and_local_rules_stay_strict(profile):
+    import copy
+    from pathlib import Path
+    import jsonschema
+    from study.config import StudyConfig
+    from study.controller import tools_for
+    from study.problem import load_problem
+    problem = None if profile == "legacy" else load_problem(
+        Path(__file__).resolve().parents[1] / "study/problems" / f"{profile}.yaml")
+    tools = tools_for("researcher", StudyConfig(), problem)
+    original = copy.deepcopy(tools)
+    local_schema = tools[2]["function"]["parameters"]
+    valid = {"model": "ridge" if profile == "regression" else "logistic",
+             "preprocessing": "standard", "params": {"alpha": 2} if profile == "regression" else {"C": 2}}
+    wrong_model_params = valid | {"params": {"n_estimators": 30}}
+    async def handler(request):
+        payload = json.loads(request.content)
+        schema = payload["tools"][2]["function"]["parameters"]
+        if set(schema) & {"allOf", "anyOf", "oneOf"}:
+            return httpx.Response(400, json={"error": {
+                "message": "input_schema does not support oneOf, allOf, or anyOf at the top level"}})
+        jsonschema.validate(valid, schema)
+        # The wire schema still exposes bounded, named parameters.
+        for invalid in (valid | {"params": {"arbitrary_code": "run()"}},
+                        valid | {"params": {"n_estimators": 999999}}):
+            assert not jsonschema.Draft202012Validator(schema).is_valid(invalid)
+        return httpx.Response(200, json={"choices": [{"message": {
+            "role": "assistant", "tool_calls": [{"id": "fit", "type": "function",
+            "function": {"name": "run_analysis", "arguments": json.dumps(valid)}}]}}],
+            "usage": {"cost": 0}})
+    async def scenario():
+        client = OpenRouter("anthropic/claude-sonnet-4.5", "anthropic",
+                            api_key="fixture", transport=httpx.MockTransport(handler))
+        try:
+            result = await client.complete([], tools, timeout=1)
+            assert result["message"]["tool_calls"][0]["function"]["name"] == "run_analysis"
+            assert "allOf" not in result["request_tools"][2]["function"]["parameters"]
+        finally:
+            await client.aclose()
+    run(scenario())
+    assert tools == original
+    assert not jsonschema.Draft202012Validator(local_schema).is_valid(wrong_model_params)

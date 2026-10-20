@@ -24,7 +24,8 @@ def provenance(data_dir):
 
 
 async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seconds,
-                    model_factory, runner=run_one, order_seed=2026, provider_metadata=None, problem=None):
+                    model_factory, runner=run_one, order_seed=2026, provider_metadata=None, problem=None,
+                    progress=None):
     if deadline.tzinfo is None:
         raise ValueError("deadline must include a UTC offset")
     if type(repeats) is not int or repeats < 1:
@@ -80,6 +81,8 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
                 kwargs = {"provider_metadata": provider_metadata} if provider_metadata is not None else {}
                 if pass_problem:
                     kwargs["problem"] = resolved_problem
+                if progress is not None:
+                    kwargs["progress"] = progress
                 summary = await runner(run_config, data_dir, run_dir, model, **kwargs)
             finally:
                 if hasattr(model, "aclose"):

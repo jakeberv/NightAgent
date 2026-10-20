@@ -101,11 +101,18 @@ environment, hashes, reproduction script, and results. Runtime varies by host.
 
 ## Configure OpenRouter
 
+For a bounded first run, follow the [short MAGIC pilot](../docs/magic-pilot.md).
+Its separate `study/magic-pilot-config.json` uses five minutes, 12 attempts,
+a USD 3 guard, and periodic supervision with reflection.
+
 Copy `study/pilot-config.json` and review it before a live pilot. It is an
 illustrative 15-minute allowance, not a calibrated final overnight schedule.
-Supply `OPENROUTER_API_KEY` in the launching process's environment; the study
-runner does not load `.env` automatically. Keep the key out of configuration,
-arguments, and version control.
+Supply `OPENROUTER_API_KEY` in the launching process's environment, or pass
+`--env-file PATH` to read it from a local file. Tutorial-style `LLM_API_KEY` is
+accepted when that file's `LLM_BASE_URL` identifies HTTPS OpenRouter. Existing
+environment credentials take precedence. Env files are parsed without executing
+shell code; their model/endpoint settings do not override the study configuration.
+Keep the key itself out of configuration, arguments, and version control.
 
 Use an explicit model ID and provider slug. Reviewed plain tool-capable models
 are listed in `provider.REVIEWED_PLAIN_MODELS`; unknown IDs, routing aliases,
@@ -159,7 +166,9 @@ fields. The researcher alone can invoke `run_analysis`; the supervisor can
 inspect the project and results. Literature tools exist only during the fifth
 condition's scheduled reviews. A fixed cap counts both search and fetch attempts.
 Search uses Crossref without an API key. Fetch accepts bounded public text,
-HTML, XML, and JSON; PDFs, redirects, compressed responses and private destinations
+HTML, XML, and JSON. Up to five redirects share the original timeout; each hop
+gets fresh destination validation and IP pinning. Original/final URLs and the
+redirect chain are retained. PDFs, compressed responses and private destinations
 are rejected. Search abstracts can be absent; failed or unhelpful searches are
 retained. Trace records link query/evidence, feedback, researcher response,
 and the resulting trial ID.
@@ -202,11 +211,23 @@ gets up to 70% of remaining time and reporting the rest. Both run in killable
 processes bounded by the study deadline. `completion.json` records postrun
 success, failure, or timeout.
 
+The CLI exits nonzero for failed search runs, runs without a valid selected model,
+and failed, timed-out or unstarted postrun phases. It preserves diagnostics and
+attempts reporting even when evaluation fails. Normal deadline/trial/dollar caps
+with a valid model remain successful stops. Standalone `reference` and `evaluate`
+also exit nonzero on fitting or scoring failure. See the
+[pilot guide](../docs/magic-pilot.md) for status interpretation.
+
 ## Artifacts, evaluation, and recovery
 
 Each run has an append-only `events.jsonl`, `config.json`, agent-facing
 `project.json`, live `checkpoint.json`, verified model artifacts, and final
-`summary.json`. Every completed valid trial can update the best checkpoint.
+`summary.json`. Live CLI progress shows model/tool activity, trial results and
+cumulative usage on stderr; `--verbose` shows full model text/tool results and
+`--quiet` suppresses terminal progress. A readable `progress.log` is saved even
+in quiet mode, alongside the complete JSONL trace. Each model-attempt event
+includes cumulative accounting; cached/reasoning subsets and unknown totals
+remain explicit. Every completed valid trial can update the best checkpoint.
 Ties retain the earliest completed trial. First crossings of every named target
 have separate selections with elapsed time and cumulative accounting.
 Late or incomplete trials cannot update selections.

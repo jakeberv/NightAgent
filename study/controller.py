@@ -131,7 +131,7 @@ def select_result(summary, result, accounting, config, problem=None):
 
 
 async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, project=None, literature=None,
-                  provider_metadata=None, problem=None):
+                  provider_metadata=None, problem=None, progress=None):
     """Run once in a NEW directory. Existing runs must be recovered, never resumed."""
     if trial_runner is None:
         from .science import run_trial
@@ -163,7 +163,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     summary = initial_summary(config, problem, data_fingerprint)
     started = time.monotonic()
     deadline = started + config.allowance_seconds
-    journal = Journal(run_dir, started)
+    journal = Journal(run_dir, started, progress=progress)
     journal.emit("run_started", config=config.to_dict(), project=project,
                  problem=problem.to_dict(), problem_hash=problem.fingerprint,
                  data_fingerprint=data_fingerprint,
@@ -203,7 +203,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             except asyncio.CancelledError:
                 accounting.add(None)
                 journal.emit("model_call", role=role, attempt=attempt, status="cancelled",
-                    usage=None, duration_seconds=time.monotonic() - begin)
+                    usage=None, accounting=accounting.snapshot(), duration_seconds=time.monotonic() - begin)
                 raise
             except Exception as error:
                 details = getattr(error, "details", {})
@@ -211,6 +211,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                 accounting.add(usage)
                 journal.emit("model_call", role=role, attempt=attempt, status="failed",
                     error=type(error).__name__, details=details, usage=usage,
+                    accounting=accounting.snapshot(),
                     duration_seconds=time.monotonic() - begin)
                 check()
                 if attempt == config.model_retries:
@@ -219,6 +220,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             accounting.add(response.get("usage"))
             journal.emit("model_call", role=role, attempt=attempt, status="completed",
                          response=response, usage=response.get("usage"),
+                         accounting=accounting.snapshot(),
                          duration_seconds=time.monotonic() - begin)
             check()
             return response["message"]
@@ -302,7 +304,10 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         limit = min(remaining(), config.literature_timeout_seconds)
                         try:
                             operation = client.search(args["query"], timeout=limit) if name == "literature_search" else client.fetch(args["url"], timeout=limit)
-                            result = await asyncio.wait_for(operation, timeout=limit)
+                            # The client bounds DNS, all redirect hops and body
+                            # reads together, retaining evidence on timeout.
+                            # A competing outer timer would erase those details.
+                            result = await operation
                         finally:
                             if literature is None and hasattr(client, "aclose"):
                                 await client.aclose()
@@ -312,6 +317,8 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         schemas = {}
                 except Exception as error:
                     result = {"error": f"{type(error).__name__}: {error}"}
+                    if name.startswith("literature_") and getattr(error, "details", None):
+                        result["evidence"] = error.details
                 journal.emit("tool_call", role=role, name=name, arguments=raw_args, result=result)
                 messages.append({"role": "tool", "tool_call_id": call.get("id", ""),
                                  "content": json.dumps(result, allow_nan=False)})

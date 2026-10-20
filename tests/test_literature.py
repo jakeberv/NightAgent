@@ -73,7 +73,7 @@ def test_dns_rebinding_and_mixed_private_dns_are_rejected_or_pinned():
     asyncio.run(scenario())
 
 
-def test_fetch_rejects_redirect_and_binary_content():
+def test_fetch_rejects_private_redirect_and_binary_content():
     async def scenario():
         for response in [httpx.Response(302, headers={"location": "http://127.0.0.1"}), httpx.Response(200, content=b"%PDF junk", headers={"content-type": "application/pdf"})]:
             calls = []
@@ -84,6 +84,126 @@ def test_fetch_rejects_redirect_and_binary_content():
                 assert len(calls) == 1
             finally:
                 await client.aclose()
+    asyncio.run(scenario())
+
+
+def test_search_to_fetch_follows_doi_and_relative_redirects_with_provenance():
+    seen = []
+    resolved = []
+    async def resolver(host, port):
+        resolved.append(host)
+        return ["93.184.216.34"]
+    def handler(request):
+        seen.append(request)
+        host = request.headers["host"]
+        if host == "api.crossref.org":
+            return httpx.Response(200, json={"message": {"items": [{
+                "title": ["Classifier evidence"], "DOI": "10.1234/example",
+                "URL": "https://doi.org/10.1234/example"}]}})
+        if host == "doi.org":
+            return httpx.Response(302, headers={"location": "https://publisher.example/article"})
+        if request.url.path == "/article":
+            return httpx.Response(303, headers={"location": "/fulltext"})
+        return httpx.Response(200, text="<p>Measured nonlinear improvement.</p>",
+                             headers={"content-type": "text/html"})
+    async def scenario():
+        client = LiteratureClient(transport=httpx.MockTransport(handler), resolver=resolver)
+        try:
+            search = await client.search("MAGIC classification", timeout=1)
+            result = await client.fetch(search["results"][0]["url"], timeout=1)
+            assert result["text"] == "Measured nonlinear improvement."
+            assert result["url"] == "https://doi.org/10.1234/example"
+            assert result["final_url"] == "https://publisher.example/fulltext"
+            assert result["redirects"] == [
+                {"url": "https://doi.org/10.1234/example", "status": 302,
+                 "location": "https://publisher.example/article"},
+                {"url": "https://publisher.example/article", "status": 303,
+                 "location": "https://publisher.example/fulltext"}]
+            assert resolved == ["api.crossref.org", "doi.org", "publisher.example", "publisher.example"]
+            assert all(request.url.host == "93.184.216.34" for request in seen)
+            assert [request.extensions["sni_hostname"] for request in seen] == resolved
+        finally:
+            await client.aclose()
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("destination", [
+    "http://127.0.0.1/private", "https://private.example/private",
+    "https://user:password@publisher.example/", "file:///etc/passwd",
+])
+def test_redirect_target_is_validated_before_following(destination):
+    seen = []
+    async def resolver(host, port):
+        return ["192.168.1.10"] if host == "private.example" else ["93.184.216.34"]
+    def handler(request):
+        seen.append(request)
+        return httpx.Response(302, headers={"location": destination})
+    async def scenario():
+        client = LiteratureClient(transport=httpx.MockTransport(handler), resolver=resolver)
+        try:
+            with pytest.raises(LiteratureError):
+                await client.fetch("https://doi.org/10.1234/example", timeout=1)
+            assert len(seen) == 1
+        finally:
+            await client.aclose()
+    asyncio.run(scenario())
+
+
+def test_redirect_chain_is_bounded():
+    seen = []
+    def handler(request):
+        seen.append(request)
+        return httpx.Response(307, headers={"location": f"/hop-{len(seen)}"})
+    async def scenario():
+        client = LiteratureClient(transport=httpx.MockTransport(handler), resolver=public_dns)
+        try:
+            with pytest.raises(LiteratureError, match="redirect limit"):
+                await client.fetch("https://publisher.example/start", timeout=1)
+            assert len(seen) == 6
+        finally:
+            await client.aclose()
+    asyncio.run(scenario())
+
+
+def test_redirect_hops_share_one_timeout():
+    calls = []
+    async def handler(request):
+        calls.append(request)
+        await asyncio.sleep(.03)
+        return httpx.Response(302, headers={"location": f"/hop-{len(calls)}"})
+    async def scenario():
+        client = LiteratureClient(transport=httpx.MockTransport(handler), resolver=public_dns)
+        try:
+            with pytest.raises(LiteratureError, match="TimeoutError"):
+                await client.fetch("https://publisher.example/start", timeout=.05)
+            assert len(calls) == 2
+        finally:
+            await client.aclose()
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failure", ["forbidden", "pdf", "timeout"])
+def test_failed_redirected_fetch_preserves_source_provenance(failure):
+    async def handler(request):
+        if request.headers["host"] == "doi.org":
+            return httpx.Response(302, headers={"location": "https://publisher.example/article"})
+        if failure == "timeout":
+            await asyncio.sleep(1)
+        if failure == "pdf":
+            return httpx.Response(200, content=b"%PDF", headers={"content-type": "application/pdf"})
+        return httpx.Response(403)
+    async def scenario():
+        client = LiteratureClient(transport=httpx.MockTransport(handler), resolver=public_dns)
+        try:
+            with pytest.raises(LiteratureError) as failed:
+                await client.fetch("https://doi.org/10.1234/example", timeout=.05)
+            assert failed.value.details == {
+                "url": "https://doi.org/10.1234/example",
+                "final_url": "https://publisher.example/article",
+                "redirects": [{"url": "https://doi.org/10.1234/example", "status": 302,
+                               "location": "https://publisher.example/article"}]}
+        finally:
+            await client.aclose()
     asyncio.run(scenario())
 
 

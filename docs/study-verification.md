@@ -83,3 +83,52 @@ establish matched task difficulty.
 The final study dataset/protocol, model/provider, repeats, run allowance, and
 secondary caps remain explicit pilot choices. The implementation and synthetic
 smoke do not establish that any interaction strategy is superior.
+
+## Review fixes and short MAGIC pilot preparation
+
+- Full suite: **221 passed in 36.64 seconds**; compilation and whitespace checks
+  passed. Regressions cover bounded DOI redirects, validation at each hop,
+  timeout ownership, failure provenance, fatal CLI exit status, readable live
+  progress, cumulative accounting, and explicit env-file credential loading.
+- Independent review found no remaining material issue after the controller's
+  competing literature timeout was removed. The literature client owns one
+  deadline across DNS, redirects and reading.
+- A validation-only MAGIC preflight completed 12/12 classifier trials, three
+  supervisor reviews and 11 reflections using scripted model responses. A second
+  four-trial preview verified live CLI output, readable logs and reporting.
+  Neither run scored MAGIC test data or made model API calls.
+- Public OpenRouter metadata listed the pinned Anthropic endpoint. Live Crossref
+  search returned five results; the first two fetch attempts encountered a
+  publisher HTTP 403 and the bounded redirect limit. Redirect following does not
+  remove publisher access restrictions; these failures are recorded as evidence.
+- The existing Tutorial 3 env file was successfully parsed through `--env-file`
+  and used to construct the provider without inference, copying or displaying the
+  key. Authenticated model calls, billed usage and live agent behavior remain to
+  be checked in the pilot.
+- `study/magic-pilot-config.json` freezes five minutes, 12 attempts, a USD 3
+  spending guard, and periodic supervision with reflection. See
+  [the launch and monitoring guide](magic-pilot.md) for the exact command,
+  exit-code semantics, local trace files, and pilot acceptance checks.
+
+## OpenRouter tool-schema compatibility and live verification
+
+The first live pilot failed before training because Anthropic rejected the
+`run_analysis` tool's root-level `allOf`. The provider now sends bounded parameter
+alternatives nested inside `params`, while the controller and local worker retain
+the original model-specific validation. Traces record the actual transmitted
+tool schemas.
+
+- Final full suite: **224 passed in 35.79 seconds**. Compilation and
+  `git diff --check` passed. Regression cases cover MAGIC, regression, and legacy
+  tool schemas; independent scoped review found no material issue.
+- A live validation-only check used the existing Tutorial 3 credential through
+  OpenRouter, with `anthropic/claude-sonnet-4.5` pinned to Anthropic. Two model
+  calls successfully inspected the project/results and launched one classifier
+  trial locally. The run exited successfully at its one-trial cap.
+- The local histogram gradient boosting trial achieved validation ROC-AUC
+  **0.931693**. OpenRouter reported **USD 0.023874**, with complete accounting:
+  5,458 input tokens and 500 output tokens. MAGIC test data was not scored.
+- Artifacts are in the ignored directory
+  `study-runs/magic-api-schema-check-20261020-145955`. This check verifies the
+  API-to-local-worker path; the full five-minute pilot, including live supervisor
+  reviews and reflections, remains the next test.

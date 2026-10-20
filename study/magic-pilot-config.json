@@ -1,0 +1,20 @@
+{
+  "condition": "periodic_reflection",
+  "model": "anthropic/claude-sonnet-4.5",
+  "provider": "anthropic",
+  "temperature": 0,
+  "max_tokens": 2048,
+  "allowance_seconds": 300,
+  "trial_timeout_seconds": 60,
+  "trial_cap": 12,
+  "dollar_cap": 3,
+  "training_seed": 42,
+  "history_trials": 12,
+  "model_timeout_seconds": 60,
+  "model_retries": 1,
+  "max_turns_without_trial": 8,
+  "review_tool_calls": 6,
+  "literature_calls_per_review": 3,
+  "literature_timeout_seconds": 15,
+  "allow_unknown_cost": false
+}

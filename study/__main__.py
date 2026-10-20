@@ -44,6 +44,19 @@ def selected_artifacts(summary):
     return {name: item for name, item in selected.items() if item is not None}
 
 
+def require_successful_runs(summaries):
+    """Expected limits are successful only when search produced a valid model."""
+    failures = []
+    for summary in summaries:
+        reason = summary.get("stop_reason", "missing")
+        if reason not in {"deadline", "trial_cap", "dollar_cap"} or not summary.get("best"):
+            identity = f"{summary.get('condition', 'unknown')}/r{summary.get('repeat', 0)}"
+            failures.append(f"{identity}: {reason}" +
+                            (" (no valid model)" if not summary.get("best") else ""))
+    if failures:
+        raise RuntimeError("Search failed; artifacts retained: " + "; ".join(failures))
+
+
 def preflight_problem(problem_path, data_dir):
     """Validate scientific identity before constructing a provider or using a key."""
     from .problem import load_problem, problem_from_data, assert_problem_matches
@@ -87,6 +100,10 @@ def evaluate(data_dir, root):
     previous = json.loads((root / "postrun.json").read_text()) if (root / "postrun.json").exists() else {}
     atomic_json(root / "postrun.json", previous | {"evaluation_seconds": time.monotonic() - begin,
         "evaluation_finished_at": utc_now(), "model_cost": 0, "note": "Local held-out scoring only; no LLM judge."})
+    failures = [name for name, result in results.items() if result.get("status") != "completed"]
+    if not selections or failures:
+        raise RuntimeError("Held-out evaluation failed; results retained: " +
+                           (", ".join(failures) if failures else "no selected models"))
 
 
 async def finish_before_deadline(data_dir, output, deadline):
@@ -118,11 +135,15 @@ async def finish_before_deadline(data_dir, output, deadline):
             if asyncio.current_task().cancelling():
                 raise
     atomic_json(Path(output) / "completion.json", {"finished_at": utc_now(), "postrun": statuses})
+    if any(status != "completed" for status in statuses.values()):
+        raise RuntimeError(f"Postrun failed; see {Path(output) / 'completion.json'}: {statuses}")
 
 
 async def dispatch(args):
     from .science import prepare_dataset, fixed_reference
+    from .progress import ConsoleProgress
     problem_path = getattr(args, "problem", None)
+    progress = None if getattr(args, "quiet", False) else ConsoleProgress(verbose=getattr(args, "verbose", False))
     if args.command == "init-problem":
         template = Path(__file__).parent / "problems" / f"{args.template}.yaml"
         # Exclusive creation preserves an existing user definition.
@@ -166,6 +187,8 @@ async def dispatch(args):
         preflight_problem(problem_path, args.data)
         result = await fixed_reference(args.data, args.output, seed=args.seed, timeout=args.timeout)
         print(json.dumps(result, indent=2))
+        if result.get("status") != "completed":
+            raise RuntimeError(f"Reference failed: {result.get('status')}; see {args.output}")
     elif args.command == "smoke":
         from .fake import FakeLiterature, FakeModel
         from .report import generate_report
@@ -188,7 +211,7 @@ async def dispatch(args):
             config = StudyConfig(condition=condition, model="offline-script", provider="offline",
                 allowance_seconds=60, trial_cap=4, trial_timeout_seconds=15)
             summaries.append(await run_one(config, data_dir, args.output / "runs" / condition,
-                FakeModel(options=options), literature=FakeLiterature(), problem=problem))
+                FakeModel(options=options), literature=FakeLiterature(), problem=problem, progress=progress))
         atomic_json(args.output / "smoke.json", {"offline": True, "provenance": provenance(data_dir),
                     "note": "Scripted model and fixture literature; workflow verification, not agent comparison evidence."})
         evaluate(data_dir, args.output)
@@ -198,6 +221,9 @@ async def dispatch(args):
     elif args.command in ("run", "suite"):
         config = load_config(args.config)
         problem = preflight_problem(problem_path, args.data)
+        if getattr(args, "env_file", None):
+            from .credentials import load_openrouter_env
+            load_openrouter_env(args.env_file)
         # Validate provider/key before allocating a suite/run directory.
         initial = live_model(config)
         try:
@@ -210,16 +236,18 @@ async def dispatch(args):
             model = live_model(config)
             try:
                 summary = await run_one(config, args.data, args.output, model,
-                                        provider_metadata=provider_metadata, problem=problem)
+                                        provider_metadata=provider_metadata, problem=problem, progress=progress)
                 print(json.dumps({k: summary[k] for k in ("condition", "trials", "stop_reason", "accounting")}, indent=2))
+                require_successful_runs([summary])
             finally:
                 await model.aclose()
         else:
             deadline = datetime.fromisoformat(args.deadline)
-            await run_suite(config, args.data, args.output, repeats=args.repeats, deadline=deadline,
+            summaries = await run_suite(config, args.data, args.output, repeats=args.repeats, deadline=deadline,
                 reserve_seconds=args.reserve_seconds, order_seed=args.order_seed, model_factory=live_model,
-                provider_metadata=provider_metadata, problem=problem)
+                provider_metadata=provider_metadata, problem=problem, progress=progress)
             await finish_before_deadline(args.data, args.output, deadline)
+            require_successful_runs(summaries)
 
 
 def main():
@@ -243,6 +271,10 @@ def main():
         p.add_argument("--data", type=Path, required=True)
         p.add_argument("--output", type=Path, required=True)
         p.add_argument("--problem", type=Path, help="Problem profile; defaults to the frozen prepared definition")
+        p.add_argument("--env-file", type=Path, help="Read OpenRouter credentials from this env file (no shell execution)")
+        display = p.add_mutually_exclusive_group()
+        display.add_argument("--verbose", action="store_true", help="Show full model text and tool results live")
+        display.add_argument("--quiet", action="store_true", help="Suppress live progress; retain logs and final summary")
         if command == "run":
             p.add_argument("--condition", choices=CONDITIONS)
         else:
@@ -263,6 +295,9 @@ def main():
             p.add_argument("--data", type=Path, required=True)
         if command == "smoke":
             p.add_argument("--problem", type=Path, help="Optional profile for a scripted all-condition smoke run")
+            display = p.add_mutually_exclusive_group()
+            display.add_argument("--verbose", action="store_true")
+            display.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
     try:
         asyncio.run(dispatch(args))

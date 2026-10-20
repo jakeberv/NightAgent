@@ -7,6 +7,135 @@ from study.science import prepare_dataset, run_trial
 import pytest
 
 
+@pytest.mark.parametrize("command", ["run", "suite"])
+@pytest.mark.parametrize("billing", ["known", "unknown"])
+def test_live_cli_failure_exits_nonzero_and_preserves_results(tmp_path, monkeypatch, command, billing):
+    import sys
+    from datetime import datetime, timedelta, timezone
+    from study.__main__ import main
+    from study.provider import ProviderError
+    data, output = tmp_path / "data", tmp_path / "output"
+    prepare_dataset(data, synthetic=True)
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"model_retries": 0, "allowance_seconds": 1}))
+    class FailedProvider:
+        async def describe(self):
+            return {"offline": True}
+        async def complete(self, *args, **kwargs):
+            usage = {"cost": 0, "prompt_tokens": 0, "completion_tokens": 0} if billing == "known" else None
+            raise ProviderError("Fixture provider failure", {"usage": usage})
+        async def aclose(self):
+            pass
+    monkeypatch.setattr("study.__main__.live_model", lambda _: FailedProvider())
+    argv = ["study", command, "--config", str(config), "--data", str(data), "--output", str(output)]
+    if command == "suite":
+        argv += ["--repeats", "1", "--reserve-seconds", "10", "--deadline",
+                 (datetime.now(timezone.utc) + timedelta(minutes=2)).isoformat()]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit) as exited:
+        main()
+    assert exited.value.code != 0
+    summaries = [output / "summary.json"] if command == "run" else list((output / "runs").glob("*/summary.json"))
+    assert len(summaries) == (1 if command == "run" else 5)
+    assert all(json.loads(path.read_text())["stop_reason"] ==
+               ("model_failure" if billing == "known" else "unknown_cost") for path in summaries)
+    if command == "suite":
+        assert (output / "report.html").exists()
+        assert json.loads((output / "completion.json").read_text())["postrun"]["report"] == "completed"
+
+
+@pytest.mark.parametrize("stop,best,failed", [
+    ("deadline", {"score": .8}, False), ("trial_cap", {"score": .8}, False),
+    ("dollar_cap", {"score": .8}, False), ("deadline", None, True),
+    ("trial_cap", None, True), ("no_progress", {"score": .8}, True),
+    ("failure", {"score": .8}, True), ("interrupted", {"score": .8}, True),
+    ("not_started_study_deadline", None, True),
+])
+def test_run_outcome_distinguishes_expected_limits_from_failures(stop, best, failed):
+    from study.__main__ import require_successful_runs
+    summaries = [{"condition": "researcher_alone", "repeat": 0, "stop_reason": stop, "best": best}]
+    if failed:
+        with pytest.raises(RuntimeError):
+            require_successful_runs(summaries)
+    else:
+        require_successful_runs(summaries)
+
+
+def test_reference_timeout_cli_exits_nonzero(tmp_path, monkeypatch):
+    import sys
+    from study.__main__ import main
+    data = tmp_path / "data"
+    prepare_dataset(data, synthetic=True)
+    monkeypatch.setattr(sys, "argv", ["study", "reference", "--data", str(data),
+        "--output", str(tmp_path / "reference"), "--timeout", "0.000001"])
+    with pytest.raises(SystemExit) as exited:
+        main()
+    assert exited.value.code != 0
+
+
+def test_evaluate_cli_exits_nonzero_after_persisting_failed_scoring(tmp_path, monkeypatch):
+    import sys
+    from study.__main__ import main
+    data, output = tmp_path / "data", tmp_path / "run"
+    prepare_dataset(data, synthetic=True)
+    output.mkdir()
+    atomic_json(output / "summary.json", {"best": {
+        "artifact": str(tmp_path / "missing.joblib"), "artifact_hash": "absent"}})
+    monkeypatch.setattr(sys, "argv", ["study", "evaluate", "--data", str(data),
+        "--output", str(output)])
+    with pytest.raises(SystemExit) as exited:
+        main()
+    assert exited.value.code != 0
+    result = json.loads((output / "test-results.json").read_text())
+    assert result["selections"]["best"]["status"] == "failed"
+
+
+@pytest.mark.parametrize("expired", [False, True])
+def test_postrun_failure_is_reported_after_writing_completion(tmp_path, expired):
+    from datetime import datetime, timedelta, timezone
+    from study.__main__ import finish_before_deadline
+    deadline = datetime.now(timezone.utc) + timedelta(seconds=-1 if expired else 30)
+    with pytest.raises(RuntimeError, match="Postrun"):
+        asyncio.run(finish_before_deadline(tmp_path / "missing-data", tmp_path, deadline))
+    statuses = json.loads((tmp_path / "completion.json").read_text())["postrun"]
+    assert set(statuses) == {"evaluate", "report"}
+    assert statuses["evaluate"] == ("not_started_deadline" if expired else "failed")
+
+
+@pytest.mark.parametrize("display", ["--quiet", "--verbose"])
+def test_cli_reads_explicit_env_file_and_controls_display_without_losing_logs(
+        tmp_path, monkeypatch, capsys, display):
+    import os
+    import sys
+    from study.__main__ import main
+    from study.fake import FakeModel
+    monkeypatch.setenv("OPENROUTER_API_KEY", "")
+    data, output = tmp_path / "data", tmp_path / "run"
+    prepare_dataset(data, synthetic=True)
+    config = tmp_path / "config.json"
+    config.write_text('{"trial_cap":1,"allowance_seconds":30}')
+    env_file = tmp_path / ".env"
+    env_file.write_text("LLM_API_KEY=fixture-secret\nLLM_BASE_URL=https://openrouter.ai/api/v1")
+    class Offline(FakeModel):
+        async def describe(self):
+            return {"offline": True}
+    def provider(config):
+        assert os.environ["OPENROUTER_API_KEY"] == "fixture-secret"
+        return Offline()
+    monkeypatch.setattr("study.__main__.live_model", provider)
+    monkeypatch.setattr(sys, "argv", ["study", "run", "--config", str(config), "--data", str(data),
+        "--output", str(output), "--env-file", str(env_file), display])
+    main()
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["trials"] == 1
+    assert ("trial 1" in captured.err) == (display == "--verbose")
+    assert "trial 1" in (output / "progress.log").read_text()
+    assert (output / "events.jsonl").exists()
+    for path in output.glob("*.json*"):
+        assert "fixture-secret" not in path.read_text()
+    assert "fixture-secret" not in captured.out + captured.err + (output / "progress.log").read_text()
+
+
 def test_offline_model_can_execute_adapter_configuration_without_classifier_assumptions():
     from study.fake import FakeModel
     config = {"model": "ridge", "preprocessing": "standard", "params": {"alpha": 2}}

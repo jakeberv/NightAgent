@@ -189,6 +189,48 @@ def test_literature_cap_limits_actual_io_and_keeps_unhelpful_evidence(tmp_path):
     assert "No useful source" in journal and "Per-review literature cap reached" in journal
 
 
+@pytest.mark.parametrize("failure", ["forbidden", "timeout"])
+def test_failed_literature_redirect_is_visible_to_supervisor_and_journal(tmp_path, failure):
+    import httpx
+    from study.literature import LiteratureClient
+    observed = []
+    class Reading(ScriptedModel):
+        async def complete(self, messages, tools, *, timeout):
+            response = await super().complete(messages, tools, timeout=timeout)
+            if messages[0]["content"].startswith("ROLE: supervisor"):
+                if len(messages) == 2:
+                    response["message"]["tool_calls"] = [{"id": "fetch", "type": "function",
+                        "function": {"name": "literature_fetch",
+                                     "arguments": '{"url":"https://doi.org/10.1234/example"}'}}]
+                else:
+                    observed.append(json.loads(messages[-1]["content"]))
+            return response
+    async def handler(request):
+        if request.headers["host"] == "doi.org":
+            return httpx.Response(302, headers={"location": "https://publisher.example/article"})
+        if failure == "timeout":
+            await asyncio.sleep(1)
+        return httpx.Response(403)
+    async def resolver(host, port):
+        return ["93.184.216.34"]
+    async def scenario():
+        client = LiteratureClient(transport=httpx.MockTransport(handler), resolver=resolver)
+        try:
+            return await run_one(StudyConfig(condition="periodic_reflection_literature", trial_cap=4,
+                                            literature_timeout_seconds=.05),
+                tmp_path, tmp_path / "run", Reading(), trial_runner=trial, project={}, literature=client)
+        finally:
+            await client.aclose()
+    summary = asyncio.run(scenario())
+    assert summary["trials"] == 4
+    assert ("TimeoutError" if failure == "timeout" else "403") in observed[0]["error"]
+    assert observed[0]["evidence"]["final_url"] == "https://publisher.example/article"
+    assert observed[0]["evidence"]["redirects"][0]["status"] == 302
+    events = [json.loads(line) for line in (tmp_path / "run/events.jsonl").read_text().splitlines()]
+    logged = next(e["result"] for e in events if e["type"] == "tool_call" and e["name"] == "literature_fetch")
+    assert logged == observed[0]
+
+
 def test_minimize_objective_selects_named_targets_and_earliest_ties():
     from types import SimpleNamespace
     from study.controller import select_result

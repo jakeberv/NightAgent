@@ -36,9 +36,10 @@ def read_events(path):
 
 
 class Journal:
-    def __init__(self, directory, started):
+    def __init__(self, directory, started, progress=None):
         self.directory = Path(directory)
         self.started = started
+        self.progress = progress
 
     def emit(self, event_type, **payload):
         event = {"type": event_type, "run_id": self.directory.name,
@@ -47,6 +48,13 @@ class Journal:
             handle.write(json.dumps(event, allow_nan=False) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
+        from .progress import format_event
+        text = format_event(event, verbose=True)
+        if text:
+            with (self.directory / "progress.log").open("a") as handle:
+                handle.write(text + "\n")
+        if self.progress is not None:
+            self.progress(event)
         return event
 
 
