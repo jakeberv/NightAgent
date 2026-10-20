@@ -394,7 +394,7 @@ def _plots(data: dict) -> str:
     colors = {name: palette[i % len(palette)] for i, name in enumerate(data["conditions"])}
     labels_seen = set()
     metric = data["objective"]["metric"]
-    metric_label = "ROC-AUC" if metric == "roc_auc" else metric
+    metric_label = {"roc_auc": "ROC-AUC", "roc_auc_ovr_macro": "ROC-AUC (macro one-vs-rest)"}.get(metric, metric)
     for row in data["runs"]:
         name = row["condition"]
         curve = row["best_curve"]
@@ -462,7 +462,7 @@ def generate_report(root: Path) -> Path:
                           if isinstance(value, (dict, list)) else value
                           for key, value in row.items()} for row in runs)
     objective = data["objective"]
-    metric = "ROC-AUC" if objective["metric"] == "roc_auc" else objective["metric"]
+    metric = {"roc_auc": "ROC-AUC", "roc_auc_ovr_macro": "ROC-AUC (macro one-vs-rest)"}.get(objective["metric"], objective["metric"])
     target_names = list(dict.fromkeys(name for row in runs for name in row["targets"]))
     sections = ["<h1>Overnight study: validation performance at the deadline</h1>",
                 f"<p>Primary outcome: best completed validation {html.escape(metric)} "
@@ -475,7 +475,7 @@ def generate_report(root: Path) -> Path:
                         + html.escape(json.dumps(data["problem"], indent=2, ensure_ascii=False)) + "</pre></details>")
     if data["data_fingerprint"] is not None:
         sections.append("<p>Frozen prepared data fingerprint: " + _display(data["data_fingerprint"]) + "</p>")
-    if objective["metric"] == "roc_auc":
+    if objective["metric"] in ("roc_auc", "roc_auc_ovr_macro"):
         sections.append("<p>ROC-AUC measures ranking, not classification accuracy.</p>")
     sections.append(_table(["Condition", "All runs", "Valid models", f"Mean validation {metric} (valid n)",
                             "SD (valid n)"] + [f"{name} fraction (all runs)" for name in target_names],

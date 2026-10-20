@@ -11,7 +11,7 @@ def profile(task='tabular_classification', metric='accuracy'):
             'evaluation': {'split': {'train': .6, 'validation': .2, 'test': .2, 'seed': 42},
                            'objective': {'metric': metric, 'direction': 'minimize' if metric in ('rmse', 'mae') else 'maximize'},
                            'additional_metrics': []},
-            'targets': [{'name': 'useful', 'value': .8 if metric in ('accuracy', 'roc_auc', 'macro_f1') else 30}],
+            'targets': [{'name': 'useful', 'value': .8 if metric in ('accuracy', 'roc_auc', 'roc_auc_ovr_macro', 'macro_f1') else 30}],
             'search_space': {'preset': task, 'models': ['logistic'] if task.endswith('classification') else ['ridge']}}
 
 
@@ -115,3 +115,33 @@ def test_all_bundled_profiles_validate_without_loading_datasets():
         spec = load_problem(path)
         adapter = get_adapter(spec)
         adapter.validate_config(adapter.reference_config)
+
+
+def test_multiclass_auc_registry_direction_bounds_and_no_positive_class():
+    from study.problem import METRICS, ProblemSpec, validate_metric_value
+    value = profile(metric='roc_auc_ovr_macro')
+    spec = ProblemSpec.from_dict(value)
+    assert spec.objective == {'metric': 'roc_auc_ovr_macro', 'direction': 'maximize'}
+    assert METRICS['roc_auc_ovr_macro']['task'] == 'tabular_classification'
+    for invalid in (-.1, 1.1, float('nan'), True):
+        with pytest.raises(ValueError):
+            validate_metric_value('roc_auc_ovr_macro', invalid)
+    value['dataset']['positive_class'] = 1
+    with pytest.raises(ValueError, match='positive_class'):
+        ProblemSpec.from_dict(value)
+
+
+@pytest.mark.parametrize('objective,additional,positive', [
+    ('accuracy', ['roc_auc_ovr_macro'], 1),
+    ('roc_auc_ovr_macro', ['roc_auc'], 1),
+    ('roc_auc', ['roc_auc_ovr_macro'], 1),
+    ('roc_auc_ovr_macro', ['rmse'], None),
+])
+def test_multiclass_auc_incompatible_additional_metrics_rejected(objective, additional, positive):
+    from study.problem import ProblemSpec
+    value = profile(metric=objective)
+    value['evaluation']['additional_metrics'] = additional
+    if positive is not None:
+        value['dataset']['positive_class'] = positive
+    with pytest.raises(ValueError):
+        ProblemSpec.from_dict(value)

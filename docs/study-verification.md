@@ -60,6 +60,26 @@ validation, and frozen problem/data identities throughout recovery and reporting
 - The verified lock adds PyYAML 6.0.3. The [profile guide](problem-definitions.md)
   documents supported inputs, metrics, targets, commands and extension boundaries.
 
+## MNIST AUC alignment
+
+At the user's request, MNIST now uses `roc_auc_ovr_macro` as its primary metric,
+with accuracy and macro-F1 secondary. MAGIC's binary `roc_auc` is unchanged.
+Both profiles use provisional 0.93/0.95 targets; matching thresholds does not
+establish matched task difficulty.
+
+- Added probability-based macro one-vs-rest scoring and preflight rejection of
+  binary sources, ambiguous positive-class settings, and missing classes.
+- Final full suite: **176 passed in 24.31 seconds**. Compilation and whitespace
+  checks passed. Independent scoped review found no actionable issue; 77 focused
+  tests passed, and an independent ten-class check matched scikit-learn.
+- Prepared the official MNIST source into `study-data/mnist-auc-profile`.
+  All three partition hashes match the earlier accuracy-based preparation exactly:
+  48,000 training / 12,000 validation / 10,000 official test images. No full MNIST
+  fitting, test scoring, or paid API calls were performed.
+- Reports label the metric explicitly as macro one-vs-rest ROC-AUC. New tests
+  cover unequal class frequencies, permuted probability columns, worker/held-out
+  scoring, and the CLI/controller/report path.
+
 The final study dataset/protocol, model/provider, repeats, run allowance, and
 secondary caps remain explicit pilot choices. The implementation and synthetic
 smoke do not establish that any interaction strategy is superior.

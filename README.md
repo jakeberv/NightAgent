@@ -10,7 +10,7 @@ bounded classification/regression tools, scheduled supervision/reflection, super
 literature access, isolated held-out evaluation, and offline verification.
 Use [problem profiles](docs/problem-definitions.md) to specify datasets, objectives,
 named targets, and search spaces without changing the runner. Bundled examples
-cover MAGIC, multiclass CSV, MNIST accuracy, and regression.
+cover MAGIC binary AUC, multiclass CSV, MNIST multiclass AUC, and regression.
 See its README for setup, the MAGIC feasibility pilot, and the overnight CLI.
 The conversational prototype below remains available separately.
 

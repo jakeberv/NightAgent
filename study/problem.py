@@ -12,6 +12,7 @@ import yaml
 
 METRICS = {
     'roc_auc': {'task': 'tabular_classification', 'direction': 'maximize', 'minimum': 0, 'maximum': 1},
+    'roc_auc_ovr_macro': {'task': 'tabular_classification', 'direction': 'maximize', 'minimum': 0, 'maximum': 1},
     'accuracy': {'task': 'tabular_classification', 'direction': 'maximize', 'minimum': 0, 'maximum': 1},
     'macro_f1': {'task': 'tabular_classification', 'direction': 'maximize', 'minimum': 0, 'maximum': 1},
     'rmse': {'task': 'tabular_regression', 'direction': 'minimize', 'minimum': 0},
@@ -128,6 +129,8 @@ class ProblemSpec:
         metrics = evaluation.setdefault('additional_metrics', [])
         if not isinstance(metrics, list) or any(not isinstance(m, str) or m not in METRICS or METRICS[m]['task'] != task for m in metrics) or len(metrics) != len(set(metrics)) or metric in metrics:
             raise ValueError('additional_metrics must be compatible distinct metrics excluding objective')
+        if 'roc_auc_ovr_macro' in [metric, *metrics] and 'positive_class' in ds:
+            raise ValueError('roc_auc_ovr_macro averages all classes and cannot specify positive_class')
         if 'roc_auc' in [metric, *metrics] and 'positive_class' not in ds:
             raise ValueError('binary roc_auc requires explicit dataset positive_class')
         split = evaluation['split']

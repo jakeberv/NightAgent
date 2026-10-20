@@ -159,7 +159,7 @@ class TabularAdapter:
         from study.problem import validate_metric_value
         definition = self.problem.to_dict()
         names = [self.problem.objective['metric'], *definition['evaluation']['additional_metrics']]
-        predictions = pipeline.predict(X) if any(name != 'roc_auc' for name in names) else None
+        predictions = pipeline.predict(X) if any(name not in ('roc_auc', 'roc_auc_ovr_macro') for name in names) else None
         values = {}
         for name in names:
             if name == 'roc_auc':
@@ -168,6 +168,18 @@ class TabularAdapter:
                 if len(classes) != 2 or positive not in classes:
                     raise ValueError('roc_auc needs exactly two classes including positive_class')
                 score = roc_auc_score(np.asarray(y) == positive, pipeline.predict_proba(X)[:, classes.index(positive)])
+            elif name == 'roc_auc_ovr_macro':
+                classes = np.asarray(pipeline.classes_)
+                labels = np.asarray(y)
+                if len(classes) < 3 or len(set(classes.tolist())) != len(classes):
+                    raise ValueError('roc_auc_ovr_macro requires at least three distinct fitted classes')
+                if set(labels.tolist()) != set(classes.tolist()):
+                    raise ValueError('roc_auc_ovr_macro evaluation must contain all fitted classes')
+                probabilities = np.asarray(pipeline.predict_proba(X))
+                if probabilities.shape != (len(labels), len(classes)):
+                    raise ValueError('roc_auc_ovr_macro probability columns must align with fitted classes')
+                # Explicit column pairing also supports non-sorted class order.
+                score = np.mean([roc_auc_score(labels == label, probabilities[:, column]) for column, label in enumerate(classes)])
             elif name == 'accuracy': score = accuracy_score(y, predictions)
             elif name == 'macro_f1': score = f1_score(y, predictions, average='macro', zero_division=0)
             elif name == 'rmse': score = math.sqrt(mean_squared_error(y, predictions))
@@ -198,5 +210,7 @@ def worker_problem(problem):
     value = problem.to_dict()
     value['brief'] = 'Trusted isolated training and validation operation.'
     value['dataset'] = {'format': 'synthetic', **({'positive_class': problem.dataset['positive_class']} if 'positive_class' in problem.dataset else {})}
+    if 'roc_auc_ovr_macro' in [problem.objective['metric'], *value['evaluation']['additional_metrics']]:
+        value['dataset']['n_classes'] = 3
     value['evaluation']['split'] = {'train': .6, 'validation': .2, 'test': .2, 'seed': 42}
     return ProblemSpec.from_dict(value).to_dict()

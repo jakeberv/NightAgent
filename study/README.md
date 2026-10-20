@@ -40,7 +40,8 @@ separate study configuration.
 
 See the [problem profile guide](../docs/problem-definitions.md) for CSV/NPZ input,
 custom targets such as AUC 0.95, and the MAGIC, multiclass CSV, MNIST, and regression
-examples. MNIST uses accuracy and preserves its official test partition.
+examples. MNIST uses macro one-vs-rest ROC-AUC, retains accuracy as a secondary
+metric, and preserves its official test partition.
 
 ```bash
 .venv/bin/python -m study validate --problem study/problems/regression.yaml

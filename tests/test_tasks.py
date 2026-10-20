@@ -187,3 +187,93 @@ def test_classification_rejects_continuous_targets_before_preparing(tmp_path, la
     with pytest.raises(ValueError, match='categorical'):
         prepare_dataset(tmp_path / 'data', problem=ProblemSpec.from_dict(value))
     assert not (tmp_path / 'data/train.npz').exists()
+
+
+def test_multiclass_auc_is_macro_probability_auc_with_permuted_imbalanced_labels():
+    from sklearn.metrics import roc_auc_score
+    from study.problem import ProblemSpec
+    from study.tasks import get_adapter
+    labels = np.asarray(['zebra']*9 + ['ant']*3 + ['mole']*2)
+    order = np.asarray(['mole', 'zebra', 'ant'])
+    probabilities = np.random.default_rng(19).dirichlet([1, 2, 3], size=len(labels))
+    class ProbabilityPipeline:
+        classes_ = order
+        def predict_proba(self, X):
+            return probabilities
+        def predict(self, X):
+            raise AssertionError('AUC must use probabilities, never hard predictions')
+    adapter = get_adapter(ProblemSpec.from_dict(profile(metric='roc_auc_ovr_macro')))
+    actual = adapter.metrics(ProbabilityPipeline(), np.zeros((len(labels), 1)), labels)['roc_auc_ovr_macro']
+    individual = [roc_auc_score(labels == label, probabilities[:, index]) for index, label in enumerate(order)]
+    expected = float(np.mean(individual))
+    weighted = float(np.average(individual, weights=[np.sum(labels == label) for label in order]))
+    hard_predictions = order[probabilities.argmax(axis=1)]
+    hard_auc = float(np.mean([roc_auc_score(labels == label, hard_predictions == label) for label in order]))
+    assert actual == pytest.approx(expected)
+    assert actual != pytest.approx(weighted)
+    assert actual != pytest.approx(hard_auc)
+
+
+def test_multiclass_auc_rejects_binary_source_during_data_validation(tmp_path):
+    from study.problem import ProblemSpec
+    from study.science import load_problem_data, prepare_dataset
+    value = profile(metric='roc_auc_ovr_macro')
+    value['dataset']['n_classes'] = 2
+    spec = ProblemSpec.from_dict(value)
+    with pytest.raises(ValueError, match='at least three classes'):
+        load_problem_data(spec)
+    with pytest.raises(ValueError, match='at least three classes'):
+        prepare_dataset(tmp_path / 'data', problem=spec)
+    assert not (tmp_path / 'data').exists()
+
+
+def test_multiclass_auc_official_test_must_include_all_training_classes(tmp_path):
+    from study.problem import ProblemSpec
+    from study.science import prepare_dataset
+    source = tmp_path / 'four-classes.npz'
+    np.savez(source, X=np.ones((160, 4)), y=np.tile(np.arange(4), 40), test_X=np.ones((30, 4)), test_y=np.tile(np.arange(3), 10))
+    value = profile(metric='roc_auc_ovr_macro')
+    value['dataset'] = {'format': 'npz', 'path': str(source), 'feature_array': 'X', 'target_array': 'y', 'test_feature_array': 'test_X', 'test_target_array': 'test_y'}
+    value['evaluation']['split'] = {'train': .8, 'validation': .2, 'test': 'official'}
+    with pytest.raises(ValueError, match='all classes'):
+        prepare_dataset(tmp_path / 'data', problem=ProblemSpec.from_dict(value))
+    assert not (tmp_path / 'data').exists()
+
+
+def test_multiclass_auc_worker_and_heldout_evaluator_use_same_probability_metric(tmp_path):
+    from sklearn.metrics import roc_auc_score
+    from study.problem import ProblemSpec
+    from study.science import prepare_dataset, run_trial, evaluate_selected
+    from study.tasks import get_adapter
+    source = tmp_path / 'mnist-shaped-fixture.npz'
+    rng = np.random.default_rng(4)
+    y = np.asarray(['zebra']*60 + ['ant']*40 + ['mole']*20)
+    test_y = np.asarray(['zebra']*20 + ['ant']*15 + ['mole']*10)
+    X = rng.normal(size=(len(y), 2, 2))
+    test_X = rng.normal(size=(len(test_y), 2, 2))
+    np.savez(source, pixels=X, labels=y, official_pixels=test_X, official_labels=test_y)
+    value = profile(metric='roc_auc_ovr_macro')
+    value['dataset'] = {'format': 'npz', 'path': str(source), 'feature_array': 'pixels', 'target_array': 'labels', 'test_feature_array': 'official_pixels', 'test_target_array': 'official_labels', 'flatten': True}
+    value['evaluation']['split'] = {'train': .8, 'validation': .2, 'test': 'official'}
+    value['evaluation']['additional_metrics'] = ['accuracy', 'macro_f1']
+    spec = ProblemSpec.from_dict(value)
+    data = tmp_path / 'data'
+    prepare_dataset(data, problem=spec)
+    adapter = get_adapter(spec)
+    assert adapter.version == 1
+    result = asyncio.run(run_trial(data, tmp_path / 'trial', adapter.reference_config, seed=7, timeout=20))
+    assert result['status'] == 'completed', result
+    assert result['score'] == result['metrics']['roc_auc_ovr_macro']
+    assert 'validation_auc' not in result
+    pipeline = joblib.load(result['artifact'])['pipeline']
+    def expected_score(path):
+        with np.load(path) as partition:
+            probabilities = pipeline.predict_proba(partition['X'])
+            return float(np.mean([roc_auc_score(partition['y'] == label, probabilities[:, index]) for index, label in enumerate(pipeline.classes_)]))
+    assert result['score'] == pytest.approx(expected_score(data / 'validation.npz'))
+    test = evaluate_selected(data, tmp_path / 'run', {'best': result, 'useful': result})
+    assert test['best'] == test['useful']
+    assert test['best']['status'] == 'completed'
+    assert test['best']['score'] == test['best']['metrics']['roc_auc_ovr_macro']
+    assert test['best']['score'] == pytest.approx(expected_score(data / 'test.npz'))
+    assert 'test_auc' not in test['best']

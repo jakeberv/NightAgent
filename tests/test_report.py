@@ -291,6 +291,22 @@ def test_multiclass_accuracy_report_labels_and_csv_are_generic(tmp_path):
     assert targets["publish"]["test_status"] == "uncertain"
 
 
+def test_multiclass_auc_report_preserves_explicit_metric_and_targets(tmp_path):
+    from study.report import generate_report
+    metric = "roc_auc_ovr_macro"
+    write_run(tmp_path, "multiclass", trials=[generic_trial("one", 10, .96, metric)],
+        **generic_summary(metric, "maximize", "mnist-auc",
+            target_definitions=[{"name": "milestone", "value": .93}, {"name": "stretch", "value": .95}]))
+    html = generate_report(tmp_path).read_text()
+    assert "ROC-AUC (macro one-vs-rest)" in html
+    assert "not classification accuracy" in html
+    with (tmp_path / "summary.csv").open(newline="") as handle:
+        row = next(csv.DictReader(handle))
+    assert json.loads(row["objective"])["metric"] == metric
+    assert row["best_score"] == "0.96"
+    assert json.loads(row["targets"])["stretch"]["reached"]
+
+
 @pytest.mark.parametrize("other", [generic_summary(digest="other-data"),
     generic_summary("accuracy", "maximize", "regression-v1"),
     {"objective": {"metric": "rmse", "direction": "maximize"}, "problem_hash": "regression-v1"}])

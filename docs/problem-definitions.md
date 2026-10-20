@@ -41,7 +41,8 @@ synthetic binary-classification example.
 ## Profile format
 
 YAML and JSON contain the same fields. This headered CSV example uses binary AUC;
-change the objective to `accuracy` or `macro_f1` for multiclass classification.
+change the objective to `roc_auc_ovr_macro` for multiclass AUC and remove
+`positive_class`. `accuracy` and `macro_f1` also support multiclass classification.
 
 ```yaml
 schema_version: 1
@@ -79,8 +80,11 @@ search_space:
 | `targets` | Any number of named thresholds on the primary metric; `best` is reserved |
 | `search_space` | Allowed model families, preprocessing and optional narrowed parameter bounds |
 
-Classification metrics are `roc_auc` (binary, explicit positive class), `accuracy`,
-and `macro_f1`. All maximize. Regression metrics are `rmse` and `mae` (minimize),
+Classification metrics are `roc_auc` (binary, explicit positive class),
+`roc_auc_ovr_macro` (three or more classes, no single positive class), `accuracy`,
+and `macro_f1`. All maximize. Multiclass AUC uses each class's predicted probability
+to rank that class against all others, then averages the class AUCs equally.
+Regression metrics are `rmse` and `mae` (minimize),
 and `r2` (maximize, may be negative). AUC 0.95 is not 95% accuracy. Targets use
 the metric's units; an RMSE target may exceed 1. A first crossing is `>=` for
 maximization and `<=` for minimization. Ties retain the earliest completed trial.
@@ -125,15 +129,27 @@ the legacy MAGIC reference remains its original fixed HGB pipeline.
   new prepared output; the earlier `study-data/magic` belongs to the legacy format.
 - [Classification CSV](../study/problems/classification.yaml): arbitrary numerical
   feature columns and named target, using accuracy plus macro-F1.
-- [MNIST](../study/problems/mnist.yaml): multiclass digit recognition, accuracy,
-  0.95 target, explicit pixel flattening, original test partition preserved.
+- [MNIST](../study/problems/mnist.yaml): multiclass digit recognition, macro
+  one-vs-rest ROC-AUC, 0.93 milestone and 0.95 stretch threshold, with accuracy and
+  macro-F1 as secondary metrics; explicit pixel flattening and original test
+  partition preserved.
 - [Regression](../study/problems/regression.yaml): synthetic smoke data, minimizing
   RMSE with thresholds 15 and 11, plus MAE/R² measurements.
 
 MNIST is useful because it exercises multiclass labels and image-shaped input.
 The initial adapter flattens pixels and uses the bounded classical model menu;
-it does not add convolutional networks or pretrained models. Success at 0.95
-must be piloted for this menu and the allotted time.
+it does not add convolutional networks or pretrained models. MAGIC and MNIST now
+share the AUC metric family and provisional thresholds, while their AUC definitions
+remain explicit. Equal AUC does not mean equal task difficulty: compare strategies
+within each dataset, then compare the direction and size of improvements across
+datasets. Pilot both thresholds before freezing the study; MNIST's 0.95 macro AUC
+may be substantially easier to reach than MAGIC's 0.95 binary AUC.
+
+The multiclass definition follows
+[scikit-learn's macro one-vs-rest ROC-AUC](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html).
+Macro averaging weights digits equally; each digit's negative pool still reflects
+the other classes' prevalence. This scores probability rankings, not hard-label
+accuracy. Every prepared partition must contain every class.
 
 The [official Keras MNIST documentation](https://keras.io/api/datasets/mnist/)
 describes the 60,000 training and 10,000 test images. Its
@@ -148,7 +164,7 @@ curl --fail --location \
 shasum -a 256 study-data/mnist-source/mnist.npz
 # 731c5ac602752760c8e48fbffcf8c3b850d9dc2a2aedcf2cc48468fc17b673d1
 .venv/bin/python -m study prepare --problem study/problems/mnist.yaml \
-  --output study-data/mnist-profile
+  --output study-data/mnist-auc-profile
 ```
 
 The NPZ profile names `x_train`, `y_train`, `x_test`, `y_test`; `flatten: true`
@@ -158,6 +174,8 @@ therefore produces 48,000 training, 12,000 validation and 10,000 untouched test
 images. No sklearn digits substitution or hidden subsampling occurs. Preparation
 stores float64 features and requires several hundred MB of disk/RAM. Full MNIST
 fits can take substantially longer than MAGIC; calibrate trial limits locally.
+The former `study-data/mnist-profile` used accuracy. Preserve it as historical
+data; use a fresh output directory for this changed, frozen scoring definition.
 
 ## Frozen evaluation and extensions
 

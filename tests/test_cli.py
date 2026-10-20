@@ -53,6 +53,7 @@ def test_profile_seed_cannot_be_silently_overridden_by_legacy_flag(tmp_path):
 
 @pytest.mark.parametrize("task,metric,direction,target", [
     ("tabular_classification", "accuracy", "maximize", 0.0),
+    ("tabular_classification", "roc_auc_ovr_macro", "maximize", 0.0),
     ("tabular_regression", "rmse", "minimize", 1000000.0),
 ])
 def test_profile_cli_prepare_run_evaluate_report_uses_configured_objective(

@@ -279,6 +279,11 @@ def load_problem_data(problem):
         if problem.task == 'tabular_classification' and not set(test_data[1].tolist()) <= set(y.tolist()):
             raise ValueError('official test contains classes absent from training')
     metric_names = [problem.objective['metric'], *problem.to_dict()['evaluation']['additional_metrics']]
+    if 'roc_auc_ovr_macro' in metric_names:
+        if len(np.unique(y)) < 3:
+            raise ValueError('roc_auc_ovr_macro requires at least three classes in source data')
+        if test_data is not None and set(test_data[1].tolist()) != set(y.tolist()):
+            raise ValueError('roc_auc_ovr_macro official test must contain all classes from training')
     if 'roc_auc' in metric_names and (len(np.unique(y)) != 2 or problem.dataset['positive_class'] not in y):
         raise ValueError('binary roc_auc requires exactly two classes including positive_class')
     return X, y, test_data, features, source_hash

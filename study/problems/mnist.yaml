@@ -1,7 +1,7 @@
 schema_version: 1
 id: mnist
 task: tabular_classification
-brief: Classify handwritten digits zero through nine from flattened 28 by 28 pixel images; validation is drawn only from the original training data.
+brief: Rank handwritten digits zero through nine using macro one-vs-rest ROC-AUC from class probabilities, with accuracy and macro-F1 as secondary metrics; validation is drawn only from the original training data.
 dataset:
   format: npz
   path: ../../study-data/mnist-source/mnist.npz
@@ -12,10 +12,11 @@ dataset:
   flatten: true
 evaluation:
   split: {method: predefined_test, train: 0.8, validation: 0.2, test: official, seed: 42}
-  objective: {metric: accuracy, direction: maximize}
-  additional_metrics: [macro_f1]
+  objective: {metric: roc_auc_ovr_macro, direction: maximize}
+  additional_metrics: [accuracy, macro_f1]
 targets:
-  - {name: accurate, value: 0.95}
+  - {name: milestone, value: 0.93}
+  - {name: stretch, value: 0.95}
 search_space:
   preset: tabular_classification_small
   models: [logistic, random_forest, histogram_gradient_boosting]
