@@ -38,7 +38,7 @@ class StudyConfig:
     max_cores: int | None = None
     device: str = 'auto'
     decision_protocol: str = "structured_v1"
-    reasoning_policy: str = "grounded_v2"
+    reasoning_policy: str = "grounded_v3"
     supervisor_policy: str = "supervision_v2"
     supervisor_strategy: str = "night_science"
     comparison: str = "schedules"
@@ -54,8 +54,8 @@ class StudyConfig:
             raise ValueError('Unknown comparison')
         if self.device not in ('auto', 'cpu', 'mps'):
             raise ValueError('device must be auto, cpu, or mps')
-        if self.reasoning_policy != "grounded_v2":
-            raise ValueError("reasoning_policy must be grounded_v2")
+        if self.reasoning_policy != "grounded_v3":
+            raise ValueError("reasoning_policy must be grounded_v3")
         if self.decision_protocol != "structured_v1":
             raise ValueError("decision_protocol must be structured_v1")
         if type(self.lesson_memory) is not bool:

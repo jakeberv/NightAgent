@@ -200,21 +200,33 @@ the recent-trial context window, and is saved in `lessons.json` and the event lo
 No other run's memory or test feedback is loaded. Supported describes the generated factual observations, not a claim of independent
 replication. Original agent explanations remain explicitly unverified interpretations.
 
-New runs record `reasoning_policy=grounded_v2`. The harness resolves omitted
-evidence values from completed trial IDs and metric names; agents need not copy
-floating-point measurements. Supplied values must still match. Lesson findings
-and scope are generated from the recorded measurements and configurations, while
-original explanations are retained as unverified interpretations. Project metadata
-and recent results are always in context, so redundant read tools are not offered.
-For other commentary, a conservative local wording
-check replaces recognizable claims of optimality, performance ceilings, causality,
-invariance, and similar overclaims with a complete-sentence summary of their cited
-validation measurements. Flagged lessons become `inconclusive` (or remain
-`superseded`). Grounded text reaches the UI, feedback, and run-local memory;
-original responses and `contract_grounded` adjustments stay in the audit logs.
-This is a lexical guard, not a semantic truth checker: uncaught interpretations
-still require review. Hypothesis and uncertainty fields remain explicitly tentative.
-These adjustments need no model call; necessary schema/citation repairs still do.
+New runs record `reasoning_policy=grounded_v3`; reports keep earlier policies in
+separate analysis groups. The runner resolves evidence from completed trial IDs
+and metric names. Factual review/reflection summaries and assessments are generated
+from those measurements; `comparison_scope` identifies changed settings and
+confounding. Lesson findings and scope are also generated, while raw interpretations
+remain in the audit log and `lessons.json`. Hypotheses, analogies and predicted
+outcomes are explicitly unverified; a conditional prediction is not erased merely
+because it uses a causal word. This is not a semantic truth checker.
+
+Each refreshed context includes `target_status` (reached/pending, first crossing and
+remaining gap) and `capacity_estimate`. Explicit target-status assertions are replaced locally with measured status.
+Separable target-purpose clauses are removed from actions, retaining the experiment.
+Predictions and hypotheses remain unverified even when they mention targets; the
+computed target_status is authoritative. Keep an
+experiment action in a separate sentence from target commentary so both can survive
+normalization. The estimate includes pending and scheduled researcher, review and
+reflection calls plus observed local trial/queue duration. It is unavailable before
+timing evidence exists, advisory only, and may be optimistic when tools, repairs,
+retries or workloads change; it never changes the hard limits or review schedule.
+
+Agent context omits repeated constructor/fitted configurations, artifact metadata,
+epoch loss arrays and duplicated lesson interpretations. Scientific measurements,
+requested settings, resolved feature counts, actual training/inference devices,
+failures, predictions and comparison limits remain. Full records stay in the logs.
+Constructor `effective_config` omits the unresolved neural device; worker
+`actual_effective_config` and `fit_diagnostics` record actual execution. These
+adjustments need no model calls; necessary schema/citation repairs still do.
 Review responses containing a single JSON object inside a prose or Markdown wrapper
 are parsed locally. Multiple objects, duplicate fields, malformed JSON, and invalid
 citations still fail validation. Reports separate the new policy from older runs.

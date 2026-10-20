@@ -95,14 +95,14 @@ def test_scoped_observations_and_explicit_uncertainty_are_preserved():
     contract['summary'] = 'Trial 1 recorded validation AUC 0.9 on this split.'
     contract['uncertainty'] = 'Whether a performance ceiling exists remains unknown.'
     grounded, changes = reasoning.ground_contract(contract, context['recent_trials'])
-    assert grounded['summary'] == contract['summary']
+    assert '0.9' in grounded['summary'] and 'trial 1' in grounded['summary']
     assert grounded['uncertainty'] == contract['uncertainty']
 
 
 def test_effective_feature_count_reaches_agents_without_artifact_paths():
     result = {'artifact': '/private/model', 'actual_effective_config': {'params': {'max_features': 10}}, 'score': .9}
     visible = agent_result(result)
-    assert visible['actual_effective_config']['params']['max_features'] == 10
+    assert visible['resolved_parameters']['max_features'] == 10
     assert 'artifact' not in visible
 
 
@@ -126,7 +126,10 @@ def test_wrapped_overclaim_review_needs_no_extra_call_and_is_audited(tmp_path):
         tmp_path, tmp_path / 'run', model, trial_runner=trial, project={}))
     assert result['stop_reason'] == 'trial_cap' and model.calls == 4
     assert 'optimal' not in model.contexts[-1]['lessons'][0]['summary']
-    assert model.contexts[-1]['lessons'][0]['interpretation']['status'] == 'unverified'
+    assert 'interpretation' not in model.contexts[-1]['lessons'][0]
+    assert result['lessons'][0]['interpretation']['status'] == 'unverified'
+    persisted = json.loads((tmp_path / 'run/lessons.json').read_text())
+    assert persisted['lessons'][0]['interpretation'] == result['lessons'][0]['interpretation']
     assert result['lessons'][0]['status'] == 'inconclusive'
     events = [json.loads(x) for x in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
     assert any(e['type'] == 'contract_grounded' for e in events)

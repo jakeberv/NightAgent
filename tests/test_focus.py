@@ -51,7 +51,7 @@ def test_focus_explains_hypothesis_change_and_expected_outcome_without_extra_cal
     assert "More trees may reduce prediction variance." in rendered
     assert "Increase the forest from 100 to 200 trees." in rendered
     assert "Validation AUC may improve over trial 1." in rendered
-    assert "Agent hypothesis:" in rendered and "Expected:" in rendered
+    assert "Agent hypothesis:" in rendered and "Prediction (unverified):" in rendered
     assert "0.91000" in rendered and "$0.2400 known" in rendered
     assert "l Log" in rendered
 

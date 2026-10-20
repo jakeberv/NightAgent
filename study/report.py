@@ -768,7 +768,11 @@ def generate_report(root: Path) -> Path:
                            [[r["run_id"], r["evaluation_seconds"], r["reporting_seconds"],
                              json.dumps(r["postrun_accounting"], sort_keys=True)] for r in runs]))
     sections.append("<h2>Qualitative review and reflection traces</h2><p>These traces explain decisions; "
-                    "they do not replace quantitative comparisons.</p>")
+                    "they do not replace quantitative comparisons. In grounded_v3 runs, factual summaries and "
+                    "comparison_scope come from cited records. Plans, explanations, analogies and predicted "
+                    "outcomes remain unverified hypotheses, even when phrased confidently. Target status and "
+                    "resource estimates are computed by the runner. Constructor effective_config describes "
+                    "model settings; actual_effective_config and fit_diagnostics record actual execution.</p>")
     for row in runs:
         sections.append(f'<details><summary>{_display(row["run_id"])}</summary><pre>'
                         + html.escape(json.dumps(row["trace"], indent=2, ensure_ascii=False)) + "</pre></details>")
