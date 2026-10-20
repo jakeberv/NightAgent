@@ -68,7 +68,9 @@ class StudyConfig:
                      "review_tool_calls", "literature_calls_per_review"):
             if type(getattr(self, name)) is not int or getattr(self, name) < 1:
                 raise ValueError(f"{name} must be a positive integer")
-        for name in ("repeat", "training_seed", "model_retries"):
+        if type(self.training_seed) is not int or not 0 <= self.training_seed < 2**32:
+            raise ValueError("training_seed must be an integer from 0 through 2**32-1")
+        for name in ("repeat", "model_retries"):
             if type(getattr(self, name)) is not int or getattr(self, name) < 0:
                 raise ValueError(f"{name} must be a nonnegative integer")
         if not (0 <= self.milestone <= self.stretch <= 1):

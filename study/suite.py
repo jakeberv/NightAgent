@@ -36,6 +36,9 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
         raise ValueError("deadline must include a UTC offset")
     if type(repeats) is not int or repeats < 1:
         raise ValueError("repeats must be a positive integer")
+    # Seeds increase monotonically with repeat; validate the full range before
+    # creating output or allowing any earlier repeat to spend its budget.
+    config.for_run(config.condition, repeats - 1)
     if not math.isfinite(reserve_seconds) or reserve_seconds <= 0:
         raise ValueError("reserve_seconds must be positive")
     search_deadline = deadline.timestamp() - reserve_seconds

@@ -24,13 +24,13 @@ def atomic_json(path, value):
 
 def read_events(path):
     events = []
-    lines = Path(path).read_text().splitlines()
+    lines = Path(path).read_text().splitlines(keepends=True)
     for index, line in enumerate(lines):
         try:
             events.append(json.loads(line))
-        except json.JSONDecodeError:
-            if index != len(lines) - 1:
-                raise ValueError("Corrupt journal before final line")
+        except json.JSONDecodeError as exc:
+            if index != len(lines) - 1 or line.endswith("\n"):
+                raise ValueError(f"Corrupt journal record at line {index + 1}") from exc
             # A crash may leave one unfinished final append.
     return events
 

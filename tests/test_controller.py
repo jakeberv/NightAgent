@@ -140,6 +140,29 @@ def test_invalid_config_rejects_unfair_or_nonfinite_budgets():
             StudyConfig(**kwargs)
 
 
+@pytest.mark.parametrize("terminated", [False, True])
+def test_recovery_only_tolerates_unterminated_corrupt_tail(tmp_path, terminated):
+    run_dir = tmp_path / "run"
+    asyncio.run(run_one(StudyConfig(trial_cap=1), tmp_path, run_dir, ScriptedModel(),
+                       trial_runner=trial, project={}))
+    summary_path = run_dir / "summary.json"
+    summary_path.unlink()
+    path = run_dir / "events.jsonl"
+    events = [json.loads(line) for line in path.read_text().splitlines()]
+    path.write_text("".join(json.dumps(e) + "\n" for e in events
+                            if e["type"] != "run_stopped")
+                    + '{"type": broken}' + ("\n" if terminated else ""))
+    if terminated:
+        with pytest.raises(ValueError, match="Corrupt"):
+            recover_run(run_dir)
+        assert not summary_path.exists()
+    else:
+        recovered = recover_run(run_dir)
+        assert recovered["best"]["validation_auc"] == .96
+        assert recovered["accounting"]["known_cost"] == .001
+        assert json.loads(summary_path.read_text()) == recovered
+
+
 def test_cancelled_model_call_has_unknown_accounting(tmp_path):
     class Hanging:
         async def complete(self, *args, **kwargs):
