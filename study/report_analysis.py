@@ -162,8 +162,21 @@ def literature_coverage(events, config=None, condition=None, *, events_available
 
 def config_stratum(row):
     # Retain every other frozen config key, including protocol, memory, and limits.
+    excluded = {"condition", "repeat", "training_seed"}
+    config = row.get('config') or {}
+    if config.get('comparison') == 'supervisor_strategies':
+        excluded.add('supervisor_strategy')
     return {key: value for key, value in (row.get("config") or {}).items()
-            if key not in ("condition", "repeat", "training_seed")}
+            if key not in excluded}
+
+
+def treatment_name(row):
+    config = row.get('config') or {}
+    strategy = config.get('supervisor_strategy')
+    if (config.get('comparison') == 'supervisor_strategies' and row['condition'] == 'frequent'
+            and strategy in ('standard', 'night_science')):
+        return strategy + '_supervisor'
+    return row['condition']
 
 
 def assign_analysis_groups(runs):
@@ -171,13 +184,13 @@ def assign_analysis_groups(runs):
     def variant(row):
         return json.dumps({key: (row.get("config") or {}).get(key)
                            for key in ("decision_protocol", "reasoning_policy", "supervisor_policy",
-                                       "lesson_memory", "memory_limit")}, sort_keys=True)
+                                       "supervisor_strategy", "comparison", "lesson_memory", "memory_limit")}, sort_keys=True)
     variants = defaultdict(set)
     for row in runs:
-        variants[row["condition"]].add(variant(row))
+        variants[treatment_name(row)].add(variant(row))
     for row in runs:
-        configs = sorted(variants[row["condition"]])
-        row["analysis_group"] = row["condition"]
+        configs = sorted(variants[treatment_name(row)])
+        row["analysis_group"] = treatment_name(row)
         if len(configs) > 1:
             index = configs.index(variant(row)) + 1
             row["analysis_group"] += f" [configuration {index}]"
@@ -201,7 +214,11 @@ def paired_comparisons(runs, warnings):
     for row in runs:
         config = row.get("config") or {}
         seed, repeat = config.get("training_seed"), row.get("repeat")
+        invalid_arm = (config.get("comparison") == "supervisor_strategies"
+                       and (config.get("supervisor_strategy") not in ("standard", "night_science")
+                            or row["condition"] not in ("researcher_alone", "frequent")))
         if (not row.get("problem_hash") or not row.get("data_fingerprint") or not config
+                or invalid_arm
                 or type(seed) is not int or type(repeat) is not int
                 or config.get("repeat", repeat) != repeat
                 or config.get("condition", row["condition"]) != row["condition"]
@@ -218,16 +235,16 @@ def paired_comparisons(runs, warnings):
                         "or configuration: " + ", ".join(excluded) + ".")
     result = []
     for key, rows in sorted(groups.items()):
-        conditions = sorted({r["condition"] for r in rows}, key=lambda c: (c != "researcher_alone", c))
+        conditions = sorted({treatment_name(r) for r in rows}, key=lambda c: (c != "researcher_alone", c))
         units = defaultdict(list)
         for row in rows:
-            units[(row["condition"], row["repeat"], row["config"]["training_seed"])].append(row)
+            units[(treatment_name(row), row["repeat"], row["config"]["training_seed"])].append(row)
         for (condition, repeat, seed), duplicates in units.items():
             if len(duplicates) > 1:
                 warnings.append(f"Duplicate matched unit for {condition}, repeat {repeat}, seed {seed}; "
                                 "these runs are excluded from pairing.")
         for a, b in combinations(conditions, 2):
-            a_rows, b_rows = [r for r in rows if r["condition"] == a], [r for r in rows if r["condition"] == b]
+            a_rows, b_rows = [r for r in rows if treatment_name(r) == a], [r for r in rows if treatment_name(r) == b]
             pairs = []
             for left in a_rows:
                 unit = left["repeat"], left["config"]["training_seed"]
@@ -262,6 +279,6 @@ def paired_comparisons(runs, warnings):
                 "pair_ids": [{"run_a": left["run_id"], "run_b": right["run_id"],
                               "repeat": left["repeat"], "training_seed": left["config"]["training_seed"]}
                              for left, right in pairs], "metrics": metrics, "targets": target_deltas})
-    if len({r["condition"] for r in runs}) > 1 and not any(c["matched_pairs"] for c in result):
+    if len({treatment_name(r) for r in runs}) > 1 and not any(c["matched_pairs"] for c in result):
         warnings.append("No unique matched condition pairs were found; configuration and seed differences are not pooled.")
     return result

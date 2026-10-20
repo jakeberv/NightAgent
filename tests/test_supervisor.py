@@ -169,26 +169,30 @@ def test_kickoff_and_review_fields_are_visible_in_live_narrative_and_report(tmp_
     narratives = []
     def observe(event):
         state.update(event)
-        if event['type'] == 'framing':
+        if event['type'] in ('framing', 'review'):
             narratives.append(narrative(state))
-    asyncio.run(run_one(StudyConfig(condition='frequent', trial_cap=1), tmp_path,
+    asyncio.run(run_one(StudyConfig(condition='frequent', trial_cap=2), tmp_path,
         tmp_path / 'run', FakeModel(), trial_runner=trial, project={}, progress=observe))
     heading, rows, _ = narratives[0]
     assert heading == 'Supervisor framing'
+    assert {label for label, _, _ in rows} >= {'Motivation', 'Hypothesis', 'Open question'}
+    heading, rows, _ = narratives[1]
+    assert heading == 'Supervisor advice after trial 1'
     assert {label for label, _, _ in rows} >= {
         'Alternatives', 'Cross-field connection', 'Would weaken it', 'Resource limits', 'Motivation'}
     row = build_report_data(tmp_path / 'run')['runs'][0]
     framing = next(e for e in row['trace'] if e['type'] == 'framing')
-    assert framing['contract']['resource_check']
+    assert framing['contract']['motivation'] and framing['contract']['hypothesis']
+    assert next(e for e in row['trace'] if e['type'] == 'review')['contract']['resource_check']
     assert 'supervisor framing' in (tmp_path / 'run/progress.log').read_text()
 
 
 def test_reports_separate_historical_supervision_from_new_policy():
     from study.report_analysis import assign_analysis_groups
     config = StudyConfig()
-    assert config.to_dict()['supervisor_policy'] == 'night_science_v1'
+    assert config.to_dict()['supervisor_policy'] == 'supervision_v2'
     historical = {'condition': 'frequent', 'config': {'decision_protocol': 'structured_v1'}}
     current = copy.deepcopy(historical)
-    current['config']['supervisor_policy'] = 'night_science_v1'
+    current['config']['supervisor_policy'] = 'supervision_v2'
     assign_analysis_groups([historical, current])
     assert historical['analysis_group'] != current['analysis_group']

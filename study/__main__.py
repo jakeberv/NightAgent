@@ -12,7 +12,7 @@ import sys
 import time
 import tempfile
 
-from .config import CONDITIONS, StudyConfig
+from .config import CONDITIONS, COMPARISONS, SUPERVISOR_STRATEGIES, StudyConfig, comparison_arms
 from .controller import recover_run, run_one
 from .events import atomic_json, utc_now
 from .suite import provenance, run_suite
@@ -222,11 +222,13 @@ async def _dispatch(args, progress):
         else:
             prepare_dataset(data_dir, synthetic=True)
         summaries = []
-        for condition in CONDITIONS:
-            config = StudyConfig(condition=condition, model="offline-script", provider="offline",
-                allowance_seconds=60, trial_cap=len(options) if options else 4, trial_timeout_seconds=15,
-                lesson_memory=bool(getattr(args, "lesson_memory", False)))
-            summaries.append(await run_one(config, data_dir, args.output / "runs" / condition,
+        base = StudyConfig(model="offline-script", provider="offline",
+            comparison=getattr(args, 'comparison', 'schedules'),
+            allowance_seconds=60, trial_cap=len(options) if options else 4, trial_timeout_seconds=15,
+            lesson_memory=bool(getattr(args, "lesson_memory", False)))
+        for arm in comparison_arms(base):
+            config = base.for_run(arm['condition'], 0, supervisor_strategy=arm['supervisor_strategy'])
+            summaries.append(await run_one(config, data_dir, args.output / "runs" / arm['arm'],
                 FakeModel(options=options), literature=FakeLiterature(), problem=problem, progress=progress))
         atomic_json(args.output / "smoke.json", {"offline": True, "provenance": provenance(data_dir),
                     "note": "Scripted model and fixture literature; workflow verification, not agent comparison evidence."})
@@ -236,6 +238,10 @@ async def _dispatch(args, progress):
             raise RuntimeError("Offline smoke did not complete every condition")
     elif args.command in ("run", "suite"):
         config = load_config(args.config)
+        if getattr(args, 'comparison', None) is not None:
+            config = replace(config, comparison=args.comparison)
+        if getattr(args, 'supervisor_strategy', None) is not None:
+            config = replace(config, supervisor_strategy=args.supervisor_strategy)
         if getattr(args, "lesson_memory", None) is not None:
             config = replace(config, lesson_memory=args.lesson_memory)
         if getattr(args, "max_cores", None) is not None:
@@ -302,8 +308,10 @@ def main():
     prepare.add_argument("--seed", type=int, help="Legacy data split seed (default 42); profiles contain their own seed")
     prepare.add_argument("--output", type=Path, required=True)
     for command in ("run", "suite"):
-        p = sub.add_parser(command, help="Paid OpenRouter experiment" if command == "run" else "Five-condition comparison with optional automatic concurrency")
+        p = sub.add_parser(command, help="Paid OpenRouter experiment" if command == "run" else "Matched comparison with optional automatic concurrency")
         p.add_argument("--config", type=Path, required=True)
+        p.add_argument('--supervisor-strategy', choices=SUPERVISOR_STRATEGIES,
+                       help='Review strategy for a single run or the schedules comparison')
         p.add_argument("--data", type=Path, required=True)
         p.add_argument("--output", type=Path, required=True)
         p.add_argument("--problem", type=Path, help="Problem profile; defaults to the frozen prepared definition")
@@ -321,6 +329,8 @@ def main():
         if command == "run":
             p.add_argument("--condition", choices=CONDITIONS)
         else:
+            p.add_argument('--comparison', choices=COMPARISONS,
+                           help='Five schedules or three matched supervisor strategies; defaults to config')
             p.add_argument("--validation-only", action="store_true",
                            help="Pilot all strategies and generate a report without held-out test scoring")
             p.add_argument("--repeats", type=int, default=5)
@@ -339,6 +349,7 @@ def main():
         if command == "evaluate":
             p.add_argument("--data", type=Path, required=True)
         if command == "smoke":
+            p.add_argument('--comparison', choices=COMPARISONS, default='schedules')
             p.add_argument("--lesson-memory", action="store_true", help="Exercise run-local lessons offline")
             p.add_argument("--problem", type=Path, help="Optional profile for a scripted all-condition smoke run")
             display = p.add_mutually_exclusive_group()
