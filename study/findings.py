@@ -24,6 +24,7 @@ class Findings:
         self.event_at = None
         self.allowance = 0
         self.config = {}
+        self.resources = {}
         self.problem_id = ""
         self.recent = deque(maxlen=12)
         self.history = deque(maxlen=80)
@@ -115,6 +116,12 @@ class Findings:
             self.accounting = summary.get("accounting", self.accounting)
             self.activity = f"stopped: {summary['stop_reason']}"
             self.stopped = True
+        elif kind == "resources":
+            self.resources = {key: event[key] for key in ("max_cores", "active_cores", "allocated_cores", "waiting")}
+            if event["waiting"]:
+                self.activity = "waiting for local CPU allocation"
+            elif event["allocated_cores"]:
+                self.activity = f"local training on {event['allocated_cores']} cores"
         elif kind == "failure":
             self.activity = f"failure: {event['error']}"
 

@@ -89,7 +89,8 @@ def _trials(summary: dict, events: list[dict]) -> list[dict]:
         trials[identity] = {**result, "trial_id": identity,
                             "elapsed_seconds": (result.get("elapsed_seconds") if "duration_seconds" in result
                                                 else event.get("elapsed_seconds")),
-                            "training_seconds": result.get("duration_seconds", result.get("elapsed_seconds"))}
+                            "training_seconds": result.get("training_seconds",
+                                result.get("duration_seconds", result.get("elapsed_seconds")))}
     # Frozen selections remain usable when detailed trial records are absent.
     for name, item in _selections(summary).items():
         if isinstance(item, dict):

@@ -350,9 +350,14 @@ def project_info(data_dir: Path) -> dict:
     return {"dataset": manifest["dataset"], "feature_names": manifest["feature_names"], "positive_class": manifest["positive_class"], "counts": {name: manifest["partitions"][name]["rows"] for name in ("train", "validation")}, "metric": "validation ROC-AUC", "preprocessing": "Fit on training partition only", "analysis_schema": ANALYSIS_SCHEMA}
 
 
-def _worker_env(seed: int) -> dict:
+def _worker_env(seed: int, cores=1, model=None) -> dict:
     # Construct a whitelist from constants, never copy provider or cloud secrets.
-    return {"PATH": os.defpath, "LANG": "C.UTF-8", "PYTHONHASHSEED": str(seed), "LOKY_MAX_CPU_COUNT": "1", **THREAD_ENV}
+    from .resources import worker_threads
+    threads = worker_threads(model, cores)
+    native = {name: str(threads["blas"]) for name in THREAD_ENV}
+    native["OMP_NUM_THREADS"] = str(threads["openmp"])
+    return {"PATH": os.defpath, "LANG": "C.UTF-8", "PYTHONHASHSEED": str(seed),
+            "LOKY_MAX_CPU_COUNT": str(cores), **native}
 
 
 async def _kill_group(process) -> None:
@@ -361,7 +366,7 @@ async def _kill_group(process) -> None:
     await process.wait()
 
 
-async def run_trial(data_dir: Path, trial_dir: Path, config: dict, *, seed: int, timeout: float) -> dict:
+async def run_trial(data_dir: Path, trial_dir: Path, config: dict, *, seed: int, timeout: float, cores=1) -> dict:
     """Run one bounded worker with train/validation paths, then verify its output."""
     started = time.monotonic()
     process = None
@@ -384,14 +389,16 @@ async def run_trial(data_dir: Path, trial_dir: Path, config: dict, *, seed: int,
         for name in ("train", "validation"):
             if _hash_file(data_dir / f"{name}.npz") != manifest["partitions"][name]["sha256"]:
                 raise ValueError(f"{name} partition fingerprint mismatch")
-        request = {"train_path": str(data_dir / "train.npz"), "validation_path": str(data_dir / "validation.npz"), "artifact_path": str(artifact), "config": config, "seed": seed, "metadata": {"data_fingerprint": manifest["data_fingerprint"], "train_sha256": manifest["partitions"]["train"]["sha256"], "validation_sha256": manifest["partitions"]["validation"]["sha256"]}}
+        from .resources import validate_cores
+        validate_cores(cores)
+        request = {"cores": cores, "train_path": str(data_dir / "train.npz"), "validation_path": str(data_dir / "validation.npz"), "artifact_path": str(artifact), "config": config, "seed": seed, "metadata": {"data_fingerprint": manifest["data_fingerprint"], "train_sha256": manifest["partitions"]["train"]["sha256"], "validation_sha256": manifest["partitions"]["validation"]["sha256"]}}
         if problem is not None:
             request['problem'] = worker_problem(problem)
             request['metadata']['problem_hash'] = problem.fingerprint
         remaining = timeout - (time.monotonic() - started)
         if remaining <= 0:
             raise asyncio.TimeoutError()
-        spawn_task = asyncio.create_task(asyncio.create_subprocess_exec(sys.executable, "-m", "study.worker", cwd=Path(__file__).resolve().parent.parent, env=_worker_env(seed), stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, start_new_session=True))
+        spawn_task = asyncio.create_task(asyncio.create_subprocess_exec(sys.executable, "-m", "study.worker", cwd=Path(__file__).resolve().parent.parent, env=_worker_env(seed, cores, config["model"]), stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, start_new_session=True))
         # Shield creation so cancellation cannot lose a child before its handle
         # is assigned; cleanup retrieves that handle and kills the whole group.
         process = await asyncio.wait_for(asyncio.shield(spawn_task), timeout=remaining)
@@ -446,6 +453,7 @@ async def run_trial(data_dir: Path, trial_dir: Path, config: dict, *, seed: int,
             await _kill_group(process)
         # Avoid deleting an artifact belonging to a previously existing directory.
         result = {"status": "failed", "error": str(exc)[:2000]}
+    result["allocated_cores"] = cores
     result["elapsed_seconds"] = time.monotonic() - started
     if trial_dir.is_dir() and not (trial_dir / "result.json").exists():
         _atomic_json(trial_dir / "result.json", result)

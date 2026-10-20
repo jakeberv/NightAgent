@@ -32,8 +32,12 @@ class StudyConfig:
     literature_calls_per_review: int = 3
     literature_timeout_seconds: float = 15
     allow_unknown_cost: bool = False
+    max_cores: int | None = None
 
     def __post_init__(self):
+        if self.max_cores is not None:
+            from .resources import validate_cores
+            validate_cores(self.max_cores)
         if self.condition not in CONDITIONS:
             raise ValueError(f"Unknown condition: {self.condition}")
         for name in ("allowance_seconds", "trial_timeout_seconds", "dollar_cap",

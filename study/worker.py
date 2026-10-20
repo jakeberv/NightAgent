@@ -26,8 +26,12 @@ def execute(request: dict) -> dict:
         from study.problem import ProblemSpec
         from study.tasks import get_adapter
         adapter = get_adapter(ProblemSpec.from_dict(request['problem']))
+    from study.resources import worker_threads
+    threads = worker_threads(request["config"]["model"], request.get("cores", 1))
     pipeline = (adapter.build_pipeline if adapter else build_pipeline)(request['config'], seed=request['seed'])
-    with np.load(request["train_path"], allow_pickle=False) as train, np.load(request["validation_path"], allow_pickle=False) as validation, threadpool_limits(limits=1):
+    if request["config"]["model"] == "random_forest":
+        pipeline.steps[-1][1].set_params(n_jobs=threads["jobs"])
+    with np.load(request["train_path"], allow_pickle=False) as train, np.load(request["validation_path"], allow_pickle=False) as validation, threadpool_limits(limits=threads["blas"], user_api="blas"), threadpool_limits(limits=threads["openmp"], user_api="openmp"):
         pipeline.fit(train["X"], train["y"])
         if adapter is None:
             score = float(roc_auc_score(validation['y'], pipeline.predict_proba(validation['X'])[:, 1]))
@@ -35,7 +39,7 @@ def execute(request: dict) -> dict:
             metrics = adapter.metrics(pipeline, validation['X'], validation['y'])
             score = metrics[adapter.problem.objective['metric']]
     artifact = Path(request["artifact_path"])
-    metadata = request["metadata"] | {"config": request["config"], "seed": request["seed"]}
+    metadata = request["metadata"] | {"config": request["config"], "seed": request["seed"], "allocated_cores": request.get("cores", 1)}
     with tempfile.NamedTemporaryFile(dir=artifact.parent, suffix=".joblib.tmp", delete=False) as handle:
         temporary = Path(handle.name)
         try:

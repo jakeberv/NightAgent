@@ -74,6 +74,12 @@ def budget(state, elapsed):
         bar = ProgressBar(total=limit or 1, completed=min(value, limit or 1), width=None,
                           complete_style=style, finished_style=style)
         table.add_row(label, bar, text(detail, style))
+    if state.config.get("max_cores"):
+        resources = state.resources
+        ceiling = resources.get("max_cores", state.config["max_cores"])
+        active = resources.get("active_cores", 0)
+        table.add_row("CPU", ProgressBar(total=ceiling, completed=active, complete_style="cyan"),
+                      text(f"{active} / {ceiling} cores", "cyan"))
     table.add_row("Tokens", Text(""), text(
         f"{state.accounting.get('input_tokens', 0):,} in / {state.accounting.get('output_tokens', 0):,} out" +
         (" ?" if state.accounting and not state.accounting.get("token_usage_complete") else ""), "dim"))
@@ -128,7 +134,7 @@ def dashboard(state, *, width, height, spinner=None):
             text(f"Time {duration(elapsed)}/{duration(state.allowance)} · {state.completed} ok", "dim")),
             title="NIGHTAGENT", border_style="cyan", height=min(8, height))
     layout = Layout()
-    metrics_height = 6 if width >= 76 else 12
+    metrics_height = (6 if width >= 76 else 12) + bool(state.config.get("max_cores"))
     recent_height = min(8, max(4, height - 3 - metrics_height - 4 - 4))
     layout.split_column(Layout(name="header", size=3), Layout(name="metrics", size=metrics_height),
         Layout(name="recent", size=recent_height), Layout(name="chart", size=4), Layout(name="findings"))
@@ -141,12 +147,12 @@ def dashboard(state, *, width, height, spinner=None):
     spinner = spinner or Spinner("dots", style="cyan")
     spinner.update(text=status)
     layout["header"].update(Panel(spinner,
-        title=text(f"NIGHTAGENT · {state.problem_id or state.run_id}", "bold"),
+        title=text(f"NIGHTAGENT · {state.run_id}", "bold"),
         subtitle="LIVE FINDINGS", border_style="cyan", padding=(0, 1)))
     if width >= 76:
         layout["metrics"].split_row(Layout(budget(state, elapsed)), Layout(result_panel(state)))
     else:
-        layout["metrics"].split_column(Layout(budget(state, elapsed), size=6), Layout(result_panel(state)))
+        layout["metrics"].split_column(Layout(budget(state, elapsed), size=6 + bool(state.config.get("max_cores"))), Layout(result_panel(state)))
     layout["recent"].update(recent_panel(state, max(1, recent_height - 3)))
     layout["chart"].update(Panel(score_chart(state, width - 4), title="Validation trend · shared scale", border_style="bright_black", padding=(0, 1)))
     facts = Text()

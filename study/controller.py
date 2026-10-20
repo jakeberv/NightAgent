@@ -136,6 +136,9 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     if trial_runner is None:
         from .science import run_trial
         trial_runner = run_trial
+        if config.max_cores is not None:
+            from .resources import CorePool, BalancedTrials
+            trial_runner = BalancedTrials(CorePool(config.max_cores))
     run_dir, data_dir = Path(run_dir).resolve(), Path(data_dir).resolve()
     problem = resolve_problem(config, data_dir, problem)
     data_fingerprint = prepared_fingerprint(data_dir)
@@ -266,18 +269,32 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         journal.emit("trial_started", trial_id=trial_id, config=args)
                         begin = time.monotonic()
                         trial_limit = min(remaining(), config.trial_timeout_seconds)
+                        resource_kwargs = {}
+                        allocation = {}
+                        from .resources import BalancedTrials
+                        if isinstance(trial_runner, BalancedTrials):
+                            def resource_status(**status):
+                                if status["allocated_cores"]:
+                                    allocation.update(started=time.monotonic(), cores=status["allocated_cores"])
+                                journal.emit("resources", **status)
+                            resource_kwargs["resource_callback"] = resource_status
                         try:
                             result = await asyncio.wait_for(trial_runner(data_dir,
                                 run_dir / "trials" / f"{trial_id:04d}", args,
-                                seed=config.training_seed, timeout=trial_limit), timeout=trial_limit)
+                                seed=config.training_seed, timeout=trial_limit, **resource_kwargs), timeout=trial_limit)
                         except TimeoutError:
                             result = {"status": "timeout", "error": "Trial exceeded allotted time"}
                         except Exception as error:
                             result = {"status": "failed", "error": f"{type(error).__name__}: {error}"}
                         duration = time.monotonic() - begin
-                        summary["training_seconds"] += duration
+                        training_duration = duration
+                        if resource_kwargs:
+                            queued = allocation.get("started", time.monotonic()) - begin
+                            result.update(queue_seconds=queued, allocated_cores=allocation.get("cores", 0))
+                            training_duration = max(0, duration - queued)
+                        summary["training_seconds"] += training_duration
                         result.update(trial_id=trial_id, config=args, elapsed_seconds=time.monotonic() - started,
-                                      duration_seconds=duration)
+                                      duration_seconds=duration, training_seconds=training_duration)
                         if remaining() <= 0 and result["status"] == "completed":
                             result["status"] = "late"
                         journal.emit("trial_finished", result=result)
@@ -393,7 +410,7 @@ def recover_run(run_dir):
             summary["trials"] += 1
         elif event["type"] == "trial_finished":
             result = event["result"]
-            summary["training_seconds"] += result.get("duration_seconds", 0)
+            summary["training_seconds"] += result.get("training_seconds", result.get("duration_seconds", 0))
             select_result(summary, result, accounting, config, problem)
     for _ in range(started_calls - finished_calls):
         accounting.add(None)  # An in-flight request may have been billed.

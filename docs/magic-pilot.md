@@ -47,6 +47,7 @@ pilot_output="study-runs/magic-live-pilot-$(date +%Y%m%d-%H%M%S)"
 .venv/bin/python -m study run \
   --config study/magic-pilot-config.json \
   --env-file ../AgenticAI2026_Tutorial-3/.env \
+  --max-cores 4 \
   --problem study/problems/magic.yaml \
   --data study-data/magic-profile --output "$pilot_output"
 pilot_status=$?
@@ -57,6 +58,28 @@ printf 'Pilot exit code: %s\n' "$pilot_status"
 Record `pilot_status` before reporting: the report command has its own exit code.
 If preflight failed before creating the output directory, fix that reported error
 before generating a report.
+
+`--max-cores 4` sets this command's shared local training thread budget. Change
+4 to your preferred ceiling; the runner caps it at the machine's logical CPU
+count. Allocation is automatic, with up to four threads per fit and unused
+capacity available to another independent run. Random forests use parallel
+trees, histogram boosting uses OpenMP, and linear models use BLAS threads;
+nested thread pools are limited to avoid multiplying these allocations.
+This controls training concurrency, not OS CPU affinity or other applications.
+Separate commands have separate budgets. Omit the flag (and leave `max_cores`
+unset in the configuration) to retain the original single-thread baseline.
+
+For `run`, the researcher still selects one trial at a time. For `suite`, setting
+the ceiling enables up to two independent runs concurrently, overlapping their
+API waits and sharing the training budget. Researcher, supervisor and reflection
+calls within each run retain their required order. The USD guard remains **per
+run**, so two active runs each have their own allowance. Queue waiting consumes
+the run/trial time allowance but is excluded from recorded training wall time.
+The trace records allocations and queue durations; the dashboard CPU bar shows
+allocated capacity rather than sampled CPU utilization. During a suite the
+dashboard identifies the focused run, keeping its score and usage separate.
+Use the same resource policy for all runs in a strategy comparison, and record
+that concurrent runs compete for machine resources.
 
 In an interactive terminal, the default CLI is a self-updating **LIVE FINDINGS**
 Rich dashboard, replacing its previous contents rather than scrolling. A spinner marks

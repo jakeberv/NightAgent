@@ -80,6 +80,10 @@ def format_event(event, *, verbose=False):
         body = f"supervisor review after trial {event['after_trial']}: " + _text(event["feedback"], verbose)
     elif kind == "reflection":
         body = "reflection: " + _text(event["reflection"], verbose)
+    elif kind == "resources":
+        body = f"CPU {event['active_cores']}/{event['max_cores']} allocated; this trial={event['allocated_cores']}"
+        if event.get("waiting"):
+            body += " (waiting for allocation)"
     elif kind == "failure":
         body = "FAILURE " + _text(event["error"], verbose)
     elif kind == "run_stopped":
@@ -102,13 +106,19 @@ class ConsoleProgress:
         self.display = StatusLine(self.stream, animate=animate)
         self.summary_interval = interval_seconds(summary_interval, allow_zero=True)
         self.findings = Findings()
+        self.states = {}
+        self.resources = {}
         self.previous_summary = ""
         self.task = None
 
     def __call__(self, event):
         if not self.enabled:
             return
+        from .findings import Findings
+        self.findings = self.states.setdefault(event["run_id"], Findings())
         self.findings.update(event)
+        if event["type"] == "resources":
+            self.resources = {key: event[key] for key in ("max_cores", "active_cores", "allocated_cores", "waiting")}
         if self.verbose:
             self.write(format_event(event, verbose=True))
         if event["type"] == "run_stopped":
@@ -118,6 +128,9 @@ class ConsoleProgress:
             except OSError:
                 self.enabled = False
             self.show_summary(force=True)
+            active = [state for state in self.states.values() if not state.stopped]
+            if active:
+                self.findings = active[-1]
 
     def write(self, text):
         if text and self.enabled:
@@ -157,6 +170,8 @@ class ConsoleProgress:
                 self.show_summary()
                 next_summary = time.monotonic() + self.summary_interval
             try:
+                if self.resources:
+                    self.findings.resources = self.resources
                 self.display.draw(self.findings, detailed=not self.verbose)
             except OSError:
                 self.enabled = False

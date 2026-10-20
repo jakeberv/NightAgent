@@ -153,3 +153,29 @@ tool schemas.
   reviews. It stopped at the deadline. Its final accounting reports
   **USD 0.479454 known**, marked incomplete; this is not a confirmed total charge.
   The watcher exposes that uncertainty rather than estimating missing usage.
+
+## Rich dashboard and automatic local resource allocation
+
+- Full suite: **264 passed in 38.90 seconds**. Compilation, whitespace checks
+  and installed dependency compatibility checks passed. Independent review found
+  no remaining material issue after fixes for cancellation cleanup and preserving
+  training time separately from queue time during recovery and reporting.
+- The Rich dashboard adds budget bars, recent experiment outcomes, score trends,
+  measured findings and labeled supervisor interpretation. Terminal previews were
+  rendered at 120, 80 and 55 columns. Animation and summaries make no API calls.
+  `--verbose` retains full scrolling output; logs and structured traces remain.
+- `--max-cores N` enables a shared command-local training thread budget, capped
+  at logical CPUs, with up to four threads per fit. Suites overlap at most two
+  independent runs and their API waits. Nested native thread pools are limited;
+  cancellation retains an allocation until worker cleanup completes. Tests cover
+  real worker allocation, queue deadlines, budget reuse and isolated run displays.
+- An offline MAGIC check completed all **10 trials across five conditions** with
+  a six-core ceiling. Recorded allocations were two and four cores, with peak
+  combined allocation six. Artifacts are in the ignored directory
+  `study-runs/balanced-offline-20261020-152500`. Scripted model responses exercised
+  local training without paid inference or scoring the MAGIC test partition.
+- Core counts represent allocated training capacity, not sampled OS utilization.
+  Separate commands do not share the pool. Queue waiting consumes wall-clock
+  allowances but not training time; API guards remain per run. Omission preserves
+  the original sequential single-thread policy. Concurrent resource competition
+  can affect wall-time comparisons, so keep the policy fixed across conditions.

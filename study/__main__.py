@@ -232,6 +232,8 @@ async def _dispatch(args, progress):
             raise RuntimeError("Offline smoke did not complete every condition")
     elif args.command in ("run", "suite"):
         config = load_config(args.config)
+        if getattr(args, "max_cores", None) is not None:
+            config = replace(config, max_cores=args.max_cores)
         problem = preflight_problem(problem_path, args.data)
         if getattr(args, "env_file", None):
             from .credentials import load_openrouter_env
@@ -283,7 +285,7 @@ def main():
     prepare.add_argument("--seed", type=int, help="Legacy data split seed (default 42); profiles contain their own seed")
     prepare.add_argument("--output", type=Path, required=True)
     for command in ("run", "suite"):
-        p = sub.add_parser(command, help="Paid OpenRouter experiment" if command == "run" else "Sequential five-condition comparison")
+        p = sub.add_parser(command, help="Paid OpenRouter experiment" if command == "run" else "Five-condition comparison with optional automatic concurrency")
         p.add_argument("--config", type=Path, required=True)
         p.add_argument("--data", type=Path, required=True)
         p.add_argument("--output", type=Path, required=True)
@@ -291,6 +293,7 @@ def main():
         p.add_argument("--env-file", type=Path, help="Read OpenRouter credentials from this env file (no shell execution)")
         p.add_argument("--summary-interval", type=float, default=15,
                        help="Seconds between findings summaries (default 15; 0 disables summaries)")
+        p.add_argument("--max-cores", type=int, help="Maximum local training threads; automatically balances independent suite runs")
         p.add_argument("--no-animation", action="store_true", help="Disable the interactive status line")
         display = p.add_mutually_exclusive_group()
         display.add_argument("--verbose", action="store_true", help="Show full model text and tool results live")

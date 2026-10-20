@@ -116,6 +116,19 @@ Attach to an existing single run from a second terminal with
 `.venv/bin/python -m study watch --output RUN_DIRECTORY --interval 15`.
 Use `--once` for a snapshot; the watcher exits on a stop event or recovered summary.
 
+Add `--max-cores N` to `run` or `suite` to set a command-wide local training
+thread ceiling. The runner automatically grants up to four threads per fit,
+bounded by available capacity and logical CPUs, and prevents nested native
+thread pools from multiplying the allocation. A suite also overlaps up to two
+independent runs, sharing that budget while API requests wait. Dependent agent
+calls within each run remain sequential. The dashboard shows allocated cores;
+traces preserve queue duration and allocation. Waiting counts against deadlines
+but not training wall time. API spending limits remain per run. Without a
+configured ceiling, execution retains the sequential single-thread baseline.
+This is a training thread budget, not OS CPU affinity or a cross-command limit.
+Keep the resource policy fixed across comparisons. See the
+[pilot guide](../docs/magic-pilot.md) for the launch command and details.
+
 Copy `study/pilot-config.json` and review it before a live pilot. It is an
 illustrative 15-minute allowance, not a calibrated final overnight schedule.
 Supply `OPENROUTER_API_KEY` in the launching process's environment, or pass

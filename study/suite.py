@@ -1,4 +1,5 @@
-"""Sequential, randomized matched-repeat scheduling and frozen provenance."""
+"""Randomized matched-repeat scheduling with optional bounded concurrency."""
+import asyncio
 from datetime import datetime, timezone
 import hashlib
 from importlib.metadata import version
@@ -33,7 +34,14 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
     if not math.isfinite(reserve_seconds) or reserve_seconds <= 0:
         raise ValueError("reserve_seconds must be positive")
     search_deadline = deadline.timestamp() - reserve_seconds
-    required = repeats * len(CONDITIONS) * config.allowance_seconds
+    concurrent_runs = 2 if config.max_cores is not None else 1
+    required = math.ceil(repeats * len(CONDITIONS) / concurrent_runs) * config.allowance_seconds
+    balanced_trials = None
+    execution = {"concurrent_runs": concurrent_runs, "max_cores": 1, "policy": "sequential"}
+    if config.max_cores is not None:
+        from .resources import CorePool, BalancedTrials
+        balanced_trials = BalancedTrials(CorePool(config.max_cores))
+        execution.update(max_cores=balanced_trials.pool.limit, policy="automatic_shared_core_pool")
     if search_deadline - datetime.now(timezone.utc).timestamp() < required:
         raise ValueError("Study window cannot fit all equal allowances plus reporting reserve")
     # Verify frozen science and partition hashes before constructing any provider.
@@ -53,14 +61,14 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
                              "run_id": f"r{repeat:02d}-{condition}"})
     manifest = {"created_at": utc_now(), "config": config.to_dict(), "repeats": repeats,
         "schedule": schedule, "order_seed": order_seed, "deadline": deadline.isoformat(),
-        "reserve_seconds": reserve_seconds, "provenance": provenance(data_dir),
+        "reserve_seconds": reserve_seconds, "execution": execution, "provenance": provenance(data_dir),
         "provider_metadata": provider_metadata, "problem": resolved_problem.to_dict(),
         "problem_hash": resolved_problem.fingerprint, "data_fingerprint": data_fingerprint,
         "objective": resolved_problem.objective,
         "target_definitions": resolved_problem.targets}
     atomic_json(output / "suite.json", manifest)
-    summaries = []
-    for entry in schedule:
+    summaries = [None] * len(schedule)
+    async def execute_entry(index, entry):
         run_config = config.for_run(entry["condition"], entry["repeat"])
         run_dir = output / "runs" / entry["run_id"]
         if search_deadline - datetime.now(timezone.utc).timestamp() < config.allowance_seconds:
@@ -79,6 +87,8 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
             model = model_factory(run_config)
             try:
                 kwargs = {"provider_metadata": provider_metadata} if provider_metadata is not None else {}
+                if balanced_trials is not None:
+                    kwargs["trial_runner"] = balanced_trials
                 if pass_problem:
                     kwargs["problem"] = resolved_problem
                 if progress is not None:
@@ -87,7 +97,18 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
             finally:
                 if hasattr(model, "aclose"):
                     await model.aclose()
-        summaries.append(summary)
+        summaries[index] = summary
+    if concurrent_runs == 1:
+        for index, entry in enumerate(schedule):
+            await execute_entry(index, entry)
+    else:
+        queue = iter(enumerate(schedule))
+        async def worker():
+            for index, entry in queue:
+                await execute_entry(index, entry)
+        async with asyncio.TaskGroup() as group:
+            for _ in range(concurrent_runs):
+                group.create_task(worker())
     atomic_json(output / "search-complete.json", {"completed_at": utc_now(),
         "runs": len(summaries), "stop_reasons": [s["stop_reason"] for s in summaries]})
     return summaries
