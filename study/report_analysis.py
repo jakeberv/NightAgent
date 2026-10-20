@@ -62,10 +62,13 @@ def recommendation_uptake(events, trials, valid_trials):
     all_trials = {str(t["trial_id"]): t for t in trials}
     scores = {str(t["trial_id"]): t["score"] for t in valid_trials}
     outcomes = []
-    reused = 0
+    reused = skipped = 0
     for event in records:
         if event.get("executed") is False:
-            reused += 1
+            if event.get('not_executed_reason') == 'deadline_admission':
+                skipped += 1
+            else:
+                reused += 1
             continue
         if event.get("valid") is not True:
             counts["invalid"] += 1
@@ -84,7 +87,8 @@ def recommendation_uptake(events, trials, valid_trials):
             "baseline_score": before, "trial_score": after,
             "validation_delta": after - before if before is not None and after is not None else None})
     applicable = sum(counts[s] for s in ("followed", "modified", "rejected"))
-    return {**counts, "recorded_contracts": len(records), "reused_proposals": reused, "applicable": applicable,
+    return {**counts, "recorded_contracts": len(records), "reused_proposals": reused,
+            "skipped_proposals": skipped, "applicable": applicable,
             "followed_fraction": counts["followed"] / applicable if applicable else None,
             "outcomes": outcomes}
 

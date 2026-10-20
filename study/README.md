@@ -167,11 +167,41 @@ frozen in every new run; reports label old logs as legacy for comparison purpose
 Each API attempt refreshes the remaining time, remaining trial count and observed
 average call latency. Review/reflection format repairs disable further tool calls
 and report up to six concise field errors with explicit character limits. A frozen
-`model_start_buffer_seconds` setting (default 1 second; zero disables it) prevents
-starting a request with less than that much time left. Such a stop is recorded as
-`deadline`, with a `model_call_skipped` event explaining the buffer; it incurs no
-call charge. In-flight calls still obey the hard deadline and may leave unknown
-charges if cancelled. The buffer does not predict latency or guarantee completion.
+`model_start_buffer_seconds` setting (default 1 second; zero disables this minimum)
+sets the cold-start floor. The frozen `deadline_policy=observed_v1` additionally
+reserves recent observed call and completed-fit durations plus 25% slack. A review
+or reflection must leave time for a researcher decision and another fit. Fits are
+checked again after the decision returns; a skipped fit consumes no trial slot.
+Recent maxima include queue time; a new model family uses other observed fits
+until its own timing exists. The rule is identical across comparison arms, but
+their observed overhead differs. A run may therefore finish before its allowance.
+Stops remain `deadline`; `model_call_skipped` and `trial_skipped` record remaining
+and required seconds. These estimates cannot guarantee completion of unseen or
+slower work. Hard timeouts still apply. Unknown API charges take precedence over
+a simultaneous deadline and make the command fail unless `allow_unknown_cost`
+was explicitly enabled; valid models and the report remain available.
+
+For a five-minute, validation-only comparison of researcher alone, standard
+supervision and Night Science supervision on the prepared Fashion-MNIST subset:
+
+```bash
+.venv/bin/python -m study suite \
+  --config study/fashion-five-minute-config.json \
+  --env-file ../AgenticAI2026_Tutorial-3/.env \
+  --problem study/problems/fashion-mnist.yaml --data study-data/fashion-pilot \
+  --device mps --max-cores 4 --repeats 1 --validation-only \
+  --reserve-seconds 45 \
+  --deadline "$(.venv/bin/python -c 'from datetime import datetime,timedelta; print((datetime.now().astimezone()+timedelta(minutes=5)).isoformat())')" \
+  --output "study-runs/fashion-five-minute-$(date +%Y%m%d-%H%M%S)"
+```
+
+This allows 105 seconds per arm in two waves, with 45 seconds reserved for reporting
+and approximately 45 seconds of startup/scheduling slack. Each arm has a $1 spending
+guard and a 12-trial safety cap (raised from six to avoid premature pilot stops).
+An in-flight call may exceed the dollar guard. Lesson memory is off for all arms.
+The pilot checks operation and initial efficiency; use multiple matched repeats
+and a higher trial cap for overnight comparisons. Keep the prepared data and
+search space fixed across arms; the held-out test set is untouched by this command.
 
 Effective-configuration diagnostics resolve constructor defaults and safe aliases.
 For example, `sqrt` and `log2` both select three random-forest features on a ten-feature

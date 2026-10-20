@@ -1,7 +1,37 @@
-"""Measured run state for agents; estimates are advisory, never stopping rules."""
+"""Measured run state, advisory capacity estimates and deadline admission budgets."""
 from copy import deepcopy
 import math
 from statistics import mean
+
+
+def required_start_seconds(config, *, role, history, call_durations, framing=False,
+                           model=None):
+    """Reserve an observed work chain before admitting another call or fit.
+
+    A review/reflection must leave time for a researcher decision and local fit.
+    Use recent maximum durations plus 25% slack, including local queue time.
+    Unknown phases use other observed calls; an unseen model uses observed fits.
+    Cold starts retain the configured floor. This cannot guarantee completion;
+    hard timeouts remain authoritative for slow or previously unseen work.
+    """
+    calls = [v for values in call_durations.values() for v in values[-6:] if v > 0]
+    fallback = max(calls, default=0.)
+    durations = {r: max(call_durations.get(r, [])[-6:], default=fallback)
+                 for r in ('researcher', 'supervisor', 'reflection')}
+    completed = [r for r in history[-config.history_trials:]
+                 if r.get('status') == 'completed' and r.get('duration_seconds', 0) > 0]
+    matching = [r for r in completed if r.get('config', {}).get('model') == model]
+    fit_seconds = max((r['duration_seconds'] for r in matching or completed), default=0.)
+    if role == 'trial':
+        return fit_seconds * 1.25
+    required = durations['researcher'] + fit_seconds
+    if role == 'supervisor':
+        required += durations['supervisor']
+        if config.reflection and not framing:
+            required += durations['reflection']
+    elif role == 'reflection':
+        required += durations['reflection']
+    return max(config.model_start_buffer_seconds, required * 1.25)
 
 
 def target_status(targets, objective, best, selections):
