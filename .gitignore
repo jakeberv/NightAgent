@@ -2,3 +2,5 @@
 example-projects/*/*
 !example-projects/*/QUESTION.md
 !example-projects/*/CLAUDE.md
+prototype/.venv/
+__pycache__/
