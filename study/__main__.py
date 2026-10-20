@@ -1,6 +1,7 @@
 """Run `python -m study --help` for the preparation-to-report workflow."""
 import argparse
 import asyncio
+from contextlib import nullcontext
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import json
@@ -140,10 +141,21 @@ async def finish_before_deadline(data_dir, output, deadline):
 
 
 async def dispatch(args):
-    from .science import prepare_dataset, fixed_reference
     from .progress import ConsoleProgress
+    if args.command == "watch":
+        from .findings import watch
+        await watch(args.output, interval=args.interval, once=args.once, animate=not args.no_animation)
+        return
+    progress = None if getattr(args, "quiet", False) else ConsoleProgress(
+        verbose=getattr(args, "verbose", False), summary_interval=getattr(args, "summary_interval", 15),
+        animate=not getattr(args, "no_animation", False))
+    async with progress if progress is not None else nullcontext():
+        await _dispatch(args, progress)
+
+
+async def _dispatch(args, progress):
+    from .science import prepare_dataset, fixed_reference
     problem_path = getattr(args, "problem", None)
-    progress = None if getattr(args, "quiet", False) else ConsoleProgress(verbose=getattr(args, "verbose", False))
     if args.command == "init-problem":
         template = Path(__file__).parent / "problems" / f"{args.template}.yaml"
         # Exclusive creation preserves an existing user definition.
@@ -253,6 +265,11 @@ async def dispatch(args):
 def main():
     parser = argparse.ArgumentParser(description="Controlled NightAgent wall-time study via OpenRouter.")
     sub = parser.add_subparsers(dest="command", required=True)
+    watch_parser = sub.add_parser("watch", help="Read-only live findings for an existing single run")
+    watch_parser.add_argument("--output", type=Path, required=True, help="Run directory containing events.jsonl")
+    watch_parser.add_argument("--interval", type=float, default=15, help="Seconds between changed summaries (default 15)")
+    watch_parser.add_argument("--once", action="store_true", help="Print one snapshot and exit")
+    watch_parser.add_argument("--no-animation", action="store_true", help="Disable the interactive status line")
     init = sub.add_parser("init-problem", help="Create an editable problem profile from an example")
     init.add_argument("--template", choices=("magic", "classification", "mnist", "regression"), default="classification")
     init.add_argument("--output", type=Path, required=True)
@@ -272,6 +289,9 @@ def main():
         p.add_argument("--output", type=Path, required=True)
         p.add_argument("--problem", type=Path, help="Problem profile; defaults to the frozen prepared definition")
         p.add_argument("--env-file", type=Path, help="Read OpenRouter credentials from this env file (no shell execution)")
+        p.add_argument("--summary-interval", type=float, default=15,
+                       help="Seconds between findings summaries (default 15; 0 disables summaries)")
+        p.add_argument("--no-animation", action="store_true", help="Disable the interactive status line")
         display = p.add_mutually_exclusive_group()
         display.add_argument("--verbose", action="store_true", help="Show full model text and tool results live")
         display.add_argument("--quiet", action="store_true", help="Suppress live progress; retain logs and final summary")
@@ -301,6 +321,8 @@ def main():
     args = parser.parse_args()
     try:
         asyncio.run(dispatch(args))
+    except KeyboardInterrupt:
+        parser.exit(130, "Interrupted.\n")
     except (ValueError, FileExistsError, FileNotFoundError, RuntimeError) as error:
         parser.exit(2, f"error: {error}\n")
 

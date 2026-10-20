@@ -16,7 +16,7 @@ def test_live_progress_matches_durable_trace_and_usage(tmp_path):
     run = tmp_path / "run"
     result = asyncio.run(run_one(
         StudyConfig(condition="periodic_reflection", trial_cap=4), tmp_path, run,
-        FakeModel(), trial_runner=trial, project={}, progress=ConsoleProgress(stream=stream)))
+        FakeModel(), trial_runner=trial, project={}, progress=ConsoleProgress(stream=stream, verbose=True)))
     output = stream.getvalue()
     assert "periodic_reflection" in output
     assert "researcher" in output and "supervisor" in output and "reflection" in output
@@ -42,7 +42,7 @@ def test_unknown_usage_is_labelled_and_token_subsets_are_separate():
                    "prompt_tokens_details": {"cached_tokens": 60},
                    "completion_tokens_details": {"reasoning_tokens": 5}})
     accounting.add(None)
-    ConsoleProgress(stream=stream)({"type": "model_call", "run_id": "r",
+    ConsoleProgress(stream=stream, verbose=True)({"type": "model_call", "run_id": "r",
         "elapsed_seconds": 3, "role": "supervisor", "status": "failed",
         "error": "ProviderError", "accounting": accounting.snapshot()})
     text = stream.getvalue()
@@ -64,7 +64,7 @@ def test_verbose_outputs_full_messages_and_broken_terminal_does_not_stop_run():
     class ClosedPipe:
         def write(self, text):
             raise BrokenPipeError()
-    ConsoleProgress(stream=ClosedPipe())(event)
+    ConsoleProgress(stream=ClosedPipe(), verbose=True)(event)
 
 
 def test_terminal_control_characters_cannot_modify_display():

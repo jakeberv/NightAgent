@@ -1,6 +1,9 @@
 """Readable event output; the JSONL journal remains the complete source trace."""
+import asyncio
+from contextlib import suppress
 import json
 import sys
+import time
 
 
 def _safe(text):
@@ -90,18 +93,70 @@ def format_event(event, *, verbose=False):
 
 
 class ConsoleProgress:
-    def __init__(self, *, stream=None, verbose=False):
+    def __init__(self, *, stream=None, verbose=False, summary_interval=15, animate=True):
+        from .findings import Findings, interval_seconds
+        from .terminal import StatusLine
         self.stream = sys.stderr if stream is None else stream
         self.verbose = verbose
         self.enabled = True
+        self.display = StatusLine(self.stream, animate=animate)
+        self.summary_interval = interval_seconds(summary_interval, allow_zero=True)
+        self.findings = Findings()
+        self.previous_summary = ""
+        self.task = None
 
     def __call__(self, event):
         if not self.enabled:
             return
-        text = format_event(event, verbose=self.verbose)
-        if text:
+        self.findings.update(event)
+        if self.verbose:
+            self.write(format_event(event, verbose=True))
+        if event["type"] == "run_stopped":
+            # Clear before the CLI writes its final JSON to the same terminal.
             try:
-                print(text, file=self.stream, flush=True)
+                self.display.clear()
+            except OSError:
+                self.enabled = False
+            self.show_summary(force=True)
+
+    def write(self, text):
+        if text and self.enabled:
+            try:
+                self.display.write(text)
             except OSError:
                 # Losing a terminal/pipe must not invalidate saved experiments.
+                self.enabled = False
+
+    def show_summary(self, *, force=False):
+        if self.summary_interval and (force or self.verbose or not self.display.enabled):
+            text = self.findings.render()
+            if text != self.previous_summary:
+                self.write(text)
+                self.previous_summary = text
+
+    async def __aenter__(self):
+        if self.summary_interval or self.display.enabled:
+            self.task = asyncio.create_task(self._summaries())
+        return self
+
+    async def __aexit__(self, *exc):
+        if self.task:
+            self.task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self.task
+        try:
+            self.display.clear()
+        except OSError:
+            self.enabled = False
+
+    async def _summaries(self):
+        next_summary = time.monotonic() + self.summary_interval
+        while self.enabled:
+            await asyncio.sleep(min(.1 if self.display.enabled else 1, self.summary_interval or 1))
+            if self.summary_interval and time.monotonic() >= next_summary:
+                self.show_summary()
+                next_summary = time.monotonic() + self.summary_interval
+            try:
+                self.display.draw(self.findings, detailed=not self.verbose)
+            except OSError:
                 self.enabled = False

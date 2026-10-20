@@ -46,7 +46,7 @@ directory; the timestamp keeps prior results intact:
 pilot_output="study-runs/magic-live-pilot-$(date +%Y%m%d-%H%M%S)"
 .venv/bin/python -m study run \
   --config study/magic-pilot-config.json \
-  --env-file ../AgenticAI2026_Tutorial-3/.env --verbose \
+  --env-file ../AgenticAI2026_Tutorial-3/.env \
   --problem study/problems/magic.yaml \
   --data study-data/magic-profile --output "$pilot_output"
 pilot_status=$?
@@ -58,12 +58,52 @@ Record `pilot_status` before reporting: the report command has its own exit code
 If preflight failed before creating the output directory, fix that reported error
 before generating a report.
 
-The CLI shows model calls and returned text, tool activity, classifier results,
-supervisor feedback, reflection, elapsed time, and cumulative tokens/charged
-dollars as each event completes. `--verbose` includes full model text and tool
-results; omit it for compact output. This is event-by-event output, not token
-streaming from the provider. `--quiet` suppresses live progress only.
-Progress goes to stderr so the final JSON summary on stdout remains usable.
+In an interactive terminal, the default CLI is a self-updating **LIVE FINDINGS**
+panel, replacing its previous contents rather than scrolling. A spinner marks
+the current activity. The panel shows elapsed/allowed wall time (with a time
+budget bar in wider terminals), trial outcomes, best validation score, targets,
+cost, token usage, and a short supervisor excerpt. The spinner refreshes locally
+ten times per second; measured findings update as events arrive. A moving spinner
+means the observer is responsive, not that the model has returned new work.
+
+`--verbose` opts into the full scrolling log: model calls and returned text,
+tool arguments/results, classifier results, reviews and reflections, with a
+single animated status line. This is event output, not provider token streaming.
+Full detailed logs are always saved. `--no-animation` selects plain-text output,
+and `--quiet` suppresses all live progress. Progress goes to stderr so the final
+JSON summary on stdout remains usable. Pipes and `TERM=dumb` never receive
+animation control codes.
+
+In plain-text mode, the CLI prints a compact **FINDINGS** summary every 15 seconds
+when events have changed, and immediately when a run stops. In verbose mode,
+these periodic summaries accompany the logs. They report completed/unsuccessful
+trials, the selected validation score, absolute improvement over the first
+completed trial, targets, best observed scores by model, activity, and usage.
+Any supervisor excerpt is labeled as model interpretation, with its trial number;
+it may describe an earlier state. Summaries make no extra API calls, never enter
+agent context, and run on a separate timer while model calls or local trials wait.
+Use `--summary-interval 30` to reduce printed-summary frequency, or
+`--summary-interval 0` to disable printed summaries. This does not disable the
+interactive panel or verbose event logs.
+
+For a run already started, attach from another terminal without restarting it:
+
+```bash
+.venv/bin/python -m study watch --output "$pilot_output" --interval 15
+```
+
+Replace `$pilot_output` with the actual run directory if the variable is not set
+in that terminal. The watcher reads newly appended events once per second and
+updates the same live panel. With `--no-animation` or redirected output, it prints
+a snapshot immediately and changed summaries at the selected interval. It prints
+the final state and exits on a stop event or a frozen summary from recovery.
+`--once` prints one plain-text snapshot and exits.
+It requires no key and modifies no run files; Ctrl-C stops only the watcher.
+For a suite, point it at one individual directory under `runs/`. If a runner
+crashes without a stop event or recovery, the watcher keeps waiting until interrupted.
+The displayed last-event time is an observation, not a liveness guarantee.
+The watcher reports recorded stop reasons; its exit status describes reading
+the trace, not whether the underlying experiment succeeded.
 
 Each run saves:
 
@@ -74,6 +114,9 @@ Each run saves:
   and cumulative accounting after every model attempt.
 - `checkpoint.json` and `summary.json`: selected models and final resource
   totals; `provider.json` records endpoint/pricing/runtime provenance.
+
+The compact summaries are derived terminal views; they can be reconstructed
+from `events.jsonl` with `watch --once`. The existing detailed logs are unchanged.
 
 Cached and reasoning tokens remain separate subsets, not extra tokens added to
 the input/output total. Missing billing and usage are explicitly incomplete.

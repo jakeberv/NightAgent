@@ -132,3 +132,24 @@ tool schemas.
   `study-runs/magic-api-schema-check-20261020-145955`. This check verifies the
   API-to-local-worker path; the full five-minute pilot, including live supervisor
   reviews and reflections, remains the next test.
+
+## Live findings panel and read-only watcher
+
+- Full suite: **244 passed in 34.84 seconds**; compilation and whitespace checks
+  passed. Tests cover classification/regression direction, target reporting,
+  incomplete usage, partial UTF-8 journal writes, background timers, recovery,
+  terminal cleanup, quiet/plain/verbose output, and final stdout preservation.
+- The default interactive display redraws a compact findings panel and spinner.
+  Full scrolling output is opt-in with `--verbose`; complete trace files remain
+  unchanged. Plain-text summaries default to 15 seconds between changed views.
+  The watcher polls new journal content once per second, independently of the
+  local animation. Neither observer makes API calls or feeds content to agents.
+- A terminal replay of the real MAGIC trace verified panel redraw and cleanup,
+  without repeating inference or training. Independent review found and verified
+  fixes for recovered-run termination and clearing the panel before final stdout
+  when printed summaries are disabled.
+- The user's five-minute run `magic-live-20261020-150222` completed nine local
+  trials and reached validation ROC-AUC **0.933147**, with two recorded supervisor
+  reviews. It stopped at the deadline. Its final accounting reports
+  **USD 0.479454 known**, marked incomplete; this is not a confirmed total charge.
+  The watcher exposes that uncertainty rather than estimating missing usage.

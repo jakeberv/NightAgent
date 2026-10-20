@@ -105,6 +105,17 @@ For a bounded first run, follow the [short MAGIC pilot](../docs/magic-pilot.md).
 Its separate `study/magic-pilot-config.json` uses five minutes, 12 attempts,
 a USD 3 guard, and periodic supervision with reflection.
 
+Live runs default to a self-updating terminal panel with a spinner, wall-time
+budget, findings, targets, and usage. `--verbose` enables the full scrolling log;
+`--no-animation` uses plain text and `--quiet` hides all progress. Plain-text
+summaries print every 15 seconds when events change, plus a final summary.
+Adjust with `--summary-interval SECONDS` (0 disables printed summaries).
+Summaries reuse existing results and labeled supervisor excerpts, without extra
+API calls or feedback into the agents. Detailed traces are always saved.
+Attach to an existing single run from a second terminal with
+`.venv/bin/python -m study watch --output RUN_DIRECTORY --interval 15`.
+Use `--once` for a snapshot; the watcher exits on a stop event or recovered summary.
+
 Copy `study/pilot-config.json` and review it before a live pilot. It is an
 illustrative 15-minute allowance, not a calibrated final overnight schedule.
 Supply `OPENROUTER_API_KEY` in the launching process's environment, or pass
@@ -222,8 +233,8 @@ also exit nonzero on fitting or scoring failure. See the
 
 Each run has an append-only `events.jsonl`, `config.json`, agent-facing
 `project.json`, live `checkpoint.json`, verified model artifacts, and final
-`summary.json`. Live CLI progress shows model/tool activity, trial results and
-cumulative usage on stderr; `--verbose` shows full model text/tool results and
+`summary.json`. The default live panel shows activity, findings and
+cumulative usage on stderr; `--verbose` shows the full scrolling event log and
 `--quiet` suppresses terminal progress. A readable `progress.log` is saved even
 in quiet mode, alongside the complete JSONL trace. Each model-attempt event
 includes cumulative accounting; cached/reasoning subsets and unknown totals
