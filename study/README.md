@@ -538,3 +538,5 @@ Model evidence requests now contain only `trial_id` and `metric`; the harness
 attaches the exact recorded `value` and validation `split`. Supplying either
 measurement field in a request is rejected. Stored contracts retain all four
 fields for audit, and lessons retain unverified interpretations separately.
+
+See [continuous integration](../docs/ci.md) for the CPU GitHub Actions checks and local GPU validation boundary.

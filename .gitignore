@@ -8,3 +8,5 @@ __pycache__/
 study-data/
 study-runs/
 .superpowers/
+
+ci-results/

@@ -13,7 +13,8 @@ def test_invalid_core_ceiling_is_rejected(value):
         StudyConfig(max_cores=value)
 
 
-def test_pool_caps_combined_training_and_returns_cores_after_cancellation():
+def test_pool_caps_combined_training_and_returns_cores_after_cancellation(monkeypatch):
+    monkeypatch.setattr('study.resources.os.cpu_count', lambda: 8)
     from study.resources import CorePool
     async def scenario():
         pool = CorePool(3)
@@ -223,7 +224,8 @@ def test_recovery_and_report_exclude_queue_time(tmp_path):
     assert [trial['training_seconds'] for trial in _trials({}, events)] == [3, 2]
 
 
-def test_gpu_queue_serializes_gpu_fits_without_blocking_cpu_fits(tmp_path):
+def test_gpu_queue_serializes_gpu_fits_without_blocking_cpu_fits(tmp_path, monkeypatch):
+    monkeypatch.setattr('study.resources.os.cpu_count', lambda: 8)
     from study.resources import CorePool, BalancedTrials
     async def scenario():
         active_gpu = peak_gpu = 0
@@ -350,3 +352,17 @@ def test_gpu_and_cpu_leases_remain_held_until_cancelled_worker_cleanup_finishes(
         assert not balanced.gpu_lock.locked()
         assert pool.available == pool.limit
     asyncio.run(asyncio.wait_for(scenario(), timeout=5))
+
+
+@pytest.mark.parametrize('available', [1, 2, 4])
+def test_pool_respects_small_host_cpu_count(available, monkeypatch):
+    from study.resources import CorePool
+    monkeypatch.setattr('study.resources.os.cpu_count', lambda: available)
+    pool = CorePool(8)
+    assert pool.limit == available
+    async def scenario():
+        async with pool.lease() as cores:
+            assert cores == available
+            assert pool.available == 0
+        assert pool.available == available
+    asyncio.run(scenario())
