@@ -23,10 +23,12 @@ Design decisions:
   never given it, and a hook blocks the student's tool calls that name the persona file.
 - Isolation from the machine's own Claude Code configuration: setting_sources=[] means neither agent
   loads CLAUDE.md files or settings.json, so behaviour depends only on the files in nightagent/.
-- Containment: the owner's own Claude Code policy is applied explicitly (SANDBOX, PERMISSIONS): Bash
-  runs in the OS sandbox (writes only inside the project) with no way to opt out, bypass-permissions
-  mode is off, and reads outside the project folder are blocked. The student runs in "dontAsk" mode,
-  so anything that would need a human's approval is denied rather than waiting.
+- Containment without an OS sandbox (Claude Code's sandbox refuses network hosts that no setting
+  allows, which stops pip and dataset downloads). Instead: bypass-permissions mode is off and reads
+  outside the project are blocked (PERMISSIONS, from the owner's own Claude Code policy); both agents
+  run in "dontAsk" mode, so anything that would need a human's approval is denied; and a PreToolUse
+  hook (guard) keeps file tools inside the project and refuses shell commands that name a path
+  outside it (see guard for what that does not catch).
 - Billing: by default the agents use whatever Claude Code is logged in with (a Claude subscription) or
   ANTHROPIC_API_KEY. With --provider openrouter they are pointed at OpenRouter's Anthropic-compatible
   endpoint instead, using OPENROUTER_API_KEY from the environment or the repository's .env file
@@ -56,18 +58,16 @@ DEFAULT_MODELS = {  # per provider; override with --model (OpenRouter uses its o
     "claude": "claude-opus-5-5",
     "openrouter": "~anthropic/claude-opus-latest[1m]",  # OpenRouter's alias; [1m] = 1M-token context
 }
-# The repository owner's Claude Code policy (~/.claude/settings.json), applied explicitly to both agents
-# because setting_sources=[] skips that file: Bash always runs in the OS sandbox with no escape hatch,
-# bypass-permissions mode is off, and tools can't read outside the project folder.
-SANDBOX = {
-    "enabled": True,
-    "failIfUnavailable": True,  # refuse to start rather than run unsandboxed
-    "allowUnsandboxedCommands": False,  # no dangerouslyDisableSandbox
-}
 # One message from Claude Code can carry a whole tool result (e.g. a figure the agent reads); the SDK's
 # 1 MB default would end the phase with an error.
 MAX_MESSAGE_BYTES = 64 * 1024 * 1024
+# The repository owner's Claude Code permission policy (~/.claude/settings.json), applied explicitly to
+# both agents because setting_sources=[] skips that file.
 PERMISSIONS = {"blockReadsOutsideWorkingDirectories": True, "disableBypassPermissionsMode": "disable"}
+# System locations a shell command may name outside the project (interpreters, libraries, temp files).
+SYSTEM_PATHS = tuple(Path(p) for p in ("/usr", "/bin", "/sbin", "/opt", "/etc", "/dev", "/tmp", "/private/tmp",
+                                       "/var/folders", "/private/var/folders", "/Library", "/System"))
+FILE_TOOLS = {"Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep"}
 # With bypass mode off, the student runs in "dontAsk": these tools are allowed, anything else is denied.
 STUDENT_TOOLS = ["Bash", "Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep",
                  "WebSearch", "WebFetch", "TodoWrite"]
@@ -195,25 +195,23 @@ class Agent:
     def options(self):
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
-        # Both agents work in the project folder, ignore local Claude Code config and run under the
-        # sandbox and permission policy above (see docstring).
+        # Both agents work in the project folder, ignore local Claude Code config, run under the
+        # permission policy above and have every tool call checked by the guard hook (see docstring).
         common = dict(cwd=str(self.project), setting_sources=[], model=self.model, effort=self.effort, env=self.env,
-                      sandbox=SANDBOX, settings=json.dumps({"permissions": PERMISSIONS}),
-                      max_buffer_size=MAX_MESSAGE_BYTES)
+                      settings=json.dumps({"permissions": PERMISSIONS}), max_buffer_size=MAX_MESSAGE_BYTES,
+                      hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[self.guard])]})
         if self.role == "student":
             # Student: Claude Code's normal coding-agent prompt plus all three public protocols, so it
             # understands the whole process (including how the supervisor works), but not the persona.
-            # It runs unattended in "dontAsk" mode: STUDENT_TOOLS are pre-approved, Bash runs in the
-            # sandbox, and anything that would need a human's approval is denied. The Agent tool is
-            # removed so it cannot simulate a supervisor, and a PreToolUse hook (guard_student) checks
-            # every tool call.
+            # It runs unattended in "dontAsk" mode: STUDENT_TOOLS are pre-approved and anything that
+            # would need a human's approval is denied. The Agent tool is removed so it cannot simulate
+            # a supervisor.
             prompt = "\n\n".join([read("STUDENT.md"), read("MEETING.md"), read("SUPERVISOR.md")])
             return ClaudeAgentOptions(
                 system_prompt={"type": "preset", "preset": "claude_code", "append": prompt},
                 permission_mode="dontAsk",
                 allowed_tools=STUDENT_TOOLS,
                 disallowed_tools=["Agent", "Task"],
-                hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[self.guard_student])]},
                 **common,
             )
         # Supervisor: a plain system prompt (protocol + meeting agenda + private persona) and read-only
@@ -227,28 +225,50 @@ class Agent:
             **common,
         )
 
-    async def guard_student(self, hook_input: dict[str, Any], tool_use_id: str | None, context: Any) -> dict[str, Any]:
-        """PreToolUse hook for the student: deny tool calls that break the rules, and log them.
+    async def guard(self, hook_input: dict[str, Any], tool_use_id: str | None, context: Any) -> dict[str, Any]:
+        """PreToolUse hook for both agents: deny tool calls that leave the project folder, and log them.
 
         - Any tool call whose arguments name the persona file is denied (Read, Grep, Bash `cat`, ...).
-          This is best-effort: a shell glob that never spells the name would get past it.
-        - File-tool writes (Write/Edit/...) outside the project folder are denied. Shell commands are
-          also stopped by the sandbox (SANDBOX), which confines Bash writes to the project folder.
+        - File tools (Read, Write, Edit, Glob, Grep, ...) may only use paths inside the project folder.
+        - A shell command is denied if it names a path outside the project folder (an absolute path,
+          ~, $HOME, or ../ that climbs out) other than the system locations in SYSTEM_PATHS.
+        These checks read the command text, so they are best-effort, not a sandbox: a program the
+        agent writes and then runs, or a path assembled at run time, is not seen.
         """
         tool, args = hook_input["tool_name"], hook_input["tool_input"]
         reason = None
         if PERSONA.stem in json.dumps(args):
             reason = "The supervisor's persona is private."
-        elif tool in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
-            target = Path(args.get("file_path") or args.get("notebook_path") or "")
-            target = target if target.is_absolute() else self.project / target
-            if not target.resolve().is_relative_to(self.project):
-                reason = "You can only write inside your project folder."
+        elif tool in FILE_TOOLS:
+            target = args.get("file_path") or args.get("notebook_path") or args.get("path") or "."
+            if not self.inside(Path(target).expanduser()):
+                reason = "You can only use files inside your project folder."
+        elif tool == "Bash":
+            outside = self.outside_paths(args.get("command", ""))
+            if outside:
+                reason = f"Stay inside your project folder (this command names {', '.join(outside[:3])})."
         if reason:
             self.log.event("blocked", role=self.role, tool=tool, reason=reason)
             return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                            "permissionDecisionReason": reason}}
         return {}
+
+    def inside(self, path: Path, allowed: tuple[Path, ...] = ()) -> bool:
+        """True if path (relative paths are taken from the project folder) is in the project or `allowed`."""
+        path = (path if path.is_absolute() else self.project / path).resolve()
+        return any(path.is_relative_to(root) for root in (self.project, *allowed))
+
+    def outside_paths(self, command: str) -> list[str]:
+        """Paths a shell command names outside the project folder and SYSTEM_PATHS."""
+        home = str(Path.home())
+        found = []
+        for token in re.findall(r"[^\s'\"`;|&<>()=,]+", command):
+            path = re.sub(r"^(~|\$HOME|\$\{HOME\})(?=/|$)", home, token)
+            if not (re.match(r"/[\w.~-]", path) or path == home or ".." in Path(path).parts):
+                continue  # not a path (or a lone "/", which is usually division in inline code)
+            if not self.inside(Path(path), SYSTEM_PATHS):
+                found.append(token)
+        return found
 
     async def start(self) -> None:
         from claude_agent_sdk import ClaudeSDKClient, ClaudeSDKError
