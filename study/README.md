@@ -105,7 +105,9 @@ For a bounded first run, follow the [short MAGIC pilot](../docs/magic-pilot.md).
 Its separate `study/magic-pilot-config.json` uses five minutes, 12 attempts,
 a USD 3 guard, and periodic supervision with reflection.
 
-Live runs default to a responsive Rich dashboard with a spinner, budget bars,
+Live runs default to a responsive Rich dashboard in the alternate terminal screen,
+overwriting frames without a clear-before-redraw pass to reduce flicker. The normal
+screen and cursor are restored on exit. It includes a spinner, budget bars,
 best-result card, recent trials, score-history charts, findings, targets and usage. `--verbose` enables the full scrolling log;
 `--no-animation` uses plain text and `--quiet` hides all progress. Plain-text
 summaries print every 15 seconds when events change, plus a final summary.

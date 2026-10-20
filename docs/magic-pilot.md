@@ -97,7 +97,10 @@ Use the same resource policy for all runs in a strategy comparison, and record
 that concurrent runs compete for machine resources.
 
 In an interactive terminal, the default CLI is a self-updating **LIVE FINDINGS**
-Rich dashboard, replacing its previous contents rather than scrolling. A spinner marks
+Rich dashboard in the terminal's alternate screen. Refreshes overwrite the previous
+frame without first erasing every line, avoiding the blanking that can flicker in
+Termius and other terminals. The normal screen and cursor return when the dashboard
+stops, before final summaries are printed. A spinner marks
 the current activity. The panel shows elapsed/allowed wall time (with a time
 budget bar in wider terminals), trial outcomes, best validation score, targets,
 cost, token usage, and a short supervisor excerpt. The spinner refreshes locally

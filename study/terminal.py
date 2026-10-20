@@ -196,7 +196,12 @@ class StatusLine:
             self.spinner.update(text=text(f"{state.activity} | {duration(elapsed_now(state))}/{duration(state.allowance)} | {state.completed} ok | {cost_label(state)}", "cyan"))
             content = self.spinner
         if self.live is None:
+            # Inline Live erases every old row before repainting, which flashes
+            # in terminals that display intermediate updates (e.g. over SSH).
+            # Screen mode homes the cursor and overwrites a padded frame instead.
+            # Keep verbose's single status line inline with its scrolling logs.
             self.live = Live(content, console=self.console, auto_refresh=False, transient=True,
+                             screen=detailed,
                              redirect_stdout=False, redirect_stderr=False, vertical_overflow="crop")
             self.live.start(refresh=True)
         else:

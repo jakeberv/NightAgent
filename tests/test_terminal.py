@@ -24,7 +24,7 @@ def test_interactive_status_animates_without_new_events_and_clears_on_exit(monke
             progress({"type": "model_call_started", "role": "researcher",
                       "run_id": "pilot", "elapsed_seconds": 1})
             await asyncio.sleep(.65)
-            assert stream.getvalue().count("\r\x1b[2K") >= 1
+            assert stream.getvalue().count("\x1b[H") >= 2
             assert "researcher API" in stream.getvalue()
             assert "0 ok" in stream.getvalue()
             assert "5:00" in stream.getvalue()
@@ -32,7 +32,7 @@ def test_interactive_status_animates_without_new_events_and_clears_on_exit(monke
             assert any(frame in stream.getvalue() for frame in "⠙⠹⠸⠼⠴⠦⠧⠇⠏")
     asyncio.run(scenario())
     assert "\x1b[?25h" in stream.getvalue()
-    assert stream.getvalue().endswith("\x1b[2K")
+    assert stream.getvalue().endswith("\x1b[?1049l")
 
 
 def test_animation_never_emits_control_codes_to_pipes_or_when_disabled(monkeypatch):
@@ -74,9 +74,54 @@ def test_default_panel_replaces_itself_and_hides_raw_model_content(monkeypatch):
             await asyncio.sleep(.35)
         text = stream.getvalue()
         assert "RAW_MODEL_CONTENT" not in text
-        assert "FINDINGS" in text and "\x1b[1A" in text
+        assert "FINDINGS" in text and "\x1b[H" in text
         assert "No selected model yet" in text
     asyncio.run(scenario())
+
+
+def test_dashboard_refresh_does_not_erase_screen_before_repainting(monkeypatch):
+    from study.terminal import StatusLine
+    from study.findings import Findings
+    monkeypatch.setenv("TERM", "xterm-256color")
+    stream = Terminal()
+    status = StatusLine(stream)
+    status.console.size = (100, 30)
+    state = Findings()
+    state.update(started())
+    try:
+        status.draw(state, detailed=True)
+        first = len(stream.getvalue())
+        state.activity = "new activity"
+        status.draw(state, detailed=True)
+        refresh = stream.getvalue()[first:]
+        assert "new activity" in refresh
+        assert "\x1b[2K" not in refresh  # No clear-line pass before the new frame.
+        assert "\x1b[2J" not in refresh  # No clear-screen pass either.
+        assert "\x1b[H" in refresh
+        # Resize to the compact view; screen padding replaces stale dashboard rows.
+        status.console.size = (45, 15)
+        status.draw(state, detailed=True)
+    finally:
+        status.clear()
+    status.write("Final output survives")
+    output = stream.getvalue()
+    assert output.count("\x1b[?1049h") == output.count("\x1b[?1049l") == 1
+    assert output.rfind("\x1b[?1049l") < output.index("Final output survives")
+
+
+def test_dashboard_restores_normal_screen_when_context_is_interrupted(monkeypatch):
+    import pytest
+    monkeypatch.setenv("TERM", "xterm-256color")
+    stream = Terminal()
+    async def scenario():
+        with pytest.raises(asyncio.CancelledError):
+            async with ConsoleProgress(stream=stream, summary_interval=0) as progress:
+                progress(started())
+                progress.display.draw(progress.findings, detailed=True)
+                raise asyncio.CancelledError()
+    asyncio.run(scenario())
+    assert "\x1b[?1049h" in stream.getvalue()
+    assert stream.getvalue().endswith("\x1b[?25h\x1b[?1049l")
 
 
 def test_verbose_opt_in_prints_model_content_without_changing_trace_format():

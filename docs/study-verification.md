@@ -198,3 +198,16 @@ tool schemas.
   `balanced-offline-20261020-152500`. Inspected the rendered single-run performance
   figure and both workflow figures; fixed axis bounds so unknown durations remain
   visible even when no bar exists. No paid inference or held-out scoring was run.
+
+## Terminal dashboard flicker
+
+- Captured a 100×30 dashboard refresh: inline Rich Live emitted 30 erase-line
+  commands before repainting the frame. The dashboard now uses Rich's alternate
+  screen, which homes the cursor and overwrites a padded frame. The same probe
+  emitted zero erase-line/erase-screen commands on refresh and restored the normal
+  screen and cursor on stop. Verbose scrolling logs retain their inline status.
+- Full suite: **270 passed in 46.00 seconds**; compilation and whitespace checks
+  passed. Regression coverage includes resizing, cancellation cleanup, final output
+  preservation, and disabling escape sequences for pipes/plain-text mode. Scoped
+  review found no material issue. The user's Termius session was not directly
+  inspected; verification targets the reproduced clear-before-redraw behavior.
