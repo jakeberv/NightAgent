@@ -224,6 +224,21 @@ Keyboard input requires interactive POSIX stdin (macOS/Linux); redirected input,
 plain-text and verbose modes remain untouched. Ctrl+C keeps its normal behavior,
 and keyboard settings are restored when the display closes.
 
+The default dashboard includes a **Live log** box that follows the full readable
+log as events arrive. Wide terminals (132 columns or more) place it beside the
+overview; other terminals place it below. Very small terminals retain the compact
+status view. Long messages wrap and the viewport follows the newest lines. Press
+**`l`** to hide or restore the box; from Focus, `l` returns to Details with the log
+visible. **`f`** still toggles the clean Focus view, which hides the raw log.
+The box also works in `study watch`. It uses the same full event formatting as
+`progress.log`, including model responses, tool output, contract checks and usage.
+Model text appears when a provider call completes; this is live event output,
+not token-by-token provider streaming. It makes no additional API calls and adds
+no model tokens. The display keeps at most 2,000 lines / 262,144 characters per run in memory;
+`progress.log` and `events.jsonl` retain the full durable history. Log text is shown
+literally with terminal controls removed, and screen redraws retain the existing
+Termius flicker protections.
+
 `--verbose` enables the full scrolling log;
 `--no-animation` uses plain text and `--quiet` hides all progress. Plain-text
 summaries print every 15 seconds when events change, plus a final summary.

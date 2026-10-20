@@ -233,7 +233,7 @@ except KeyboardInterrupt:
                 output += os.read(master, 65536)
         assert marker in output, output.decode(errors="replace")[-2000:]
     try:
-        until(b"RESEARCH LAB")
+        until(b"Live log")
         os.write(master, b"f")
         until(b"FOCUS")
         os.write(master, b"\x03")
@@ -303,3 +303,40 @@ def test_narrow_discovery_fallback_does_not_claim_completed_run_is_still_waiting
     rendered = output.getvalue()
     assert "A new result has been recorded." in rendered
     assert "waiting for a completed" not in rendered.lower()
+
+
+def test_log_keyboard_toggle_preserves_stream_and_ignores_pasted_shortcuts(monkeypatch, keyboard_pty):
+    from study.terminal import StatusLine
+    from test_terminal import Terminal
+    master, _, input_stream = keyboard_pty
+    monkeypatch.setenv('TERM', 'xterm')
+    stream = Terminal()
+    display = StatusLine(stream, input_stream=input_stream)
+    display.console.size = (140, 36)
+    state = state_for_focus()
+    state.update({'type': 'failure', 'run_id': 'magic-demo', 'error': 'VISIBLE_LOG_LINE'})
+    try:
+        display.draw(state, detailed=True)
+        original_live = display.live
+        assert 'VISIBLE_LOG_LINE' in stream.getvalue()
+        os.write(master, b'l')
+        offset = len(stream.getvalue())
+        display.draw(state, detailed=True)
+        assert not display.show_log and 'Live log' not in stream.getvalue()[offset:]
+        os.write(master, b'\x1b[200~lL\x1b[201~')
+        display.draw(state, detailed=True)
+        assert not display.show_log
+        os.write(master, b'f')
+        display.draw(state, detailed=True)
+        assert display.focus
+        os.write(master, b'L')
+        offset = len(stream.getvalue())
+        display.draw(state, detailed=True)
+        assert display.show_log and not display.focus
+        assert 'VISIBLE_LOG_LINE' in stream.getvalue()[offset:]
+        assert display.live is original_live
+        assert '\x1b[2J' not in stream.getvalue()[offset:]
+        assert '\x1b[2K' not in stream.getvalue()[offset:]
+    finally:
+        display.clear()
+    assert stream.getvalue().count('\x1b[?1049h') == 1

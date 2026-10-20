@@ -62,7 +62,7 @@ def test_log_lines_clear_animation_before_printing(monkeypatch):
     assert status.live is None
 
 
-def test_default_panel_replaces_itself_and_hides_raw_model_content(monkeypatch):
+def test_default_panel_replaces_itself_and_shows_full_model_log(monkeypatch):
     monkeypatch.setenv("TERM", "xterm")
     stream = Terminal()
     async def scenario():
@@ -73,8 +73,8 @@ def test_default_panel_replaces_itself_and_hides_raw_model_content(monkeypatch):
                 "response": {"message": {"content": "RAW_MODEL_CONTENT"}}})
             await asyncio.sleep(.35)
         text = stream.getvalue()
-        assert "RAW_MODEL_CONTENT" not in text
-        assert "RESEARCH LAB" in text and "\x1b[H" in text
+        assert "RAW_MODEL_CONTENT" in text
+        assert "Live log" in text and "\x1b[H" in text
         assert "No selected model yet" in text
     asyncio.run(scenario())
 

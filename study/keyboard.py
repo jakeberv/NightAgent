@@ -20,6 +20,7 @@ class ViewKeys:
         self.attempted = False
         self.escape = b""
         self.pasting = False
+        self.log_toggles = 0
 
     @property
     def active(self):
@@ -50,6 +51,7 @@ class ViewKeys:
             return False
 
     def poll(self):
+        self.log_toggles = 0
         if not self.active:
             return 0
         try:
@@ -78,6 +80,8 @@ class ViewKeys:
                 self.escape = b"\x1b"
             elif not self.pasting and byte in (ord("f"), ord("F")):
                 toggles += 1
+            elif not self.pasting and byte in (ord("l"), ord("L")):
+                self.log_toggles += 1
         return toggles
 
     def close(self):

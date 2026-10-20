@@ -220,23 +220,42 @@ def trial_trail(state, width=116):
     return trail
 
 
-def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False):
+def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False, logs=False):
     """Fit the available terminal; small terminals retain activity, score and cost."""
     if focus:
         from .focus import focus_dashboard
         return focus_dashboard(state, width=width, height=height, shortcut=shortcut)
+    if logs and width >= 40 and height >= 14:
+        from .live_log import log_panel
+        layout = Layout()
+        if width >= 132 and height >= 24:
+            log_width = max(48, width * 2 // 5)
+            layout.split_row(Layout(dashboard(state, width=width - log_width, height=height,
+                spinner=spinner, shortcut=shortcut), name="overview"),
+                Layout(log_panel(state, height, shortcut=shortcut), size=log_width))
+        else:
+            log_height = max(5, min(14, height // 3))
+            overview_height = height - log_height
+            if overview_height < 23 or (width < 76 and overview_height < 29):
+                log_height = height - 8
+            layout.split_column(Layout(dashboard(state, width=width, height=height - log_height,
+                spinner=spinner, shortcut=shortcut), name="overview"),
+                Layout(log_panel(state, log_height, shortcut=shortcut), size=log_height))
+        return layout
     elapsed = elapsed_now(state)
     activity = state.activity.replace(" model call in progress", " API").replace("local ", "")
     score = best_score(state)
     if width < 50 or height < 23 or (width < 76 and height < 29):
-        return Panel(Group(text(activity, "cyan", no_wrap=True),
+        spinner = spinner or Spinner("dots", style="cyan")
+        spinner.update(text=text(activity, "cyan", no_wrap=True))
+        return Panel(Group(spinner,
             text(f"Best {score:.5f}" if score is not None else "No selected model yet", "bold green"),
             text(cost_label(state), "yellow" if not state.accounting.get("cost_complete") else "cyan"),
             text(f"Time {duration(elapsed)}/{duration(state.allowance)} · {state.completed} ok", "dim"),
             text(f"Host CPU {cpu_label(state)}", "cyan"),
             text(f"{allocation_label(state)} · {cpu_history(state, width-7-len(allocation_label(state)))}",
                  "dim", no_wrap=True, overflow="crop")),
-            title="NIGHTAGENT", subtitle="f  Focus" if shortcut else None, border_style="cyan", height=min(8, height))
+            title="NIGHTAGENT", subtitle="f Focus · l Log" if shortcut else None, border_style="cyan", height=min(8, height))
     layout = Layout()
     metrics_height = 8 if width >= 76 else 14
     expanded = width >= 76 and height >= 32
@@ -265,7 +284,7 @@ def dashboard(state, *, width, height, spinner=None, focus=False, shortcut=False
         layout["experiment"].update(experiment_panel(state, width))
     layout["header"].update(Panel(Group(*header),
         title=text(f"NIGHTAGENT · {state.run_id}", "bold"),
-        subtitle=text(f"RESEARCH LAB · {state.problem_id or 'experiment'}" + (" · f  Focus" if shortcut else "")), border_style="cyan", padding=(0, 1)))
+        subtitle=text(f"RESEARCH LAB · {state.problem_id or 'experiment'}" + (" · f Focus · l Log" if shortcut else "")), border_style="cyan", padding=(0, 1)))
     if width >= 76:
         layout["metrics"].split_row(Layout(budget(state, elapsed)), Layout(result_panel(state)))
     else:
@@ -304,6 +323,7 @@ class StatusLine:
         from .keyboard import ViewKeys
         self.keys = ViewKeys(input_stream)
         self.focus = False
+        self.show_log = True
         self.stream = stream
         self.enabled = bool(animate and getattr(stream, "isatty", lambda: False)()
                             and os.environ.get("TERM") != "dumb")
@@ -333,12 +353,18 @@ class StatusLine:
             self.keys.start()
             if self.keys.poll() % 2:
                 self.focus = not self.focus
+            if self.keys.log_toggles % 2:
+                if self.focus:
+                    self.focus = False
+                    self.show_log = True
+                else:
+                    self.show_log = not self.show_log
             if self.cpu is None:
                 from .cpu import HostCPU
                 self.cpu = HostCPU()
             state.cpu = self.cpu.sample()
             content = dashboard(state, width=size.width, height=max(1, size.height - 1), spinner=self.spinner,
-                                focus=self.focus, shortcut=self.keys.active)
+                                focus=self.focus, shortcut=self.keys.active, logs=self.show_log)
         else:
             self.keys.close()
             self.spinner.update(text=text(f"{state.activity} | {duration(elapsed_now(state))}/{duration(state.allowance)} | {state.completed} ok | {cost_label(state)}", "cyan"))

@@ -35,10 +35,10 @@ def format_event(event, *, verbose=False):
     prefix = f"[{event['run_id']} +{event.get('elapsed_seconds', 0):7.2f}s]"
     role = event.get("role", "")
     if kind == "run_started":
-        config = event["config"]
-        body = (f"START {config['condition']} model={config['model']} provider={config['provider']} "
-                f"allowance={config['allowance_seconds']}s trial_cap={config['trial_cap']} "
-                f"USD_guard={config['dollar_cap']}")
+        config = event.get("config", {})
+        body = (f"START {config.get('condition', 'unknown')} model={config.get('model', 'unknown')} provider={config.get('provider', 'unknown')} "
+                f"allowance={config.get('allowance_seconds', 0)}s trial_cap={config.get('trial_cap', 0)} "
+                f"USD_guard={config.get('dollar_cap', 0)}")
     elif kind == "model_call_started":
         body = f"{role} model call started (attempt {event.get('attempt', 0) + 1})"
     elif kind == "model_call":
@@ -59,7 +59,7 @@ def format_event(event, *, verbose=False):
             if event.get("details"):
                 body += " " + _text(event["details"], verbose)
     elif kind == "trial_started":
-        body = f"trial {event['trial_id']} started: " + _text(event["config"], verbose)
+        body = f"trial {event['trial_id']} started: " + _text(event.get("config", {}), verbose)
     elif kind == "trial_finished":
         result = event["result"]
         body = f"trial {result['trial_id']} {result['status']}"
@@ -84,13 +84,18 @@ def format_event(event, *, verbose=False):
         body = f"CPU {event['active_cores']}/{event['max_cores']} allocated; this trial={event['allocated_cores']}"
         if event.get("waiting"):
             body += " (waiting for allocation)"
+    elif kind in ("decision_contract", "supervisor_contract", "reflection_contract",
+                  "experiment_diagnostic", "repeated_tool_call", "lesson_memory"):
+        body = kind.replace("_", " ") + ": " + _text(
+            {key: value for key, value in event.items()
+             if key not in ("type", "run_id", "elapsed_seconds", "timestamp")}, verbose)
     elif kind == "failure":
         body = "FAILURE " + _text(event["error"], verbose)
     elif kind == "run_stopped":
         summary = event["summary"]
-        body = (f"STOP {summary['stop_reason']} trials={summary['trials']} "
-                f"training_wall={summary['training_seconds']:.2f}s\n  " +
-                _usage(summary["accounting"]))
+        body = (f"STOP {summary['stop_reason']} trials={summary.get('trials', 0)} "
+                f"training_wall={summary.get('training_seconds', 0):.2f}s\n  " +
+                _usage(summary.get("accounting", {})))
     else:
         return ""
     return _safe(f"{prefix} {body}")

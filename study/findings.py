@@ -20,7 +20,9 @@ def interval_seconds(value, *, allow_zero=False):
 class Findings:
     def __init__(self):
         from .lab import Lab
+        from .live_log import LogBuffer
         self.lab = Lab()
+        self.log = LogBuffer()
         self.run_id = None
         self.elapsed = 0
         self.event_at = None
@@ -54,6 +56,8 @@ class Findings:
             self.problem_id = problem.get("id", "")
             self.allowance = event.get("config", {}).get("allowance_seconds", 0)
             self.activity = "starting"
+        from .progress import format_event
+        self.log.append(format_event(event, verbose=True))
         self.run_id = event["run_id"]
         self.elapsed = event.get("elapsed_seconds", self.elapsed)
         if event.get("timestamp"):
