@@ -205,16 +205,16 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
         return deadline - time.monotonic()
 
     def check():
+        if not accounting.cost_complete and not config.allow_unknown_cost:
+            raise StopRun("unknown_cost")
         if remaining() <= 0:
             raise StopRun("deadline")
         if accounting.known_cost >= config.dollar_cap:
             raise StopRun("dollar_cap")
-        if not accounting.cost_complete and not config.allow_unknown_cost:
-            raise StopRun("unknown_cost")
         if summary["trials"] >= config.trial_cap:
             raise StopRun("trial_cap")
 
-    from .run_context import target_status, capacity_estimate, compact_feedback, compact_lessons
+    from .run_context import target_status, capacity_estimate, compact_feedback, compact_lessons, required_start_seconds
 
     def measured_targets():
         return target_status(problem.targets, problem.objective, summary['best'], summary['target_selections'])
@@ -249,9 +249,12 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
         for attempt in range(config.model_retries + 1):
             check()
             available = remaining()
-            if available < config.model_start_buffer_seconds:
-                journal.emit("model_call_skipped", role=role, reason="deadline_buffer",
+            required = required_start_seconds(config, role=role, history=history,
+                                              call_durations=call_durations, framing=framing)
+            if available < required:
+                journal.emit("model_call_skipped", role=role, reason="deadline_admission",
                              remaining_seconds=max(0, available),
+                             required_seconds=required,
                              model_start_buffer_seconds=config.model_start_buffer_seconds)
                 raise StopRun("deadline")
             # Replace the initial snapshot, rather than appending duplicate
@@ -397,9 +400,18 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         diagnostic = experiment_diagnostic(args, problem=problem, project=project,
                                                            seed=config.training_seed, history=history)
                         equivalent = diagnostic['equivalent_trial_ids']
-                        journal.emit("decision_contract", trial_id=None if equivalent else summary["trials"] + 1,
-                                     contract=intent, valid=True, errors=[], executed=not bool(equivalent))
+                        required = required_start_seconds(config, role='trial', history=history,
+                            call_durations=call_durations, model=args.get('model'))
+                        available = remaining()
+                        skip_fit = not equivalent and available < required
+                        journal.emit("decision_contract", trial_id=None if equivalent or skip_fit else summary["trials"] + 1,
+                                     contract=intent, valid=True, errors=[], executed=not bool(equivalent or skip_fit),
+                                     not_executed_reason='deadline_admission' if skip_fit else 'equivalent' if equivalent else None)
                         contract_recorded = True
+                        if skip_fit:
+                            journal.emit('trial_skipped', reason='deadline_admission', config=args,
+                                         remaining_seconds=max(0, available), required_seconds=required)
+                            raise StopRun('deadline')
                         if equivalent:
                             prior = next(row for row in history if row['trial_id'] == equivalent[0])
                             result = {'status': 'reused', 'matched_trial_ids': equivalent,

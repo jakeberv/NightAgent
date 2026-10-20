@@ -29,6 +29,7 @@ class StudyConfig:
     history_trials: int = 12
     model_timeout_seconds: float = 90
     model_start_buffer_seconds: float = 1.0
+    deadline_policy: str = 'observed_v1'
     model_retries: int = 1
     max_turns_without_trial: int = 8
     review_tool_calls: int = 6
@@ -46,6 +47,8 @@ class StudyConfig:
     memory_limit: int = 6
 
     def __post_init__(self):
+        if self.deadline_policy != 'observed_v1':
+            raise ValueError('deadline_policy must be observed_v1')
         if self.supervisor_policy != "supervision_v2":
             raise ValueError("supervisor_policy must be supervision_v2")
         if self.supervisor_strategy not in SUPERVISOR_STRATEGIES:

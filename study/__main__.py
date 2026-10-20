@@ -50,9 +50,11 @@ def require_successful_runs(summaries):
     failures = []
     for summary in summaries:
         reason = summary.get("stop_reason", "missing")
-        if reason not in {"deadline", "trial_cap", "dollar_cap"} or not summary.get("best"):
+        incomplete_cost = (summary.get('accounting', {}).get('cost_complete') is False
+                           and not summary.get('config', {}).get('allow_unknown_cost', False))
+        if incomplete_cost or reason not in {"deadline", "trial_cap", "dollar_cap"} or not summary.get("best"):
             identity = f"{summary.get('condition', 'unknown')}/r{summary.get('repeat', 0)}"
-            failures.append(f"{identity}: {reason}" +
+            failures.append(f"{identity}: {reason}" + (' (incomplete cost accounting)' if incomplete_cost else '') +
                             (" (no valid model)" if not summary.get("best") else ""))
     if failures:
         raise RuntimeError("Search failed; artifacts retained: " + "; ".join(failures))
