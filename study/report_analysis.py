@@ -5,6 +5,7 @@ from collections import Counter, defaultdict
 from itertools import combinations
 import json
 import math
+import re
 from statistics import mean, stdev
 
 
@@ -61,7 +62,11 @@ def recommendation_uptake(events, trials, valid_trials):
     all_trials = {str(t["trial_id"]): t for t in trials}
     scores = {str(t["trial_id"]): t["score"] for t in valid_trials}
     outcomes = []
+    reused = 0
     for event in records:
+        if event.get("executed") is False:
+            reused += 1
+            continue
         if event.get("valid") is not True:
             counts["invalid"] += 1
             continue
@@ -79,9 +84,80 @@ def recommendation_uptake(events, trials, valid_trials):
             "baseline_score": before, "trial_score": after,
             "validation_delta": after - before if before is not None and after is not None else None})
     applicable = sum(counts[s] for s in ("followed", "modified", "rejected"))
-    return {**counts, "recorded_contracts": len(records), "applicable": applicable,
+    return {**counts, "recorded_contracts": len(records), "reused_proposals": reused, "applicable": applicable,
             "followed_fraction": counts["followed"] / applicable if applicable else None,
             "outcomes": outcomes}
+
+
+def literature_coverage(events, config=None, condition=None, *, events_available=True):
+    """Describe recorded retrieval evidence, without inferring reasoning use.
+
+    Attempts count tool-call records (including rejected requests), not network
+    requests. Missing event logs are unknown, rather than an unexercised tool.
+    """
+    condition = (config or {}).get("condition", condition)
+    enabled = condition == "periodic_reflection_literature" if condition else None
+    names = {"literature_search", "literature_fetch"}
+    offered = {tool.get("function", {}).get("name") for event in events
+               if event.get("type") == "model_call_started"
+               for tool in event.get("tools", []) if isinstance(tool, dict)} & names
+    counts = dict.fromkeys(("search_attempts", "search_successes", "search_results",
+                           "fetch_attempts", "fetch_successes", "source_passages_retrieved"), 0)
+    source_urls, feedback_urls = set(), set()
+    feedback_records = 0
+
+    def present(value):
+        return isinstance(value, str) and bool(value.strip())
+
+    def urls(value):
+        if isinstance(value, dict):
+            return set().union(*(urls(item) for item in value.values())) if value else set()
+        if isinstance(value, list):
+            return set().union(*(urls(item) for item in value)) if value else set()
+        if not isinstance(value, str):
+            return set()
+        return {url.rstrip(".,;:!?)])}") for url in re.findall(r'https?://[^\s<>"\x27]+', value)}
+
+    for event in events:
+        name = event.get("name")
+        if event.get("type") == "tool_call" and name in names:
+            operation = "search" if name == "literature_search" else "fetch"
+            counts[operation + "_attempts"] += 1
+            result = event.get("result")
+            if not isinstance(result, dict) or "error" in result:
+                continue
+            if operation == "search":
+                results = result.get("results")
+                if not isinstance(results, list):
+                    continue
+                counts["search_successes"] += 1
+                for item in results:
+                    if not isinstance(item, dict):
+                        continue
+                    if any(present(item.get(key)) for key in ("title", "doi", "url", "passage")):
+                        counts["search_results"] += 1
+                    counts["source_passages_retrieved"] += present(item.get("passage"))
+                    source_urls.update(urls(item.get("url")))
+            elif isinstance(result.get("text"), str):
+                counts["fetch_successes"] += 1
+                counts["source_passages_retrieved"] += present(result["text"])
+                source_urls.update(urls(result.get("url")) | urls(result.get("final_url")))
+        elif event.get("type") == "review":
+            feedback_records += 1
+            # Match explicit source URLs in accepted feedback only, not tool
+            # messages, prompts, or unaccepted model drafts.
+            feedback_urls.update((urls(event.get("feedback")) | urls(event.get("contract"))) & source_urls)
+    attempts = counts["search_attempts"] + counts["fetch_attempts"]
+    state = ("unknown" if not events_available else
+             "passage_retrieved" if counts["source_passages_retrieved"] else
+             "attempted_without_passage" if attempts else
+             "unexercised" if enabled or offered else "not_enabled")
+    return {"enabled": enabled, "tools_offered": sorted(offered) if events_available else None,
+            "events_available": events_available, "state": state,
+            **{key: value if events_available else None for key, value in counts.items()},
+            "source_urls": sorted(source_urls) if events_available else None,
+            "feedback_records": feedback_records if events_available else None,
+            "feedback_source_urls": sorted(feedback_urls) if events_available else None}
 
 
 def config_stratum(row):

@@ -125,8 +125,8 @@ the legacy MAGIC reference remains its original fixed HGB pipeline.
 ## Bundled examples
 
 - [MAGIC](../study/problems/magic.yaml): ten-column telescope data, binary ROC-AUC,
-  0.93 milestone and 0.95 stretch threshold. Use `study-data/magic-profile-v2` as the
-  new prepared output; the earlier `study-data/magic` belongs to the legacy format.
+  0.93 milestone and 0.95 stretch threshold. Use `study-data/magic-profile` as the
+  prepared output and reuse it across model-code updates.
 - [Classification CSV](../study/problems/classification.yaml): arbitrary numerical
   feature columns and named target, using accuracy plus macro-F1.
 - [MNIST](../study/problems/mnist.yaml): multiclass digit recognition, macro
@@ -179,8 +179,9 @@ data; use a fresh output directory for this changed, frozen scoring definition.
 
 ## Frozen evaluation and extensions
 
-Preparation freezes the resolved profile, adapter ID/version, source bytes and
-partition fingerprints. Editing targets, the brief, metric, split, columns or
+Preparation freezes the resolved profile, source bytes, split and partition
+fingerprints. The data identity is independent of the adapter version, which is
+recorded separately in each run's `project.json`. Editing targets, the brief, metric, split, columns or
 model bounds requires new prepared output. Run/suite preflight checks scientific
 identity before provider construction or pricing requests. `--problem` can be
 omitted at run time to use the frozen definition. Use the profile's split seed;
@@ -193,7 +194,12 @@ is not passed to search workers. Test scoring only sees saved selected artifacts
 after search. Reports name the actual objective, support arbitrary targets, and
 refuse aggregation across incompatible problem/dataset identities or metrics.
 
-Old prepared datasets and ROC-AUC reports remain readable. Legacy `milestone` and
+For older profile datasets, rerun `prepare` with the same problem and output to
+refresh metadata after integrity checks, without regenerating partitions. Do this
+only when no run is using that directory. The new fingerprint includes the saved
+partition hashes. Historical runs retain their original fingerprints; preserve
+their original prepared directory if they still need held-out evaluation.
+Saved reports remain readable. Legacy `milestone` and
 `stretch` study-config fields apply only when no frozen problem profile exists;
 profile runs take targets exclusively from the profile.
 

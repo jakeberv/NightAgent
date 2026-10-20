@@ -221,8 +221,9 @@ def test_profile_cli_prepare_run_evaluate_report_uses_configured_objective(
     class Offline(FakeModel):
         async def describe(self):
             return {"offline": True}
+    from study.fake import bounded_options
     monkeypatch.setattr("study.__main__.live_model", lambda config: Offline(
-        options=[get_adapter(load_problem(profile)).reference_config]))
+        options=bounded_options(get_adapter(load_problem(profile)))))
     asyncio.run(dispatch(Namespace(command="run", problem=profile, config=config,
         data=data, output=run, condition=None)))
     summary = json.loads((run / "summary.json").read_text())

@@ -293,24 +293,32 @@ def load_problem_data(problem):
 
 
 def _prepare_problem_dataset(output, problem):
-    from study.problem import assert_problem_matches
-    from study.tasks import get_adapter
+    from study.problem import _validate_prepared_data, prepared_data_fingerprint
     output = Path(output)
     X, y, official_test, features, source_hash = load_problem_data(problem)
     split = problem.to_dict()['evaluation']['split']
     seed = split['seed']
-    adapter = get_adapter(problem)
-    identity = {'dataset': problem.id, 'source_sha256': source_hash, 'seed': seed, 'problem_hash': problem.fingerprint, 'adapter': {'id': adapter.id, 'version': adapter.version}}
-    fingerprint = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+    identity = {'dataset': problem.id, 'source_sha256': source_hash, 'seed': seed, 'problem_hash': problem.fingerprint}
     if output.exists() and any(output.iterdir()):
         try:
-            previous = json.loads((output / 'manifest.json').read_text())
-            assert_problem_matches(output, problem)
-            if previous['data_fingerprint'] != fingerprint:
-                raise ValueError('source fingerprint changed')
-            return previous
+            previous = _validate_prepared_data(output, problem)
+            if any(previous[key] != value for key, value in identity.items()) or previous['feature_names'] != features:
+                raise ValueError('source identity changed')
+            if 'adapter' in previous:
+                # One-time metadata conversion, only during explicit preparation.
+                old_identity = {key: previous[key] for key in (*identity, 'adapter')}
+                expected = hashlib.sha256(json.dumps(old_identity, sort_keys=True).encode()).hexdigest()
+            else:
+                expected = prepared_data_fingerprint(previous)
+            if previous['data_fingerprint'] != expected:
+                raise ValueError('prepared data fingerprint mismatch')
+            refreshed = {key: value for key, value in previous.items() if key != 'adapter'}
+            refreshed['data_fingerprint'] = prepared_data_fingerprint(refreshed)
+            if refreshed != previous:
+                _atomic_json(output / 'manifest.json', refreshed)
+            return refreshed
         except (OSError, KeyError, ValueError) as exc:
-            raise ValueError('Prepared dataset is immutable; use a new output directory') from exc
+            raise ValueError(f'Prepared data cannot be reused: {exc}. Restore the original inputs or use a new output directory for changed data') from exc
     stratify = y if problem.task == 'tabular_classification' else None
     try:
         if official_test is None:
@@ -337,7 +345,8 @@ def _prepare_problem_dataset(output, problem):
         os.replace(temporary, destination)
         destination.chmod(0o444)
         partitions[name] = {'rows': len(py), 'sha256': _hash_file(destination)}
-    manifest = identity | {'problem': problem.to_dict(), 'data_fingerprint': fingerprint, 'feature_names': features, 'split_protocol': split, 'partitions': partitions}
+    manifest = identity | {'problem': problem.to_dict(), 'feature_names': features, 'split_protocol': split, 'partitions': partitions}
+    manifest['data_fingerprint'] = prepared_data_fingerprint(manifest)
     _atomic_json(output / 'manifest.json', manifest)
     return manifest
 

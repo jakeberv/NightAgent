@@ -14,7 +14,7 @@ from statistics import mean, stdev
 from typing import Any
 
 from .report_analysis import (assign_analysis_groups, paired_comparisons,
-                              recommendation_uptake, role_metrics)
+                              recommendation_uptake, role_metrics, literature_coverage)
 
 TOKEN_FIELDS = ("input_tokens", "output_tokens", "cached_tokens", "reasoning_tokens")
 
@@ -264,10 +264,12 @@ def _run_data(path: Path, warnings: list[str], summary_override=None, shared_tes
         "postrun_accounting": postrun,
         "event_counts": dict(Counter(e.get("type", "unknown") for e in events)),
         "role_metrics": role_metrics(events),
+        "literature_coverage": literature_coverage(events, summary.get("config"), summary.get("condition"),
+            events_available=(path.parent / "events.jsonl").exists()),
         "recommendation_uptake": recommendation_uptake(events, trials, valid),
         "trace": [e for e in events if e.get("type") in
                   ("review", "reflection", "selection", "run_stopped", "decision_contract",
-                   "experiment_diagnostic", "repeated_tool_call", "lesson_memory")],
+                   "experiment_diagnostic", "experiment_reused", "repeated_tool_call", "lesson_memory")],
         "targets": {},
     }
     for definition in definitions:
@@ -575,6 +577,19 @@ def generate_report(root: Path) -> Path:
     sections.append("<details><summary>Frozen run configurations</summary><pre>" +
                     html.escape(json.dumps({r["run_id"]: {"analysis_group": r["analysis_group"], "config": r["config"]}
                                            for r in runs}, indent=2, ensure_ascii=False)) + "</pre></details>")
+    sections.append("<h2>Literature coverage</h2><p>The literature condition makes retrieval optional. "
+                    "Enabled describes the assigned condition; offered lists tools present in recorded model requests. "
+                    "Attempts count recorded tool calls, including rejected requests. Successful search/fetch responses "
+                    "can be empty; passages count nonempty search abstracts and fetched text. Source URLs in accepted "
+                    "supervisor feedback are observable citations, not proof that evidence influenced reasoning. "
+                    "Missing event logs are unknown; unexercised means no retrieval call was recorded.</p>")
+    sections.append(_table(["Run", "Enabled", "Offered tools", "State", "Search attempts / successful", "Results",
+                            "Fetch attempts / successful", "Passages", "Source URLs in supervisor feedback"],
+        [[r["run_id"], c["enabled"], c["tools_offered"], c["state"],
+          f'{c["search_attempts"]} / {c["search_successes"]}' if c["events_available"] else None,
+          c["search_results"], f'{c["fetch_attempts"]} / {c["fetch_successes"]}' if c["events_available"] else None,
+          c["source_passages_retrieved"], c["feedback_source_urls"]]
+         for r in runs for c in [r["literature_coverage"]]]))
     sections.append("<h2>Named validation target crossings</h2>")
     sections.append(_table(["Run", "Target", f"Threshold ({metric})", "Reached", "First crossing (s)"],
                            [[r["run_id"], name, t["threshold"], t["reached"], t["seconds"]]

@@ -1,5 +1,31 @@
 """Deterministic offline demonstration; never an experimental LLM result."""
 import json
+from copy import deepcopy
+
+
+def bounded_options(adapter, limit=4):
+    """Distinct valid settings for offline profile smoke checks, never a search policy."""
+    reference = adapter.reference_config
+    options = [deepcopy(reference)]
+    for name, schema in adapter.parameters[reference['model']].items():
+        choices = schema.get('enum', [])
+        if schema.get('type') in ('integer', 'number'):
+            low, high = schema['minimum'], schema['maximum']
+            choices = [low + (high-low)*fraction for fraction in (0, .25, .5, 1)]
+            if schema['type'] == 'integer':
+                choices = [int(value) for value in choices]
+        for value in choices:
+            candidate = deepcopy(reference)
+            candidate['params'][name] = value
+            try:
+                adapter.validate_config(candidate)
+            except ValueError:
+                continue
+            if candidate not in options:
+                options.append(candidate)
+            if len(options) >= limit:
+                return options
+    return options
 
 
 def scripted_contract(role, context):

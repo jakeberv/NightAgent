@@ -205,7 +205,7 @@ async def _dispatch(args, progress):
         if result.get("status") != "completed":
             raise RuntimeError(f"Reference failed: {result.get('status')}; see {args.output}")
     elif args.command == "smoke":
-        from .fake import FakeLiterature, FakeModel
+        from .fake import FakeLiterature, FakeModel, bounded_options
         from .report import generate_report
         # All model and literature calls are local fixtures; classifiers are real.
         problem = None
@@ -214,7 +214,7 @@ async def _dispatch(args, progress):
             from .problem import load_problem
             from .tasks import get_adapter
             problem = load_problem(problem_path)
-            options = [get_adapter(problem).reference_config]
+            options = bounded_options(get_adapter(problem))
         args.output.mkdir(parents=True, exist_ok=False)
         data_dir = args.output / "data"
         if problem:
@@ -224,7 +224,7 @@ async def _dispatch(args, progress):
         summaries = []
         for condition in CONDITIONS:
             config = StudyConfig(condition=condition, model="offline-script", provider="offline",
-                allowance_seconds=60, trial_cap=4, trial_timeout_seconds=15,
+                allowance_seconds=60, trial_cap=len(options) if options else 4, trial_timeout_seconds=15,
                 lesson_memory=bool(getattr(args, "lesson_memory", False)))
             summaries.append(await run_one(config, data_dir, args.output / "runs" / condition,
                 FakeModel(options=options), literature=FakeLiterature(), problem=problem, progress=progress))

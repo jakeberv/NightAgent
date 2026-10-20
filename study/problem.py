@@ -233,20 +233,41 @@ def problem_from_data(data_dir):
     return problem
 
 
-def assert_problem_matches(data_dir, problem):
+def prepared_data_fingerprint(manifest):
+    """Identify scientific inputs independently of the implementation fitting them."""
+    identity = {key: manifest[key] for key in (
+        'dataset', 'source_sha256', 'seed', 'problem_hash',
+        'split_protocol', 'feature_names', 'partitions',
+    )}
+    return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+
+
+def _validate_prepared_data(data_dir, problem):
     from study.science import _hash_file
     data_dir = Path(data_dir)
     frozen = problem_from_data(data_dir)
     if frozen is None or frozen.fingerprint != problem.fingerprint:
         raise ValueError('problem profile differs from frozen prepared problem')
     manifest = json.loads((data_dir / 'manifest.json').read_text())
-    from study.tasks import get_adapter
-    adapter = get_adapter(problem)
-    if manifest.get('adapter') != {'id': adapter.id, 'version': adapter.version}:
-        raise ValueError('prepared adapter identity/version mismatch')
+    split = problem.to_dict()['evaluation']['split']
+    if (manifest.get('dataset') != problem.id or manifest.get('seed') != split['seed']
+            or manifest.get('split_protocol') != split):
+        raise ValueError('prepared dataset identity/split mismatch')
     for name in ('train', 'validation', 'test'):
         try:
             if _hash_file(data_dir / f'{name}.npz') != manifest['partitions'][name]['sha256']:
                 raise ValueError(f'{name} partition fingerprint mismatch')
         except (OSError, KeyError) as exc:
             raise ValueError(f'{name} partition fingerprint missing') from exc
+    return manifest
+
+
+def assert_problem_matches(data_dir, problem):
+    manifest = _validate_prepared_data(data_dir, problem)
+    if 'adapter' in manifest:
+        raise ValueError('Prepared metadata needs refreshing; rerun study prepare with the same problem and output directory')
+    try:
+        if manifest.get('data_fingerprint') != prepared_data_fingerprint(manifest):
+            raise ValueError('prepared data fingerprint mismatch')
+    except KeyError as exc:
+        raise ValueError('prepared data identity missing') from exc

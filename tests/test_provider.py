@@ -205,7 +205,7 @@ def test_anthropic_receives_supported_analysis_schema_and_local_rules_stay_stric
         Path(__file__).resolve().parents[1] / "study/problems" / f"{profile}.yaml")
     tools = tools_for("researcher", StudyConfig(), problem)
     original = copy.deepcopy(tools)
-    local_schema = tools[2]["function"]["parameters"]
+    local_schema = tools[0]["function"]["parameters"]
     valid = {"model": "ridge" if profile == "regression" else "logistic",
              "preprocessing": "standard", "params": {"alpha": 2} if profile == "regression" else {"C": 2}}
     from study.fake import scripted_contract
@@ -213,7 +213,7 @@ def test_anthropic_receives_supported_analysis_schema_and_local_rules_stay_stric
     wrong_model_params = valid | {"params": {"n_estimators": 30}}
     async def handler(request):
         payload = json.loads(request.content)
-        schema = payload["tools"][2]["function"]["parameters"]
+        schema = payload["tools"][0]["function"]["parameters"]
         if set(schema) & {"allOf", "anyOf", "oneOf"}:
             return httpx.Response(400, json={"error": {
                 "message": "input_schema does not support oneOf, allOf, or anyOf at the top level"}})
@@ -232,7 +232,7 @@ def test_anthropic_receives_supported_analysis_schema_and_local_rules_stay_stric
         try:
             result = await client.complete([], tools, timeout=1)
             assert result["message"]["tool_calls"][0]["function"]["name"] == "run_analysis"
-            assert "allOf" not in result["request_tools"][2]["function"]["parameters"]
+            assert "allOf" not in result["request_tools"][0]["function"]["parameters"]
         finally:
             await client.aclose()
     run(scenario())

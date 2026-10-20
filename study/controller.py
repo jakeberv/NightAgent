@@ -26,10 +26,8 @@ EMPTY = {"type": "object", "properties": {}, "additionalProperties": False}
 def tools_for(role, config, problem=None):
     if role == "reflection":
         return []
-    tools = [
-        function_tool("inspect_project", "Read fixed task and search-space metadata.", EMPTY),
-        function_tool("read_results", "Read the common bounded recent-trial history.", EMPTY),
-    ]
+    # Both are supplied in every refreshed context; fetching them adds no evidence.
+    tools = []
     if role == "researcher":
         if problem is None:
             from .science import ANALYSIS_SCHEMA
@@ -168,7 +166,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     if provider_metadata is not None:
         atomic_json(run_dir / "provider.json", provider_metadata)
     history = []
-    from .reasoning import LessonMemory, validate_contract, parse_contract, schema_errors, ground_contract
+    from .reasoning import LessonMemory, validate_contract, parse_contract, schema_errors, ground_contract, resolve_contract_evidence
     memory = LessonMemory(config.memory_limit)
     feedback = reflection = None
     accounting = Accounting()
@@ -262,7 +260,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             atomic_json(run_dir / "lessons.json", {"scope": "this run only", "lessons": memory.snapshot()})
 
     def ground_accepted(contract, role):
-        contract, changes = ground_contract(contract)
+        contract, changes = ground_contract(contract, history=history)
         if changes:
             journal.emit("contract_grounded", role=role, adjustments=changes)
         return contract
@@ -287,6 +285,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                     contract = None
                     try:
                         contract = parse_contract(message.get("content"), allow_wrapper=True)
+                        contract = resolve_contract_evidence(contract, history)
                         errors = validate_contract(contract, role, history,
                             has_feedback=feedback is not None, memory=config.lesson_memory)
                         if not errors:
@@ -333,20 +332,34 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         journal.emit("repeated_tool_call", role=role, name=name,
                                      repetitions=seen_calls[call_key], arguments=args)
                     if name == "run_analysis":
-                        intent = args.pop("intent", None)
+                        intent = resolve_contract_evidence(args.pop("intent", None), history)
                         errors = validate_contract(intent, "researcher", history,
                             has_feedback=feedback is not None, memory=config.lesson_memory)
                         if not errors:
                             intent = ground_accepted(intent, "researcher")
-                        journal.emit("decision_contract", trial_id=summary["trials"] + 1,
-                                     contract=intent, valid=not errors, errors=errors)
-                        contract_recorded = True
                         if errors:
+                            journal.emit("decision_contract", trial_id=summary["trials"] + 1,
+                                         contract=intent, valid=False, errors=errors)
+                            contract_recorded = True
                             raise ValueError("Correct the decision contract: " + " ".join(errors))
-                        accept_lessons(intent)
                         from .diagnostics import experiment_diagnostic
                         diagnostic = experiment_diagnostic(args, problem=problem, project=project,
                                                            seed=config.training_seed, history=history)
+                        equivalent = diagnostic['equivalent_trial_ids']
+                        journal.emit("decision_contract", trial_id=None if equivalent else summary["trials"] + 1,
+                                     contract=intent, valid=True, errors=[], executed=not bool(equivalent))
+                        contract_recorded = True
+                        if equivalent:
+                            prior = next(row for row in history if row['trial_id'] == equivalent[0])
+                            result = {'status': 'reused', 'matched_trial_ids': equivalent,
+                                      'observation': agent_result(prior),
+                                      'message': 'This effective configuration and seed already completed. No fit or trial slot was used. Choose a different experiment.'}
+                            journal.emit('experiment_reused', matched_trial_ids=equivalent,
+                                         config=args, result=result)
+                            messages.append({'role': 'tool', 'tool_call_id': call.get('id', ''),
+                                             'content': json.dumps(result, allow_nan=False)})
+                            continue
+                        accept_lessons(intent)
                         summary["trials"] += 1
                         trial_id = summary["trials"]
                         journal.emit("decision", trial_id=trial_id, message=message,
@@ -395,11 +408,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         atomic_json(run_dir / "checkpoint.json", summary)
                         history.append(result)
                         return agent_result(result)
-                    if name == "inspect_project":
-                        result = project
-                    elif name == "read_results":
-                        result = [agent_result(row) for row in history[-config.history_trials:]]
-                    elif name.startswith("literature_"):
+                    if name.startswith("literature_"):
                         if browser_calls >= config.literature_calls_per_review:
                             raise ValueError("Per-review literature cap reached")
                         browser_calls += 1
@@ -487,14 +496,14 @@ def recover_run(run_dir):
     if frozen_path.exists():
         frozen = json.loads(frozen_path.read_text())
         recorded_config = frozen["config"]
-        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1"})
+        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1", "reasoning_policy": "grounded_v2"})
         data_fingerprint = frozen.get("data_fingerprint", data_fingerprint)
         problem = ProblemSpec.from_dict(frozen["problem"])
         if problem.fingerprint != frozen["problem_hash"]:
             raise ValueError("Frozen run problem fingerprint does not match")
     else:
         recorded_config = json.loads((run_dir / "config.json").read_text())
-        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1"})
+        config = StudyConfig(**{**recorded_config, "decision_protocol": "structured_v1", "reasoning_policy": "grounded_v2"})
         if (run_dir / "problem.json").exists():
             problem = ProblemSpec.from_dict(json.loads((run_dir / "problem.json").read_text()))
         else:

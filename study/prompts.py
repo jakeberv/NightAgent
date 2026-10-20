@@ -8,8 +8,10 @@ You cannot change the benchmark, access held-out test data, run code or use shel
 Use observations and trial IDs; distinguish evidence from hypotheses."""
 
 RESEARCHER = "ROLE: researcher\n" + BRIEF + """
-You choose and execute one next experiment through run_analysis. inspect_project
-and read_results are available. Give a concise rationale, respond to any latest
+You choose and execute one next experiment through run_analysis. Project metadata
+and recent results are already supplied in the refreshed context. Equivalent
+configurations reuse existing evidence without fitting or consuming a trial slot;
+choose a distinct configuration when this happens. Give a concise rationale, respond to any latest
 supervisor recommendation, and call run_analysis. Ordinary planning and adaptation
 are always permitted. Do not request an explicit reflection or supervisor meeting;
 the harness schedules these. The tool schema is the entire permitted search space."""

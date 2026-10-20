@@ -2,7 +2,10 @@
 
 This is an operational check of authenticated tool calls, completed classifier
 trials, supervisor feedback, reflection, and charged usage. It does not establish
-which strategy performs best.
+which strategy performs best. The 12-trial cap makes this a fixed-experiment-count
+operational pilot whenever all strategies reach it. For a wall-time comparison,
+raise the cap so the equal time allowances bind, and keep that choice frozen
+across strategies.
 
 The prepared configuration is `study/magic-pilot-config.json`:
 
@@ -11,7 +14,7 @@ The prepared configuration is `study/magic-pilot-config.json`:
 - Limits: five minutes, 12 trial attempts, 60 seconds per trial and model call.
 - Spending guard: USD 3 per run; missing billing stops the run. This guard checks
   charges between requests, so the last request can exceed it.
-- Dataset: `study-data/magic-profile-v2`, frozen from `study/problems/magic.yaml`;
+- Dataset: `study-data/magic-profile`, frozen from `study/problems/magic.yaml`;
   binary ROC-AUC with validation targets 0.93 and 0.95.
 
 Run these commands from the NightAgent repository root. The existing `.venv`
@@ -20,15 +23,18 @@ must be at `study-data/magic-source/magic04.data`.
 
 ```bash
 .venv/bin/python -m study prepare \
-  --problem study/problems/magic.yaml --output study-data/magic-profile-v2
+  --problem study/problems/magic.yaml --output study-data/magic-profile
 ```
 
-Preparation verifies the existing immutable dataset if already present. The
-version-2 directory records the unambiguous `max_features="all"` adapter. Older
-`magic-profile` directories remain unchanged and cannot be used for new runs with
-this adapter version. Repreparation preserves the same configured split and seed.
-The
-launch command below reads the existing Tutorial 3 `.env` using `--env-file`.
+Preparation verifies existing data and refreshes older metadata in place. Model
+adapter versions are recorded per run, so code fixes no longer require a new data
+directory. Refreshing verifies the source, problem, split and partition hashes;
+it leaves all saved partition files unchanged. Run this command only after any
+active pilot using the directory has stopped. Preserve the original prepared
+directory for historical runs that still need held-out evaluation, because their
+saved artifacts retain the old data fingerprint.
+
+The launch command below reads the existing Tutorial 3 `.env` using `--env-file`.
 It accepts `OPENROUTER_API_KEY`, or the tutorial's `LLM_API_KEY` when
 `LLM_BASE_URL` identifies HTTPS OpenRouter. Only the key is imported; the model
 and provider stay pinned by the pilot configuration. The file is parsed as
@@ -54,7 +60,7 @@ pilot_output="study-runs/magic-live-pilot-$(date +%Y%m%d-%H%M%S)"
   --max-cores 4 \
   --lesson-memory \
   --problem study/problems/magic.yaml \
-  --data study-data/magic-profile-v2 --output "$pilot_output"
+  --data study-data/magic-profile --output "$pilot_output"
 pilot_status=$?
 printf 'Pilot exit code: %s\n' "$pilot_status"
 ```
@@ -251,7 +257,7 @@ runs have five separate USD 3 guards, each checked between model calls.
 .venv/bin/python -m study suite \
   --config study/magic-pilot-config.json \
   --env-file ../AgenticAI2026_Tutorial-3/.env \
-  --data study-data/magic-profile-v2 \
+  --data study-data/magic-profile \
   --output "study-runs/magic-all-strategies-$(date +%Y%m%d-%H%M%S)" \
   --repeats 1 --max-cores 8 --lesson-memory --validation-only \
   --reserve-seconds 180 \
@@ -283,3 +289,32 @@ The output report now shows role-level time, tokens, costs and failures, advice
 uptake, and equivalent-configuration warnings. Matched statistical comparisons
 require multiple compatible condition runs; a single pilot cannot establish that
 supervision or memory improves results.
+
+## Retrieval and reliability checks
+
+Literature availability does not imply retrieval occurred. Reports now separately
+show offered tools, search/fetch attempts, successful results, retrieved passages,
+and retrieved URLs mentioned in accepted supervisor feedback. A URL mention is
+not proof that advice was useful. An enabled run with no calls is labeled
+`unexercised` and cannot validate the retrieval path.
+
+Run a credential-free check before a literature-enabled pilot:
+
+```bash
+.venv/bin/python -m study.literature_check \
+  --query 'Fashion MNIST benchmarking machine learning algorithms' \
+  --url https://arxiv.org/abs/1708.07747 \
+  --output study-runs/literature-check.json
+```
+
+This performs one bounded search and one fetch, saves evidence, and exits nonzero
+if either fails or returns no useful results/text. It makes no model calls.
+The literature strategy remains optional retrieval: forcing browsing would be a
+different treatment and must be recorded separately.
+
+Current pilots use `grounded_v2`: agents cite trial IDs and metric names, while
+the runner supplies exact measurements; lesson facts are generated from recorded
+comparisons and explanations remain unverified interpretations. Equivalent
+configurations return prior observations without another fit or trial slot.
+Repeated proposals eventually stop with `no_progress`. Project and history reads
+are supplied directly, avoiding redundant tool/model round trips.

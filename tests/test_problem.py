@@ -145,3 +145,74 @@ def test_multiclass_auc_incompatible_additional_metrics_rejected(objective, addi
         value['dataset']['positive_class'] = positive
     with pytest.raises(ValueError):
         ProblemSpec.from_dict(value)
+
+
+def test_prepared_identity_survives_adapter_update(tmp_path, monkeypatch):
+    from study.problem import ProblemSpec, assert_problem_matches
+    from study.science import prepare_dataset, project_info
+    from study.tasks import get_adapter
+    spec = ProblemSpec.from_dict(profile())
+    before = prepare_dataset(tmp_path, problem=spec)
+    adapter_class = type(get_adapter(spec))
+    monkeypatch.setattr(adapter_class, 'version', get_adapter(spec).version + 1)
+    assert_problem_matches(tmp_path, spec)
+    assert prepare_dataset(tmp_path, problem=spec) == before
+    assert 'adapter' not in before
+    assert project_info(tmp_path)['adapter']['version'] == get_adapter(spec).version
+
+
+def _old_prepared_manifest(path, manifest):
+    import hashlib
+    old = copy.deepcopy(manifest)
+    old['adapter'] = {'id': 'tabular_classification', 'version': 1}
+    identity = {key: old[key] for key in ('dataset', 'source_sha256', 'seed', 'problem_hash', 'adapter')}
+    old['data_fingerprint'] = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+    (path / 'manifest.json').write_text(json.dumps(old))
+    return old
+
+
+def test_prepare_refreshes_old_metadata_without_touching_partitions(tmp_path):
+    from study.problem import ProblemSpec, assert_problem_matches
+    from study.science import prepare_dataset
+    spec = ProblemSpec.from_dict(profile())
+    prepared = prepare_dataset(tmp_path, problem=spec)
+    _old_prepared_manifest(tmp_path, prepared)
+    snapshots = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in tmp_path.glob('*.npz')}
+    refreshed = prepare_dataset(tmp_path, problem=spec)
+    assert 'adapter' not in refreshed
+    assert refreshed == prepared
+    assert_problem_matches(tmp_path, spec)
+    for p in tmp_path.glob('*.npz'):
+        assert (p.read_bytes(), p.stat().st_mtime_ns) == snapshots[p.name]
+    manifest_time = (tmp_path / 'manifest.json').stat().st_mtime_ns
+    assert prepare_dataset(tmp_path, problem=spec) == refreshed
+    assert (tmp_path / 'manifest.json').stat().st_mtime_ns == manifest_time
+
+
+@pytest.mark.parametrize('old_format', [False, True])
+@pytest.mark.parametrize('corruption', ['source', 'partition', 'fingerprint', 'profile', 'split'])
+def test_prepare_refuses_to_refresh_corrupted_data(tmp_path, old_format, corruption):
+    from study.problem import ProblemSpec
+    from study.science import prepare_dataset
+    spec = ProblemSpec.from_dict(profile())
+    manifest = prepare_dataset(tmp_path, problem=spec)
+    if old_format:
+        manifest = _old_prepared_manifest(tmp_path, manifest)
+    if corruption == 'source':
+        manifest['source_sha256'] = 'wrong'
+    elif corruption == 'fingerprint':
+        manifest['data_fingerprint'] = 'wrong'
+    elif corruption == 'profile':
+        manifest['problem']['brief'] = 'Changed problem.'
+    elif corruption == 'split':
+        manifest['split_protocol']['seed'] += 1
+    else:
+        partition = tmp_path / 'train.npz'
+        partition.chmod(0o644)
+        partition.write_bytes(b'corrupted')
+    manifest_path = tmp_path / 'manifest.json'
+    manifest_path.write_text(json.dumps(manifest))
+    before = manifest_path.read_bytes()
+    with pytest.raises(ValueError):
+        prepare_dataset(tmp_path, problem=spec)
+    assert manifest_path.read_bytes() == before

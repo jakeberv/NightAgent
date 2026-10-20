@@ -190,3 +190,84 @@ def test_unstarted_scheduled_run_uses_its_planned_seed_and_stays_in_pair_denomin
     assert comparison["no_valid_model_b"] == 1
     assert comparison["metrics"]["best_score"]["ci95"] is None
     assert comparison["targets"]["milestone"]["attainment"]["n"] == 1
+
+
+def test_literature_availability_without_calls_is_explicitly_unexercised(tmp_path):
+    tools = [{"type": "function", "function": {"name": name}} for name in
+             ("literature_search", "literature_fetch")]
+    write_run(tmp_path, "available", condition="periodic_reflection_literature",
+              events=[{"type": "model_call_started", "role": "supervisor", "tools": tools}])
+    row = build_report_data(tmp_path)["runs"][0]
+    coverage = row.get("literature_coverage")
+    assert coverage is not None, "Reports must separate literature availability from exercised retrieval."
+    assert coverage["enabled"] is True
+    assert coverage["tools_offered"] == ["literature_fetch", "literature_search"]
+    assert coverage["state"] == "unexercised"
+    assert coverage["search_attempts"] == coverage["fetch_attempts"] == 0
+    assert coverage["feedback_source_urls"] == []
+    document = generate_report(tmp_path).read_text()
+    assert "Literature coverage" in document and "unexercised" in document
+
+
+def test_literature_coverage_counts_failures_passages_and_only_observed_feedback_urls(tmp_path):
+    source = "https://example.org/paper"
+    events = [
+        {"type": "tool_call", "name": "literature_search", "result": {"results": [
+            {"url": source, "title": "Paper", "passage": "Abstract evidence."}]}},
+        {"type": "tool_call", "name": "literature_fetch", "result": {"error": "timeout"}},
+        {"type": "tool_call", "name": "literature_fetch", "result": {"url": source, "text": "Source passage."}},
+        {"type": "review", "feedback": "See https://example.org/paper-other."},
+        {"type": "review", "contract": {"summary": f"Use evidence ({source})."}},
+    ]
+    write_run(tmp_path, "retrieved", condition="periodic_reflection_literature", events=events)
+    coverage = build_report_data(tmp_path)["runs"][0].get("literature_coverage")
+    assert coverage is not None
+    assert coverage["search_attempts"] == coverage["search_successes"] == 1
+    assert coverage["fetch_attempts"] == 2 and coverage["fetch_successes"] == 1
+    assert coverage["source_passages_retrieved"] == 2
+    assert coverage["feedback_source_urls"] == [source]
+    assert coverage["state"] == "passage_retrieved"
+
+
+def test_missing_literature_event_log_retains_unknown_attempts(tmp_path):
+    write_run(tmp_path, "legacy", condition="periodic_reflection_literature")
+    coverage = build_report_data(tmp_path)["runs"][0].get("literature_coverage")
+    assert coverage is not None
+    assert coverage["state"] == "unknown"
+    assert coverage["search_attempts"] is None
+    assert coverage["fetch_attempts"] is None
+    assert coverage["feedback_source_urls"] is None
+
+
+def test_reused_proposal_is_not_counted_as_executed_recommendation_uptake(tmp_path):
+    write_run(tmp_path, "reuse", events=[{"type": "decision_contract", "valid": True,
+        "executed": False, "trial_id": None, "contract": {"supervisor_response": "followed"}},
+        {"type": "experiment_reused", "matched_trial_ids": [1]}])
+    row = build_report_data(tmp_path)["runs"][0]
+    assert row["recommendation_uptake"]["followed"] == 0
+    assert row["recommendation_uptake"]["reused_proposals"] == 1
+    assert row["recommendation_uptake"]["outcomes"] == []
+    assert row["trace"][1]["type"] == "experiment_reused"
+
+
+def test_literature_feedback_does_not_credit_prefixes_or_later_retrieval(tmp_path):
+    source = "https://example.org/paper"
+    write_run(tmp_path, "timing", condition="periodic_reflection_literature", events=[
+        {"type": "review", "feedback": source},
+        {"type": "tool_call", "name": "literature_fetch", "result": {"url": source, "text": "Evidence"}},
+        {"type": "review", "feedback": source + "-other"},
+    ])
+    coverage = build_report_data(tmp_path)["runs"][0]["literature_coverage"]
+    assert coverage["feedback_records"] == 2
+    assert coverage["feedback_source_urls"] == []
+
+
+def test_successful_empty_retrieval_is_not_reported_as_a_source_passage(tmp_path):
+    write_run(tmp_path, "empty", condition="periodic_reflection_literature", events=[
+        {"type": "tool_call", "name": "literature_search", "result": {"results": []}},
+        {"type": "tool_call", "name": "literature_fetch", "result": {"url": "https://example.org", "text": " "}},
+    ])
+    coverage = build_report_data(tmp_path)["runs"][0]["literature_coverage"]
+    assert coverage["search_successes"] == coverage["fetch_successes"] == 1
+    assert coverage["search_results"] == coverage["source_passages_retrieved"] == 0
+    assert coverage["state"] == "attempted_without_passage"

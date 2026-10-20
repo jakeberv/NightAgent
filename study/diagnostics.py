@@ -87,7 +87,7 @@ def describe_experiment(config, *, problem, project, seed):
 
 
 def experiment_diagnostic(config, *, problem, project, seed, history):
-    """Describe this request and flag successful equivalent prior experiments.
+    """Describe this request and identify successful equivalent prior experiments.
 
     Stored metadata must be internally consistent and match all provenance.
     A legacy row without metadata can be compared only with an explicit seed.
@@ -121,5 +121,5 @@ def experiment_diagnostic(config, *, problem, project, seed, history):
     if equivalent:
         ids = ', '.join(str(trial_id) for trial_id in equivalent)
         warning = (f'This experiment has the same effective configuration, preprocessing, seed, and validation provenance as completed trial(s) {ids}; '
-                   'it will still run, but does not provide independent evidence from a new seed.')
+                   'the runner reuses that observation without fitting or consuming a trial slot.')
     return current | {'equivalent_trial_ids': equivalent, 'warning': warning}

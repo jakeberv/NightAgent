@@ -48,7 +48,7 @@ metric, and preserves its official test partition.
 .venv/bin/python -m study smoke --problem study/problems/regression.yaml \
   --output study-runs/regression-smoke
 .venv/bin/python -m study prepare --problem study/problems/magic.yaml \
-  --output study-data/magic-profile-v2
+  --output study-data/magic-profile
 ```
 
 The MAGIC command requires the source downloaded to the path below. Pass the
@@ -129,8 +129,10 @@ charges if cancelled. The buffer does not predict latency or guarantee completio
 
 Effective-configuration diagnostics resolve constructor defaults and safe aliases.
 For example, `sqrt` and `log2` both select three random-forest features on a ten-feature
-dataset. Equivalent successful trials generate an advisory warning, visible in the
-trace, interface, and subsequent agent context. The requested trial still runs.
+dataset. Equivalent successful trials return the previous observation without fitting or
+consuming a trial slot. The `experiment_reused` event records the proposal and
+matched trial IDs; the agent must choose another configuration. Repeated proposals
+are bounded by the no-progress limit and do not establish independent replication.
 Preprocessing, training seed, data/split, implementation version and objective are
 part of equivalence; scaling is never assumed interchangeable. Unknown metadata
 cannot establish an alias equivalence. Changing seeds still requires a separate
@@ -149,10 +151,16 @@ an ID, scope, complete-sentence finding, validation citations, and status:
 least recently updated entries are evicted at the cap. Up to two updates may be
 included in an existing agent response. Memory starts empty for every run, survives
 the recent-trial context window, and is saved in `lessons.json` and the event log.
-No other run's memory or test feedback is loaded. Supported is an agent assessment
-of cited observations, not a claim of independent replication.
+No other run's memory or test feedback is loaded. Supported describes the generated factual observations, not a claim of independent
+replication. Original agent explanations remain explicitly unverified interpretations.
 
-New runs record `reasoning_policy=grounded_v1`. A conservative local wording
+New runs record `reasoning_policy=grounded_v2`. The harness resolves omitted
+evidence values from completed trial IDs and metric names; agents need not copy
+floating-point measurements. Supplied values must still match. Lesson findings
+and scope are generated from the recorded measurements and configurations, while
+original explanations are retained as unverified interpretations. Project metadata
+and recent results are always in context, so redundant read tools are not offered.
+For other commentary, a conservative local wording
 check replaces recognizable claims of optimality, performance ceilings, causality,
 invariance, and similar overclaims with a complete-sentence summary of their cited
 validation measurements. Flagged lessons become `inconclusive` (or remain
@@ -168,8 +176,16 @@ citations still fail validation. Reports separate the new policy from older runs
 Random forests now accept `max_features` values `sqrt`, `log2`, or `all`.
 `all` explicitly selects every feature; numeric `1` and `1.0` are rejected to avoid
 their different scikit-learn meanings. Actual fitted parameters are included in
-agent context. Adapter version 2 requires a new prepared directory; the MAGIC
-pilot uses `study-data/magic-profile-v2`. Previous artifacts remain unchanged.
+agent context. Prepared data is independent of the model adapter version, so
+model-code fixes reuse `study-data/magic-profile`. Each run records the current
+adapter version in its project metadata. Re-running the `prepare` command above
+refreshes older metadata in place after verifying the source, problem, split,
+and partition hashes; it never rewrites the saved partitions. The refreshed data
+fingerprint includes partition hashes and excludes the adapter version. Historical
+run artifacts keep their original fingerprints and should retain their original
+prepared directory if later held-out evaluation is needed. Do not refresh a data
+directory while a run is using it. A genuinely changed source or problem still
+requires a separate prepared directory.
 
 Memory is **off by default** and recorded as a separate experimental variant.
 `--no-lesson-memory` overrides a config that enables it. A memory-enabled suite

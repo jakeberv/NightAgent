@@ -37,7 +37,7 @@ class StructuredModel:
                 'scope': 'This observation applies to this run and split.', 'evidence': contract['evidence']}]
         return {'message': {'role': 'assistant', 'tool_calls': [{'id': str(self.calls), 'type': 'function',
             'function': {'name': 'run_analysis', 'arguments': json.dumps({
-                'model': 'logistic', 'preprocessing': 'standard', 'params': {}, 'intent': contract})}}]},
+                'model': 'logistic', 'preprocessing': 'standard', 'params': {'C': latest + 1}, 'intent': contract})}}]},
             'usage': {'prompt_tokens': 10, 'completion_tokens': 10, 'cost': .001}}
 
 
@@ -49,7 +49,7 @@ def test_bad_evidence_repairs_within_existing_budget_before_training(tmp_path):
     events = [json.loads(line) for line in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
     contracts = [event for event in events if event['type'] == 'decision_contract']
     assert [event['valid'] for event in contracts] == [False, True, True]
-    assert any(event['type'] == 'experiment_diagnostic' and event['equivalent_trial_ids'] == [1] for event in events)
+    assert all(not event['equivalent_trial_ids'] for event in events if event['type'] == 'experiment_diagnostic')
     assert result['accounting']['calls'] == 3
 
 
@@ -165,7 +165,7 @@ def test_review_repair_refreshes_budget_and_disables_unneeded_tools(tmp_path, mo
     assert seen[0][0]['remaining_seconds'] - seen[1][0]['remaining_seconds'] == 10
     assert seen[1][0]['remaining_trials'] == 1
     assert seen[1][0]['mean_model_call_seconds'] > 0
-    assert seen[0][1] and seen[1][1] == []
+    assert seen[0][1] == seen[1][1] == []
 
 
 def test_subsecond_review_retry_is_skipped_without_unknown_charge(tmp_path, monkeypatch):

@@ -30,6 +30,7 @@ class ScriptedModel:
         if role == "ROLE: researcher":
             arguments = json.loads(message["tool_calls"][0]["function"]["arguments"])
             arguments["intent"] = contract
+            arguments["params"]["C"] = context["trials_attempted"] + 1
             message["tool_calls"][0]["function"]["arguments"] = json.dumps(arguments)
         else:
             message["content"] = json.dumps(contract)
@@ -306,7 +307,7 @@ def test_profile_controls_prompts_tools_and_frozen_recovery(tmp_path, regression
             observed.append((messages, tools))
             return {"message": {"role": "assistant", "tool_calls": [{"id": "fit", "type": "function",
                 "function": {"name": "run_analysis", "arguments": json.dumps(
-                    {"model": "ridge", "preprocessing": "standard", "params": {},
+                    {"model": "ridge", "preprocessing": "standard", "params": {"alpha": len(observed)},
                      "intent": scripted_contract(
                          "researcher", json.loads(messages[1]["content"]))})}}]},
                 "usage": {"prompt_tokens": 1, "completion_tokens": 1, "cost": 0}}

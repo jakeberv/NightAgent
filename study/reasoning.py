@@ -16,11 +16,14 @@ EVIDENCE = {"type": "array", "maxItems": 6, "items": {
     "type": "object", "properties": {"trial_id": {"type": "integer", "minimum": 1},
         "metric": {"type": "string", "minLength": 1, "maxLength": 60},
         "split": {"const": "validation"}, "value": {"type": "number"}},
-    "required": ["trial_id", "metric", "split", "value"], "additionalProperties": False}}
+    "required": ["trial_id", "metric", "split"], "additionalProperties": False}}
 LESSON = {"type": "object", "properties": {
     "id": {"type": "string", "pattern": "^[a-z0-9_-]{1,40}$"},
     "status": {"enum": ["supported", "inconclusive", "superseded"]},
     "summary": prose(240), "scope": prose(240),
+    "interpretation": {"type": "object", "properties": {
+        "status": {"const": "unverified"}, "summary": prose(240), "scope": prose(240)},
+        "required": ["status", "summary", "scope"], "additionalProperties": False},
     "evidence": {**EVIDENCE, "minItems": 1}},
     "required": ["id", "status", "summary", "scope", "evidence"], "additionalProperties": False}
 
@@ -46,16 +49,50 @@ def contract_schema(role, memory=False):
             "additionalProperties": False}
 
 
+def recorded_measurement(citation, records):
+    row = records.get(citation['trial_id'], {})
+    actual = (row.get('metrics') or {}).get(citation['metric'])
+    if actual is None and citation['metric'] == 'roc_auc':
+        actual = row.get('validation_auc')
+    return actual
+
+
+def resolve_contract_evidence(contract, history):
+    """Resolve citation references, never overwrite a supplied measurement.
+
+    Raises ValueError for invalid citations so the caller can request a repair.
+    Other contract fields remain the role-specific validator's responsibility.
+    """
+    result = deepcopy(contract)
+    if not isinstance(result, dict):
+        raise ValueError('Return a JSON object with the required contract fields.')
+    updates = result.get('lesson_updates', [])
+    if not isinstance(updates, list) or any(not isinstance(item, dict) for item in updates):
+        raise ValueError('lesson_updates must be an array of lesson objects.')
+    records = {row.get('trial_id'): row for row in history if row.get('status') == 'completed'}
+    for record in [result, *updates]:
+        if 'evidence' not in record:
+            continue
+        evidence = record['evidence']
+        errors = schema_errors(evidence, EVIDENCE, 'evidence')
+        if errors:
+            raise ValueError(' '.join(errors))
+        for citation in evidence:
+            if 'value' not in citation:
+                citation['value'] = recorded_measurement(citation, records)
+        errors = evidence_errors(evidence, history)
+        if errors:
+            raise ValueError(' '.join(errors))
+    return result
+
+
 def evidence_errors(evidence, history):
     records = {row.get("trial_id"): row for row in history if row.get("status") == "completed"}
     errors = []
     for citation in evidence:
         trial_id, metric = citation["trial_id"], citation["metric"]
-        row = records.get(trial_id, {})
-        actual = (row.get("metrics") or {}).get(metric)
-        if actual is None and metric == "roc_auc":
-            actual = row.get("validation_auc")
-        value = citation["value"]
+        actual = recorded_measurement(citation, records)
+        value = citation.get("value")
         if (citation["split"] != "validation" or type(actual) not in (int, float)
                 or type(value) not in (int, float) or not math.isfinite(actual)
                 or not math.isfinite(value) or not math.isclose(value, actual, rel_tol=0, abs_tol=1e-9)):
@@ -127,11 +164,12 @@ def parse_contract(content, *, allow_wrapper=False):
                                parse_constant=reject_constant, object_pairs_hook=unique_keys)
     if allow_wrapper and '```' in content:
         # One complete fence only; never pick among competing candidate objects.
-        match = re.fullmatch(r'[^{}\[\]`"]*```(?:json)?\s*(.*?)\s*```[^{}\[\]`"]*', content,
+        match = re.fullmatch(r'([^{}\[\]`]*)```(?:json)?\s*(.*?)\s*```([^{}\[\]`]*)', content,
                              flags=re.DOTALL | re.IGNORECASE)
-        if not match:
+        if not match or any(re.search(r'"(?:[^"\\]|\\.)*"\s*:', text)
+                            for text in (match.group(1), match.group(3))):
             raise ValueError("Return one unambiguous JSON object.")
-        content = match.group(1).strip()
+        content = match.group(2).strip()
         allow_wrapper = False  # A fenced payload must itself be valid JSON.
     try:
         value = decoder.decode(content)
@@ -162,6 +200,11 @@ def observed_summary(evidence):
     if not evidence:
         return "No completed comparison establishes this conclusion. Further experiments are needed."
     first = evidence[0]
+    measurements = '; '.join(f"trial {item['trial_id']} recorded {item['metric']}={item['value']:.8g}"
+                             for item in evidence)
+    summary = f"On validation, {measurements}. Broader conclusions remain untested."
+    if len(summary) <= 240:
+        return summary
     if len(evidence) > 1 and all(item['metric'] == first['metric'] for item in evidence):
         values = [item['value'] for item in evidence]
         trials = ', '.join(str(item['trial_id']) for item in evidence)
@@ -169,17 +212,54 @@ def observed_summary(evidence):
                    f"from {min(values):.8g} to {max(values):.8g}. Broader conclusions remain untested.")
         if len(summary) <= 240:
             return summary
-    return (f"Trial {first['trial_id']} recorded validation {first['metric']} {first['value']:.8g}. "
-            "Broader conclusions remain untested.")
+    return "The cited trials recorded validation measurements. Broader conclusions remain untested."
 
 
-def ground_contract(contract):
-    """Replace recognizable unsupported assertions without another model call.
+def observed_scope(evidence, history):
+    """Identify cited configurations and confounding using recorded inputs only."""
+    ids = list(dict.fromkeys(item['trial_id'] for item in evidence))
+    records = {row.get('trial_id'): row for row in (history or []) if row.get('status') == 'completed'}
+    configs = [records.get(trial_id, {}).get('config') for trial_id in ids]
+    prefix = ('Validation trial ' if len(ids) == 1 else 'Validation trials ') + ', '.join(map(str, ids))
+    fallback = "Only the cited configurations on this run's validation split were observed; parameter effects are not established."
+    if any(not isinstance(config, dict) or not config for config in configs):
+        result = prefix + (' was' if len(ids) == 1 else ' were') + ' observed; configuration details are unavailable, so parameter effects are not established.'
+        return result if len(result) <= 240 else fallback
+    flattened = [{**{key: value for key, value in config.items() if key != 'params'},
+                  **config.get('params', {})} for config in configs]
+    keys = sorted(set().union(*(config.keys() for config in flattened)))
+    values = {key: [json.dumps(config[key], sort_keys=True, separators=(',', ':'))
+                    if key in config else 'unspecified' for config in flattened] for key in keys}
+    changed = [key for key in keys if len(set(values[key])) > 1]
+    if len(changed) > 1:
+        caveat = ' Multiple settings changed; effects are confounded.'
+    elif changed:
+        caveat = ' This split alone does not establish causality.'
+    else:
+        caveat = ' No parameter effect was isolated.'
+    if changed:
+        details = '; '.join(key + '=' + '/'.join(values[key]) for key in changed)
+        result = prefix + ' compared ' + details + '.' + caveat
+        if len(result) > 240:
+            result = prefix + ' differed in ' + ', '.join(changed) + '.' + caveat
+    elif len(configs) > 1:
+        result = prefix + ' used matching recorded configurations.' + caveat
+    else:
+        details = '; '.join(key + '=' + values[key][0] for key in keys)
+        result = prefix + ' used ' + details + '.' + caveat
+    if len(result) > 240:
+        result = prefix + (' used its recorded configuration.' if len(configs) == 1 else
+                           f' compared {len(configs)} recorded configurations.') + caveat
+    return result if len(result) <= 240 else fallback
+
+
+def ground_contract(contract, history=None):
+    """Generate factual lessons and demote recognizable unsupported assertions.
 
     Invoke only after schema and citation validation. Explicit hypothesis and
     uncertainty fields remain hypotheses, not accepted observational lessons.
     """
-    result = deepcopy(contract)
+    result = resolve_contract_evidence(contract, history) if history is not None else deepcopy(contract)
     changes = []
 
     def replace_field(record, field, path, evidence):
@@ -195,13 +275,19 @@ def ground_contract(contract):
     for field in ('summary', 'assessment', 'what_changed', 'change', 'expected_outcome', 'response_reason'):
         replace_field(result, field, field, result.get('evidence', []))
     for index, lesson in enumerate(result.get('lesson_updates', [])):
-        flagged = False
-        for field in ('summary', 'scope'):
-            flagged |= replace_field(lesson, field, f'lesson_updates.{index}.{field}', lesson['evidence'])
-        if flagged:
-            if lesson['status'] != 'superseded':
-                lesson['status'] = 'inconclusive'
-            lesson['scope'] = 'Only the cited configurations on this run\'s validation split were observed.'
+        interpretation = lesson.setdefault('interpretation', {
+            'status': 'unverified', 'summary': lesson['summary'], 'scope': lesson['scope']})
+        if (any(OVERCLAIM.search(interpretation[field]) for field in ('summary', 'scope'))
+                and lesson['status'] != 'superseded'):
+            lesson['status'] = 'inconclusive'
+        replacements = {'summary': observed_summary(lesson['evidence']),
+                        'scope': observed_scope(lesson['evidence'], history)}
+        for field, replacement in replacements.items():
+            if lesson[field] != replacement:
+                changes.append({'field': f'lesson_updates.{index}.{field}', 'original': lesson[field],
+                                'replacement': replacement,
+                                'reason': 'Lesson facts are generated from cited records; agent prose is unverified interpretation.'})
+                lesson[field] = replacement
     return result, changes
 
 
@@ -212,11 +298,12 @@ class LessonMemory:
         self._lessons = {}
 
     def update(self, updates, history):
+        updates = resolve_contract_evidence({'lesson_updates': updates}, history)['lesson_updates']
         jsonschema.validate(updates, {"type": "array", "maxItems": 2, "items": LESSON})
         errors = [error for item in updates for error in evidence_errors(item["evidence"], history)]
         if errors:
             raise ValueError(" ".join(errors))
-        updates = ground_contract({'lesson_updates': updates})[0]['lesson_updates']
+        updates = ground_contract({'lesson_updates': updates}, history)[0]['lesson_updates']
         for item in updates:
             self._lessons.pop(item["id"], None)
             self._lessons[item["id"]] = deepcopy(item)
@@ -237,8 +324,9 @@ prose field: summary at most 240 characters; other prose fields at most 500.
 Prefer under 200 characters per field to leave room for the evidence. Lesson
 summary and scope are each limited to 240 characters. These limits are characters,
 not tokens. Before returning, check every field against its length limit.
-Cite only completed validation measurements from this run with their exact recorded
-metric and value. Evidence checks validate references and measurements, not whether
+Cite completed validation measurements using trial_id, metric and split="validation".
+Omit value; the harness inserts the exact recorded value. If you supply value,
+it must match the recorded measurement. Evidence checks validate references, not whether
 your hypothesis or interpretation is true. Use an empty evidence list before the
 first completed trial. A baseline is null for an initial or independent experiment.
 Recommendation uptake is your stated response, not a causal attribution.
@@ -260,11 +348,15 @@ actually trained. Early stopping before that ceiling does not establish underfit
 The current context includes remaining_trials, remaining_seconds and observed
 mean_model_call_seconds. Account for API calls and scheduled reviews/reflections;
 local fit duration alone does not estimate how many experiments remain feasible.
-Project metadata and recent trials are already in context; use inspect_project
-or read_results only if you need information absent from that context.
+Project metadata and recent trials are already in context. Researchers must submit
+the next experiment through run_analysis. Reviewers may use inspect_project or
+read_results only if they need information absent from that context.
 """ + ("""You may provide at most two lesson_updates based on completed trials. Retain
 scope, uncertainty and citations. Reuse an id to revise a lesson; use superseded
-when a conclusion no longer applies. Supported means supported by cited observations,
-not proven or replicated. Memory is confined to this run and its frozen split.
+when a conclusion no longer applies. The harness generates lesson summary and scope
+from cited measurements and configurations. Your original lesson prose is retained
+under interpretation with status unverified; it is never supported evidence.
+Supported describes only the generated factual observation, not the interpretation.
+Memory is confined to this run and its frozen split.
 """ if memory else "") + ("Use the intent schema supplied by the tool." if role == "researcher" else
            "Contract: " + json.dumps(schema, separators=(",", ":")))

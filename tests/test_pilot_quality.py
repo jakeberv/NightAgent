@@ -36,6 +36,7 @@ def test_all_features_is_explicit_and_numeric_aliases_are_rejected(task):
     'Based on the completed trials, here is my assessment:\n```json\n%s\n```',
     'My assessment follows.\n%s\nThis concludes the assessment.',
     '```JSON\n%s\n```',
+    'The comparison uses max_features="all".\n```json\n%s\n```\nThe word "all" identifies every feature.',
 ])
 def test_single_wrapped_contract_retains_nested_values_and_quoted_braces(wrapper):
     value = {'summary': 'A literal {brace} is data.', 'evidence': [{'value': .9}], 'note': 'Quoted "text".'}
@@ -49,6 +50,8 @@ def test_single_wrapped_contract_retains_nested_values_and_quoted_braces(wrapper
     '{"a":1},"b":2', '```json\n{"a":1},"b":2\n```',
     '"a":1, {"b":2}', 'Review: {"a":1},"b":2',
     '```json\nPreamble {"a":1}\n```', '"a":1, ```json\n{"b":2}\n```',
+    'Use "all". {"extra": 1}\n```json\n{"a": 1}\n```',
+    'Use "all".\n```json\n{"a": 1}\n```\n"other": 2',
 ])
 def test_wrapper_parser_rejects_ambiguous_malformed_and_nonfinite_objects(content):
     with pytest.raises(ValueError):
@@ -73,10 +76,12 @@ def test_overclaims_are_grounded_before_feedback_and_memory(claim):
     contract['summary'] = claim
     contract['lesson_updates'][0].update(summary=claim, status='supported')
     original = copy.deepcopy(contract)
-    grounded, changes = reasoning.ground_contract(contract)
+    grounded, changes = reasoning.ground_contract(contract, context['recent_trials'])
     assert contract == original
     assert changes
-    assert claim not in json.dumps(grounded)
+    assert grounded['lesson_updates'][0]['interpretation']['summary'] == claim
+    assert grounded['lesson_updates'][0]['interpretation']['status'] == 'unverified'
+    assert claim not in grounded['lesson_updates'][0]['summary']
     assert '0.9327' in grounded['summary'] and '6' in grounded['summary']
     assert grounded['lesson_updates'][0]['status'] == 'inconclusive'
     ledger = reasoning.LessonMemory(6)
@@ -89,7 +94,9 @@ def test_scoped_observations_and_explicit_uncertainty_are_preserved():
     contract = scripted_contract('reflection', context)
     contract['summary'] = 'Trial 1 recorded validation AUC 0.9 on this split.'
     contract['uncertainty'] = 'Whether a performance ceiling exists remains unknown.'
-    assert reasoning.ground_contract(contract) == (contract, [])
+    grounded, changes = reasoning.ground_contract(contract, context['recent_trials'])
+    assert grounded['summary'] == contract['summary']
+    assert grounded['uncertainty'] == contract['uncertainty']
 
 
 def test_effective_feature_count_reaches_agents_without_artifact_paths():
@@ -118,7 +125,8 @@ def test_wrapped_overclaim_review_needs_no_extra_call_and_is_audited(tmp_path):
     result = asyncio.run(run_one(StudyConfig(condition='frequent', trial_cap=2, lesson_memory=True),
         tmp_path, tmp_path / 'run', model, trial_runner=trial, project={}))
     assert result['stop_reason'] == 'trial_cap' and model.calls == 3
-    assert 'optimal' not in json.dumps(model.contexts[-1])
+    assert 'optimal' not in model.contexts[-1]['lessons'][0]['summary']
+    assert model.contexts[-1]['lessons'][0]['interpretation']['status'] == 'unverified'
     assert result['lessons'][0]['status'] == 'inconclusive'
     events = [json.loads(x) for x in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
     assert any(e['type'] == 'contract_grounded' for e in events)
