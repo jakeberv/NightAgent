@@ -20,6 +20,7 @@ class StudyConfig:
     trial_timeout_seconds: float = 60
     trial_cap: int = 1000
     dollar_cap: float = 20
+    # Compatibility defaults only; a resolved ProblemSpec owns scientific targets.
     milestone: float = .93
     stretch: float = .95
     training_seed: int = 42

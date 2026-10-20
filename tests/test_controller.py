@@ -187,3 +187,161 @@ def test_literature_cap_limits_actual_io_and_keeps_unhelpful_evidence(tmp_path):
     assert len(literature.queries) == 2
     journal = (tmp_path / "run" / "events.jsonl").read_text()
     assert "No useful source" in journal and "Per-review literature cap reached" in journal
+
+
+def test_minimize_objective_selects_named_targets_and_earliest_ties():
+    from types import SimpleNamespace
+    from study.controller import select_result
+    from study.events import Accounting
+    problem = SimpleNamespace(objective={"metric": "rmse", "direction": "minimize"},
+                              targets=[{"name": "useful", "value": 12.0},
+                                       {"name": "excellent", "value": 8.0}])
+    summary = {"best": None, "target_selections": {"useful": None, "excellent": None}}
+    config = StudyConfig()
+    for trial_id, score, elapsed in ((1, 15.0, 1), (2, 10.0, 2), (3, 7.0, 3), (4, 7.0, 4)):
+        select_result(summary, {"status": "completed", "score": score, "metrics": {"rmse": score},
+            "trial_id": trial_id, "elapsed_seconds": elapsed, "artifact": "fit.joblib",
+            "artifact_hash": str(trial_id)}, Accounting(), config, problem=problem)
+    assert summary["best"]["trial_id"] == 3
+    assert summary["best"]["metrics"] == {"rmse": 7.0}
+    assert summary["target_selections"]["useful"]["trial_id"] == 2
+    assert summary["target_selections"]["excellent"]["trial_id"] == 3
+    assert "validation_auc" not in summary["best"]
+
+
+def test_generic_selection_rejects_failed_late_and_nonfinite_results():
+    from types import SimpleNamespace
+    from study.controller import select_result
+    from study.events import Accounting
+    problem = SimpleNamespace(objective={"metric": "r2", "direction": "maximize"},
+                              targets=[{"name": "baseline", "value": -1.0}])
+    summary = {"best": None, "target_selections": {"baseline": None}}
+    config = StudyConfig(allowance_seconds=5)
+    for score, status, elapsed in ((float("nan"), "completed", 1), (3, "failed", 1), (3, "completed", 6)):
+        select_result(summary, {"status": status, "score": score, "metrics": {"r2": score},
+            "trial_id": 1, "elapsed_seconds": elapsed, "artifact": "fit", "artifact_hash": "hash"},
+            Accounting(), config, problem=problem)
+    assert summary["best"] is None
+    select_result(summary, {"status": "completed", "score": -0.5, "metrics": {"r2": -0.5},
+        "trial_id": 2, "elapsed_seconds": 1, "artifact": "fit", "artifact_hash": "hash"},
+        Accounting(), config, problem=problem)
+    assert summary["best"]["score"] == -0.5
+    assert summary["target_selections"]["baseline"]["trial_id"] == 2
+
+
+@pytest.fixture
+def regression_problem():
+    from study.problem import ProblemSpec
+    return ProblemSpec.from_dict({"schema_version": 1, "id": "test-regression", "task": "tabular_regression",
+        "brief": "Predict the measured response with bounded regression experiments.",
+        "dataset": {"format": "synthetic", "n_samples": 60, "n_features": 4},
+        "evaluation": {"split": {"train": .6, "validation": .2, "test": .2},
+                       "objective": {"metric": "rmse", "direction": "minimize"}},
+        "targets": [{"name": "useful", "value": 12.0}, {"name": "excellent", "value": 8.0}],
+        "search_space": {"preset": "tabular_regression_small", "models": ["ridge"]}})
+
+
+def test_profile_controls_prompts_tools_and_frozen_recovery(tmp_path, regression_problem):
+    from study.science import prepare_dataset
+    from study.tasks import get_adapter
+    data = tmp_path / "data"
+    manifest = prepare_dataset(data, problem=regression_problem)
+    observed = []
+
+    class Regressor:
+        async def complete(self, messages, tools, *, timeout):
+            observed.append((messages, tools))
+            return {"message": {"role": "assistant", "tool_calls": [{"id": "fit", "type": "function",
+                "function": {"name": "run_analysis", "arguments": json.dumps(
+                    {"model": "ridge", "preprocessing": "standard", "params": {}})}}]},
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "cost": 0}}
+
+    scores = iter((14.0, 8.0, 11.0))
+    async def regression_trial(*args, **kwargs):
+        score = next(scores)
+        return {"status": "completed", "metrics": {"rmse": score}, "score": score,
+                "artifact": "fit.joblib", "artifact_hash": str(score)}
+
+    directory = tmp_path / "run"
+    result = asyncio.run(run_one(StudyConfig(trial_cap=3), data, directory, Regressor(),
+        trial_runner=regression_trial))
+    assert result["trials"] == 3
+    assert result["best"]["score"] == 8.0
+    assert result["target_selections"]["excellent"]["trial_id"] == 2
+    assert result["milestone"] is None and result["stretch"] is None
+    assert result["problem_hash"] == regression_problem.fingerprint
+    instructions = observed[0][0][0]["content"]
+    assert regression_problem.brief in instructions and "rmse (minimize)" in instructions
+    assert regression_problem.fingerprint in instructions and "ROC-AUC" not in instructions
+    analysis_tool = next(t for t in observed[0][1] if t["function"]["name"] == "run_analysis")
+    assert analysis_tool["function"]["parameters"] == get_adapter(regression_problem).analysis_schema
+    frozen = json.loads((directory / "resolved-config.json").read_text())
+    assert frozen["problem"] == regression_problem.to_dict()
+    assert frozen["problem_hash"] == regression_problem.fingerprint
+    assert result["data_fingerprint"] == manifest["data_fingerprint"]
+    assert frozen["data_fingerprint"] == manifest["data_fingerprint"]
+    assert json.loads((directory / "checkpoint.json").read_text())["data_fingerprint"] == manifest["data_fingerprint"]
+    started = json.loads((directory / "events.jsonl").read_text().splitlines()[0])
+    assert started["data_fingerprint"] == manifest["data_fingerprint"]
+
+    # Crash recovery uses run science even when the prepared dataset is unavailable.
+    (directory / "summary.json").unlink()
+    events = [json.loads(line) for line in (directory / "events.jsonl").read_text().splitlines()]
+    (directory / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in events
+                                               if e["type"] != "run_stopped"))
+    data.rename(tmp_path / "unavailable-data")
+    recovered = recover_run(directory)
+    assert recovered["data_fingerprint"] == manifest["data_fingerprint"]
+    assert recovered["objective"] == regression_problem.objective
+    assert recovered["problem_hash"] == regression_problem.fingerprint
+    assert recovered["best"]["trial_id"] == 2
+    assert recovered["target_selections"]["excellent"]["trial_id"] == 2
+
+
+def test_changed_profile_is_rejected_before_controller_model_call(tmp_path, regression_problem):
+    from study.problem import ProblemSpec
+    from study.science import prepare_dataset
+    data = tmp_path / "data"
+    prepare_dataset(data, problem=regression_problem)
+    changed = regression_problem.to_dict()
+    changed["brief"] += " Changed science."
+    model = ScriptedModel()
+    with pytest.raises(ValueError, match="frozen|differs|match"):
+        asyncio.run(run_one(StudyConfig(), data, tmp_path / "run", model,
+            trial_runner=trial, problem=ProblemSpec.from_dict(changed)))
+    assert model.roles == []
+    assert not (tmp_path / "run").exists()
+
+
+@pytest.mark.parametrize("metric,direction,score", [("accuracy", "maximize", 1.1),
+    ("rmse", "minimize", -1.0), ("r2", "maximize", 1.1)])
+def test_selection_respects_objective_metric_bounds(metric, direction, score):
+    from types import SimpleNamespace
+    from study.controller import select_result
+    from study.events import Accounting
+    summary = {"best": None, "target_selections": {}}
+    select_result(summary, {"status": "completed", "score": score, "metrics": {metric: score},
+        "trial_id": 1, "elapsed_seconds": 1, "artifact": "fit", "artifact_hash": "hash"},
+        Accounting(), StudyConfig(), problem=SimpleNamespace(
+            objective={"metric": metric, "direction": direction}, targets=[]))
+    assert summary["best"] is None
+
+
+def test_recovery_uses_frozen_budget_and_checks_problem_hash(tmp_path):
+    run_dir = tmp_path / "run"
+    asyncio.run(run_one(StudyConfig(trial_cap=1), tmp_path, run_dir, ScriptedModel(),
+        trial_runner=trial, project={}))
+    (run_dir / "summary.json").unlink()
+    events = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines()]
+    (run_dir / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in events
+        if e["type"] != "run_stopped"))
+    (run_dir / "config.json").write_text(json.dumps({"allowance_seconds": "invalid later edit"}))
+    recovered = recover_run(run_dir)
+    assert recovered["best"]["validation_auc"] == .96
+    assert recovered["allowance_seconds"] == 900
+    (run_dir / "summary.json").unlink()
+    frozen = json.loads((run_dir / "resolved-config.json").read_text())
+    frozen["problem_hash"] = "tampered"
+    (run_dir / "resolved-config.json").write_text(json.dumps(frozen))
+    with pytest.raises(ValueError, match="fingerprint"):
+        recover_run(run_dir)

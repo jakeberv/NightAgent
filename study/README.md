@@ -1,7 +1,7 @@
 # Controlled overnight comparison
 
 This runner implements the **Experimental design** tab dated 20 October 2026,
-using direct OpenRouter Chat Completions and bounded classifier tools. It is
+using direct OpenRouter Chat Completions and bounded scientific tools. It is
 separate from the conversational Claude SDK prototype in `nightagent/run.py`.
 The older `SPEC.md` three-condition design and its six-analysis budget do not
 govern this runner.
@@ -31,7 +31,31 @@ evaluates saved selections, and produces `report.html` and `summary.csv`.
 It makes no API or literature requests. Its curves verify the workflow and
 are not evidence comparing language-model strategies.
 
-## Prepare the task and pilot it
+## Define a problem and pilot it
+
+The runner accepts YAML/JSON problem profiles specifying the question, dataset,
+split, objective, named targets, and bounded model search space. Classification
+and regression are supported. Model/provider and resource limits remain in a
+separate study configuration.
+
+See the [problem profile guide](../docs/problem-definitions.md) for CSV/NPZ input,
+custom targets such as AUC 0.95, and the MAGIC, multiclass CSV, MNIST, and regression
+examples. MNIST uses accuracy and preserves its official test partition.
+
+```bash
+.venv/bin/python -m study validate --problem study/problems/regression.yaml
+.venv/bin/python -m study smoke --problem study/problems/regression.yaml \
+  --output study-runs/regression-smoke
+.venv/bin/python -m study prepare --problem study/problems/magic.yaml \
+  --output study-data/magic-profile
+```
+
+The MAGIC command requires the source downloaded to the path below. Pass the
+prepared directory to `run`, `suite`, or `reference`; they infer its frozen profile.
+An optional `--problem` must match it. Invalid or changed definitions fail before
+provider construction. Targets record first crossings and never stop search.
+
+### Legacy MAGIC workflow and feasibility pilot
 
 Download the headerless `magic04.data` from the
 [official UCI MAGIC Gamma Telescope dataset](https://archive.ics.uci.edu/dataset/159/magic+gamma+telescope).
@@ -168,7 +192,7 @@ retries, reviews, reflection, literature, waiting and failed attempts. Trial
 workers have a clean environment and one-thread numeric libraries; process
 groups are killed/reaped on cancellation or timeout. Completed artifacts are
 verified before acceptance. The trial limit is the smaller of its configured
-timeout and remaining run time. Neither 0.93 nor 0.95 ends search.
+timeout and remaining run time. Reaching any declared target does not end search.
 
 The suite refuses a window too small for the initial schedule and never
 shortens a later condition to fit. Unstarted planned runs remain visible,
@@ -182,8 +206,8 @@ success, failure, or timeout.
 Each run has an append-only `events.jsonl`, `config.json`, agent-facing
 `project.json`, live `checkpoint.json`, verified model artifacts, and final
 `summary.json`. Every completed valid trial can update the best checkpoint.
-Ties retain the earliest completed trial. First milestone and first stretch
-crossings have separate selections with elapsed time and cumulative accounting.
+Ties retain the earliest completed trial. First crossings of every named target
+have separate selections with elapsed time and cumulative accounting.
 Late or incomplete trials cannot update selections.
 
 Evaluation uses only frozen selections and the untouched test partition.
@@ -205,10 +229,14 @@ clock, rerun in-flight trials, or spend more API credits. An in-flight model
 request has unknown billing. The report reconciles the frozen schedule even
 when some runs lack summaries; recover those runs to finalize accounting.
 
-Reports lead with best completed validation ROC-AUC at the common deadline,
+Reports lead with the best completed validation objective at the common deadline
+(ROC-AUC for legacy MAGIC),
 include every planned run and explicit no-classifier outcomes, and carry
 early-stop curves forward to the allowance. Nonattainers have unknown crossing
 time, never an invented deadline crossing. Attainment curves, held-out test
 checks, tokens, charged/lower-bound dollars and training wall seconds are
 reported separately. Cached and reasoning tokens are subsets, not extra tokens.
 Post-search local evaluation/reporting compute is metered separately.
+Reports reject comparisons with different frozen problems, objectives, or dataset
+fingerprints. Historical groups with no recorded dataset identity remain readable,
+but cannot be pooled with runs having known identity.

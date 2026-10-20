@@ -91,51 +91,118 @@ def _trials(summary: dict, events: list[dict]) -> list[dict]:
                                                 else event.get("elapsed_seconds")),
                             "training_seconds": result.get("duration_seconds", result.get("elapsed_seconds"))}
     # Frozen selections remain usable when detailed trial records are absent.
-    for name in ("best", "milestone", "stretch"):
-        item = summary.get(name)
+    for name, item in _selections(summary).items():
         if isinstance(item, dict):
             identity = str(item.get("trial_id", item.get("id", name)))
-            trials.setdefault(identity, {**item, "trial_id": identity, "status": "completed"})
+            trials[identity] = {**item, "status": "completed",
+                                **trials.get(identity, {}), "trial_id": identity}
     return list(trials.values())
+
+
+def _objective(summary: dict) -> dict:
+    objective = summary.get("objective") or {"metric": "roc_auc", "direction": "maximize"}
+    from .problem import METRICS
+    metric = objective.get("metric")
+    if metric not in METRICS or objective.get("direction") != METRICS[metric]["direction"]:
+        raise ValueError(f"Invalid report objective metric/direction: {objective}")
+    return {"metric": metric, "direction": objective["direction"]}
+
+
+def _score(item: dict, metric: str) -> float | None:
+    score = _number(item.get("score"))
+    if score is None:
+        score = _number((item.get("metrics") or {}).get(metric))
+    if score is None and metric == "roc_auc":
+        score = _number(item.get("validation_auc"))
+    if score is None:
+        return None
+    from .problem import validate_metric_value
+    try:
+        validate_metric_value(metric, score)
+    except ValueError:
+        return None
+    return score
+
+
+def _definitions(summary: dict) -> list[dict]:
+    if "target_definitions" in summary:
+        return summary["target_definitions"]
+    if "objective" in summary:
+        return (summary.get("problem") or {}).get("targets", [])
+    config = summary.get("config") or {}
+    return [{"name": name, "value": config.get(name, config.get(name + "_auc", default))}
+            for name, default in (("milestone", .93), ("stretch", .95))]
+
+
+def _selections(summary: dict) -> dict:
+    if "objective" in summary:
+        return {**(summary.get("target_selections") or {}), "best": summary.get("best")}
+    return {name: summary.get(name) for name in ("best", "milestone", "stretch")}
+
+
+def _data_fingerprint(summary: dict, folder: Path, events: list[dict], warnings: list[str]):
+    """Use this run's own frozen identity, including historical provider provenance."""
+    candidates = [summary.get("data_fingerprint")]
+    candidates.extend(event.get("data_fingerprint") for event in events
+                      if event.get("type") == "run_started")
+    for filename in ("resolved-config.json", "provider.json"):
+        path = folder / filename
+        if path.exists():
+            record = _read(path, warnings)
+            candidates.append(record.get("data_fingerprint"))
+            candidates.append(((record.get("runtime") or {}).get("data_manifest") or {}).get("data_fingerprint"))
+    known = {value for value in candidates if value is not None}
+    if len(known) > 1:
+        raise ValueError("Incompatible data fingerprints in frozen run records; report each data snapshot separately.")
+    return next(iter(known), None)
 
 
 def _run_data(path: Path, warnings: list[str], summary_override=None, shared_test_cache=None) -> dict:
     summary = _read(path, warnings) if summary_override is None else summary_override
+    objective = _objective(summary)
+    metric, direction = objective["metric"], objective["direction"]
+    maximize = direction == "maximize"
+    definitions = _definitions(summary)
+    selections = _selections(summary)
     events = _events(path.parent, warnings)
     allowance = _number(summary.get("allowance_seconds"))
-    config = summary.get("config") or {}
-    milestone = _number(config.get("milestone", config.get("milestone_auc")))
-    stretch = _number(config.get("stretch", config.get("stretch_auc")))
-    milestone = .93 if milestone is None else milestone
-    stretch = .95 if stretch is None else stretch
     trials = _trials(summary, events)
-    valid = [trial for trial in trials
-             if trial.get("status") == "completed"
-             and _number(trial.get("validation_auc")) is not None
-             and 0 <= trial["validation_auc"] <= 1
+    valid = [{**trial, "score": _score(trial, metric)} for trial in trials
+             if trial.get("status") == "completed" and _score(trial, metric) is not None
              and _number(trial.get("elapsed_seconds")) is not None
              and trial["elapsed_seconds"] >= 0
              and allowance is not None and trial["elapsed_seconds"] <= allowance]
     valid.sort(key=lambda trial: trial["elapsed_seconds"])
-    best = max(valid, key=lambda trial: trial["validation_auc"], default=None)
+    best = (max if maximize else min)(valid, key=lambda trial: trial["score"], default=None)
     curve = []
-    running = -math.inf
+    running = -math.inf if maximize else math.inf
     for item in valid:
-        if item["validation_auc"] > running:
-            running = item["validation_auc"]
-            curve.append((float(item["elapsed_seconds"]), float(running)))
+        if (item["score"] > running if maximize else item["score"] < running):
+            running = item["score"]
+            curve.append((float(item["elapsed_seconds"]), running))
     if curve and curve[-1][0] < allowance:
         curve.append((allowance, curve[-1][1]))
     tests_path = path.parent / "test-results.json"
     tests = _read(tests_path, warnings) if tests_path.exists() else {}
     tests = tests.get("selections", tests)
-    # Evaluation persists each score before projecting per-run views. If killed
-    # midway, retain completed scores directly from the shared durable cache.
-    for name in ("best", "milestone", "stretch"):
-        digest = (summary.get(name) or {}).get("artifact_hash")
-        stored = (shared_test_cache or {}).get(digest)
+    # A shared cache is durable even if per-run views were never written.
+    for name, selection in selections.items():
+        stored = (shared_test_cache or {}).get((selection or {}).get("artifact_hash"))
         if stored is not None:
             tests[name] = {**stored, "status": "uncertain"} if stored.get("status") == "in_progress" else stored
+
+    def test_result(name):
+        result = tests.get(name) or {}
+        score = _number(result.get("score"))
+        if score is None:
+            score = _number((result.get("metrics") or {}).get(metric))
+        if score is None and metric == "roc_auc":
+            score = _number(result.get("test_auc"))
+        status = result.get("status", "completed" if score is not None else "not evaluated")
+        return {"test_score": score if status == "completed" else None,
+                "test_metrics": result.get("metrics", {}) if status == "completed" else {},
+                "test_status": status}
+
     postrun_path = path.parent / "postrun.json"
     postrun = (_read(postrun_path, warnings) if postrun_path.exists()
                else summary.get("postrun_accounting") or {})
@@ -143,18 +210,24 @@ def _run_data(path: Path, warnings: list[str], summary_override=None, shared_tes
     measured = [_number(t.get("training_seconds")) for t in trials]
     if training is None and measured and all(t is not None for t in measured):
         training = sum(measured)
+    best_test = test_result("best")
     row = {
         "run_id": summary.get("run_id", path.parent.name),
         "condition": str(summary.get("condition", "unknown")),
         "repeat": summary.get("repeat"), "allowance_seconds": allowance,
+        "objective": objective, "problem_hash": summary.get("problem_hash"),
+        "data_fingerprint": _data_fingerprint(summary, path.parent, events, warnings),
+        "problem": summary.get("problem"), "target_definitions": definitions,
         "elapsed_seconds": _number(summary.get("elapsed_seconds")),
         "stop_reason": str(summary.get("stop_reason", "unknown")),
         "trial_attempts": (summary["trials"] if isinstance(summary.get("trials"), int)
                            else len(summary.get("trials") or trials)),
         "valid_completed_trials": len(valid),
-        "best_validation_auc": best["validation_auc"] if best else None,
+        "best_score": best["score"] if best else None,
+        "best_metrics": (best.get("metrics") or {metric: best["score"]}) if best else {},
         "best_trial_id": best["trial_id"] if best else None,
-        "best_curve": curve, "training_seconds": training,
+        "best": best, "best_curve": curve, "training_seconds": training,
+        **{"best_" + key: value for key, value in best_test.items()},
         **_accounting(summary.get("accounting")),
         "evaluation_seconds": _number(postrun.get("evaluation_seconds")),
         "reporting_seconds": _number(postrun.get("reporting_seconds")),
@@ -162,27 +235,39 @@ def _run_data(path: Path, warnings: list[str], summary_override=None, shared_tes
         "event_counts": dict(Counter(e.get("type", "unknown") for e in events)),
         "trace": [e for e in events if e.get("type") in
                   ("review", "reflection", "selection", "run_stopped")],
+        "targets": {},
     }
-    for name, threshold in (("milestone", milestone), ("stretch", stretch)):
-        crossing = next((item for item in valid if item["validation_auc"] >= threshold), None)
-        selection = summary.get(name) or {}
-        row.update({name + "_auc": threshold, name + "_reached": crossing is not None,
-                    name + "_seconds": float(crossing["elapsed_seconds"]) if crossing else None,
-                    **_accounting(selection.get("accounting") if crossing else None, name + "_")})
-    for name in ("best", "milestone", "stretch"):
-        result = tests.get(name) or {}
-        auc = _number(result.get("test_auc"))
-        row[name + "_test_auc"] = auc if result.get("status", "completed") == "completed" else None
-        row[name + "_test_status"] = result.get("status", "completed" if auc is not None else "not evaluated")
+    for definition in definitions:
+        name, threshold = definition["name"], _number(definition["value"])
+        if threshold is None:
+            raise ValueError(f"Invalid report target threshold: {name}")
+        crossing = next((item for item in valid if
+                         (item["score"] >= threshold if maximize else item["score"] <= threshold)), None)
+        selection = selections.get(name) or {}
+        details = {key: crossing.get(key) if crossing else None for key in
+                   ("trial_id", "score", "metrics", "artifact", "artifact_hash")}
+        details.update({"threshold": threshold, "reached": crossing is not None,
+                        "seconds": float(crossing["elapsed_seconds"]) if crossing else None,
+                        **_accounting(selection.get("accounting") if crossing else None),
+                        **test_result(name)})
+        row["targets"][name] = details
+        if metric == "roc_auc" and name in ("milestone", "stretch"):
+            row.update({name + "_auc": threshold, name + "_reached": details["reached"],
+                        name + "_seconds": details["seconds"],
+                        **_accounting(selection.get("accounting") if crossing else None, name + "_")})
+    if metric == "roc_auc":
+        row["best_validation_auc"] = row["best_score"]
+        for name in ("best", "milestone", "stretch"):
+            result = test_result(name)
+            row[name + "_test_auc"] = result["test_score"]
+            row[name + "_test_status"] = result["test_status"]
     return row
 
 
 def build_report_data(root: Path) -> dict:
-    """Read frozen run artifacts, without evaluating models or accessing test data.
+    """Read frozen artifacts offline, retaining every scheduled run in denominators.
 
-    Every discovered run remains in attainment denominators. Means of available
-    validation outcomes include their explicit valid count; missing classifiers
-    are never replaced with zero or silently removed from the all-run table.
+    Different problem identities or objectives cannot be pooled in one report.
     """
     root = Path(root)
     warnings: list[str] = []
@@ -193,30 +278,49 @@ def build_report_data(root: Path) -> dict:
     if (root / "runs").exists():
         paths.extend(sorted((root / "runs").rglob("summary.json")))
     manifest_path = root / "suite.json"
+    manifest = _read(manifest_path, warnings) if manifest_path.exists() else {}
+    records = {path: _read(path, warnings) for path in dict.fromkeys(paths)}
+    metadata_fields = ("objective", "problem", "problem_hash", "target_definitions", "data_fingerprint")
+    metadata = {key: manifest[key] for key in metadata_fields if key in manifest}
+    if "objective" not in metadata:
+        inferred = next(({key: item[key] for key in metadata_fields if key in item}
+                         for item in records.values() if "objective" in item), {})
+        metadata = {**inferred, **metadata}
+    if "data_fingerprint" not in manifest and manifest_path.exists():
+        metadata["data_fingerprint"] = ((manifest.get("provenance") or {}).get("data_manifest") or {}).get("data_fingerprint")
+    runs = []
     if manifest_path.exists():
-        manifest = _read(manifest_path, warnings)
-        planned = manifest.get("schedule", [])
-        runs = []
         config = manifest.get("config") or {}
+        planned = manifest.get("schedule", [])
+        planned_paths = set()
         for entry in planned:
             path = root / "runs" / entry["run_id"] / "summary.json"
-            if path.exists():
-                runs.append(_run_data(path, warnings, shared_test_cache=shared_test_cache))
+            planned_paths.add(path)
+            if path in records:
+                summary = records[path]
             else:
                 interrupted = (path.parent / "events.jsonl").exists()
                 warnings.append(f"Incomplete suite: {entry['run_id']} "
                                 + ("needs recovery after interruption." if interrupted else "has not started."))
-                runs.append(_run_data(path, warnings, {
-                    "run_id": entry["run_id"], "condition": entry["condition"],
-                    "repeat": entry["repeat"], "config": config,
-                    "allowance_seconds": config.get("allowance_seconds"),
-                    "stop_reason": "interrupted_unrecovered" if interrupted else "not_started",
-                }, shared_test_cache=shared_test_cache))
-        planned_paths = {root / "runs" / entry["run_id"] / "summary.json" for entry in planned}
+                summary = {**metadata, "run_id": entry["run_id"], "condition": entry["condition"],
+                           "repeat": entry["repeat"], "config": config,
+                           "allowance_seconds": config.get("allowance_seconds"),
+                           "stop_reason": "interrupted_unrecovered" if interrupted else "not_started"}
+            runs.append(_run_data(path, warnings, summary, shared_test_cache))
         if set(paths) - planned_paths:
             warnings.append("Unscheduled run directories were excluded from the frozen suite comparison.")
     else:
-        runs = [_run_data(path, warnings, shared_test_cache=shared_test_cache) for path in dict.fromkeys(paths)]
+        runs = [_run_data(path, warnings, summary, shared_test_cache) for path, summary in records.items()]
+    identities = {(r["objective"]["metric"], r["objective"]["direction"], r["problem_hash"],
+                   json.dumps(r["problem"], sort_keys=True), r["data_fingerprint"]) for r in runs}
+    if metadata and manifest_path.exists():
+        objective = _objective(metadata)
+        identities.add((objective["metric"], objective["direction"], metadata.get("problem_hash"),
+                        json.dumps(metadata.get("problem"), sort_keys=True), metadata.get("data_fingerprint")))
+    if len(identities) > 1:
+        raise ValueError("Incompatible problem identities, objectives, or data fingerprints in report; "
+                         "known and unknown data snapshots cannot be pooled. Generate a separate report for each data snapshot.")
+    objective = runs[0]["objective"] if runs else _objective(metadata)
     if any(r["stop_reason"].startswith(("not_started", "interrupted")) for r in runs):
         warnings.append("Incomplete comparison: some planned runs did not finish; do not interpret it as a matched study.")
     grouped = defaultdict(list)
@@ -224,33 +328,42 @@ def build_report_data(root: Path) -> dict:
         grouped[row["condition"]].append(row)
     conditions = {}
     for condition, rows in grouped.items():
-        values = [r["best_validation_auc"] for r in rows if r["best_validation_auc"] is not None]
+        values = [r["best_score"] for r in rows if r["best_score"] is not None]
         aggregate = {"run_count": len(rows), "valid_run_count": len(values),
-                     "best_validation_mean": mean(values) if values else None,
-                     "best_validation_sd": stdev(values) if len(values) > 1 else None,
-                     "stop_reasons": dict(Counter(r["stop_reason"] for r in rows))}
+                     "best_score_mean": mean(values) if values else None,
+                     "best_score_sd": stdev(values) if len(values) > 1 else None,
+                     "stop_reasons": dict(Counter(r["stop_reason"] for r in rows)), "targets": {}}
+        if objective["metric"] == "roc_auc":
+            aggregate.update(best_validation_mean=aggregate["best_score_mean"],
+                             best_validation_sd=aggregate["best_score_sd"])
         deadlines = [r["allowance_seconds"] for r in rows if r["allowance_seconds"] is not None]
-        for name in ("milestone", "stretch"):
-            times = sorted(r[name + "_seconds"] for r in rows if r[name + "_reached"])
+        for name in dict.fromkeys(name for row in rows for name in row["targets"]):
+            times = sorted(r["targets"][name]["seconds"] for r in rows
+                           if r["targets"].get(name, {}).get("reached"))
             points = [(0., 0.)]
             for seconds in sorted(set(times)):
                 points.append((seconds, sum(t <= seconds for t in times) / len(rows)))
             if deadlines and points[-1][0] < max(deadlines):
                 points.append((max(deadlines), len(times) / len(rows)))
-            aggregate[name + "_fraction"] = len(times) / len(rows)
-            aggregate[name + "_curve"] = points
+            aggregate["targets"][name] = {"fraction": len(times) / len(rows), "curve": points}
+            if objective["metric"] == "roc_auc" and name in ("milestone", "stretch"):
+                aggregate[name + "_fraction"] = len(times) / len(rows)
+                aggregate[name + "_curve"] = points
         conditions[condition] = aggregate
-    allowances = sorted({r["allowance_seconds"] for r in runs if r["allowance_seconds"] is not None})
+    allowances = {r["allowance_seconds"] for r in runs if r["allowance_seconds"] is not None}
     if len(allowances) > 1:
         warnings.append("Run allowances differ: this is not an equal-wall-time comparison.")
-    for name in ("milestone", "stretch"):
-        if len({r[name + "_auc"] for r in runs}) > 1:
-            warnings.append(f"{name.title()} thresholds differ between runs; compare with care.")
+    for name in dict.fromkeys(name for row in runs for name in row["targets"]):
+        thresholds = {r["targets"].get(name, {}).get("threshold") for r in runs}
+        if len(thresholds) > 1:
+            warnings.append(f"{name} thresholds differ or are missing between runs; compare with care.")
     postrun_path = root / "postrun.json"
     postrun = _read(postrun_path, warnings) if postrun_path.exists() else {}
-    return {"runs": runs, "conditions": conditions, "warnings": warnings,
+    first = runs[0] if runs else metadata
+    return {"runs": runs, "conditions": conditions, "warnings": warnings, "objective": objective,
+            "problem_hash": first.get("problem_hash"), "problem": first.get("problem"),
+            "data_fingerprint": first.get("data_fingerprint"),
             "postrun_accounting": postrun}
-
 
 def _display(value: Any) -> str:
     if value is None:
@@ -280,6 +393,8 @@ def _plots(data: dict) -> str:
     palette = ["#2563eb", "#d97706", "#059669", "#9333ea", "#dc2626"]
     colors = {name: palette[i % len(palette)] for i, name in enumerate(data["conditions"])}
     labels_seen = set()
+    metric = data["objective"]["metric"]
+    metric_label = "ROC-AUC" if metric == "roc_auc" else metric
     for row in data["runs"]:
         name = row["condition"]
         curve = row["best_curve"]
@@ -288,7 +403,7 @@ def _plots(data: dict) -> str:
             x, y = zip(*curve)
             progress.step(x, y, where="post", color=colors[name], alpha=.7, label=label)
             labels_seen.add(name)
-        auc = row["best_validation_auc"]
+        auc = row["best_score"]
         if auc is not None and row["known_cost"] is not None:
             cost.scatter(row["known_cost"], auc, color=colors[name],
                          marker="o" if row["cost_complete"] else "x")
@@ -299,25 +414,30 @@ def _plots(data: dict) -> str:
     for deadline in deadlines:
         progress.axvline(deadline, color="#64748b", linestyle=":", alpha=.7)
         attainment.axvline(deadline, color="#64748b", linestyle=":", alpha=.7)
-    for name in ("milestone", "stretch"):
-        for threshold in sorted({r[name + "_auc"] for r in data["runs"]}):
+    target_names = list(dict.fromkeys(name for row in data["runs"] for name in row["targets"]))
+    for name in target_names:
+        thresholds = {r["targets"][name]["threshold"] for r in data["runs"] if name in r["targets"]}
+        for threshold in sorted(thresholds):
             progress.axhline(threshold, color="#94a3b8", linestyle="--", linewidth=.7)
             progress.text(.02, threshold, f" {name} {threshold:g}", fontsize=8,
                           transform=progress.get_yaxis_transform(), va="bottom")
+    styles = ("-", "--", "-.", ":")
     for name, aggregate in data["conditions"].items():
-        for threshold, style in (("milestone", "-"), ("stretch", "--")):
-            x, y = zip(*aggregate[threshold + "_curve"])
-            attainment.step(x, y, where="post", color=colors[name], linestyle=style,
-                            label=f"{name}: {threshold}")
-    progress.set(title="Best completed validation AUC (each run)", xlabel="Elapsed seconds", ylabel="Validation ROC-AUC", xlim=(0, max(deadlines) * 1.03 if deadlines else 1))
-    attainment.set(title="Threshold attainment / all runs", xlabel="Elapsed seconds", ylabel="Fraction of all runs", ylim=(-.02, 1.02))
-    cost.set(title="API cost through stopping (× = incomplete lower bound)", xlabel="Known API cost, USD", ylabel="Deadline validation ROC-AUC")
-    tokens.set(title="Tokens through stopping (× = incomplete subtotal)", xlabel="Input + output tokens", ylabel="Deadline validation ROC-AUC")
+        for index, (target, details) in enumerate(aggregate["targets"].items()):
+            x, y = zip(*details["curve"])
+            attainment.step(x, y, where="post", color=colors[name], linestyle=styles[index % len(styles)],
+                            label=f"{name}: {target}")
+    progress.set(title=f"Best completed validation {metric_label} (each run)", xlabel="Elapsed seconds",
+                 ylabel=f"Validation {metric_label} ({data['objective']['direction']})",
+                 xlim=(0, max(deadlines) * 1.03 if deadlines else 1))
+    attainment.set(title="Target attainment / all runs", xlabel="Elapsed seconds", ylabel="Fraction of all runs", ylim=(-.02, 1.02))
+    cost.set(title="API cost through stopping (× = incomplete lower bound)", xlabel="Known API cost, USD", ylabel=f"Deadline validation {metric_label}")
+    tokens.set(title="Tokens through stopping (× = incomplete subtotal)", xlabel="Input + output tokens", ylabel=f"Deadline validation {metric_label}")
     for axes in (progress, attainment, cost, tokens):
         axes.grid(alpha=.15)
     if labels_seen:
         progress.legend(fontsize=7)
-    if data["conditions"]:
+    if any(a["targets"] for a in data["conditions"].values()):
         attainment.legend(fontsize=6)
     buffer = io.BytesIO()
     figure.savefig(buffer, format="png", dpi=130)
@@ -338,36 +458,51 @@ def generate_report(root: Path) -> Path:
     with (root / "summary.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(runs)
+        writer.writerows({key: json.dumps(value, sort_keys=True, ensure_ascii=False)
+                          if isinstance(value, (dict, list)) else value
+                          for key, value in row.items()} for row in runs)
+    objective = data["objective"]
+    metric = "ROC-AUC" if objective["metric"] == "roc_auc" else objective["metric"]
+    target_names = list(dict.fromkeys(name for row in runs for name in row["targets"]))
     sections = ["<h1>Overnight study: validation performance at the deadline</h1>",
-                "<p>Primary outcome: highest completed validation ROC-AUC within each run's scheduled allowance. "
-                "Every run is listed, including failures and runs with no valid classifier. ROC-AUC measures ranking, "
-                "not classification accuracy. Held-out test results are separate generalization checks.</p>"]
-    sections.append(_table(["Condition", "All runs", "Valid classifiers", "Mean validation AUC (valid n)",
-                            "SD (valid n)", "Milestone fraction (all runs)", "Stretch fraction (all runs)"],
-                           [[name, a["run_count"], a["valid_run_count"], a["best_validation_mean"],
-                             a["best_validation_sd"], a["milestone_fraction"], a["stretch_fraction"]]
+                f"<p>Primary outcome: best completed validation {html.escape(metric)} "
+                f"({html.escape(objective['direction'])}) within each run's scheduled allowance. "
+                "Every scheduled run is listed, including failures and runs with no valid model. "
+                "Held-out test results are separate generalization checks.</p>"]
+    if data["problem_hash"] is not None:
+        sections.append("<p>Frozen problem hash: " + _display(data["problem_hash"]) + "</p>")
+        sections.append("<details><summary>Frozen problem definition</summary><pre>"
+                        + html.escape(json.dumps(data["problem"], indent=2, ensure_ascii=False)) + "</pre></details>")
+    if data["data_fingerprint"] is not None:
+        sections.append("<p>Frozen prepared data fingerprint: " + _display(data["data_fingerprint"]) + "</p>")
+    if objective["metric"] == "roc_auc":
+        sections.append("<p>ROC-AUC measures ranking, not classification accuracy.</p>")
+    sections.append(_table(["Condition", "All runs", "Valid models", f"Mean validation {metric} (valid n)",
+                            "SD (valid n)"] + [f"{name} fraction (all runs)" for name in target_names],
+                           [[name, a["run_count"], a["valid_run_count"], a["best_score_mean"], a["best_score_sd"]]
+                            + [a["targets"].get(target, {}).get("fraction") for target in target_names]
                             for name, a in data["conditions"].items()]))
-    sections.append("<p>Means and SD describe available classifier outcomes with valid n shown; "
-                    "they do not impute a score to runs without a valid classifier. Small samples are exploratory. "
+    sections.append("<p>Means and SD describe available model outcomes with valid n shown; "
+                    "they do not impute a score to runs without a valid model. Small samples are exploratory. "
                     "Nonattainers have unknown crossing time, never the deadline as their crossing time. "
                     "Early stops carry their last completed score to the scheduled deadline; no uncompleted work is credited. "
-                    "Dotted vertical lines mark allowances; dashed horizontal lines mark frozen thresholds.</p>")
-    if runs:
-        sections.append(_plots(data))
-    else:
-        sections.append("<p>No run summaries found.</p>")
-    sections.append("<h2>Every run: primary outcome, thresholds, and stop reason</h2>")
+                    "Dotted vertical lines mark allowances; dashed horizontal lines mark frozen targets.</p>")
+    sections.append(_plots(data) if runs else "<p>No run summaries found.</p>")
+    sections.append("<h2>Every run: primary outcome and stop reason</h2>")
     sections.append(_table(["Run", "Condition", "Repeat", "Allowance (s)", "Actual stop (s)", "Stop reason",
-                            "Best validation AUC", "Milestone reached", "Milestone time (s)",
-                            "Stretch reached", "Stretch time (s)", "Attempts"],
+                            f"Best validation {metric}", "Attempts"],
                            [[r[k] for k in ("run_id", "condition", "repeat", "allowance_seconds", "elapsed_seconds",
-                                            "stop_reason", "best_validation_auc", "milestone_reached", "milestone_seconds",
-                                            "stretch_reached", "stretch_seconds", "trial_attempts")] for r in runs]))
+                                            "stop_reason", "best_score", "trial_attempts")] for r in runs]))
+    sections.append("<h2>Named validation target crossings</h2>")
+    sections.append(_table(["Run", "Target", f"Threshold ({metric})", "Reached", "First crossing (s)"],
+                           [[r["run_id"], name, t["threshold"], t["reached"], t["seconds"]]
+                            for r in runs for name, t in r["targets"].items()]))
     sections.append("<h2>Held-out test confirmation (post-search)</h2>")
-    sections.append(_table(["Run", "Deadline-selected test AUC", "Milestone test AUC", "Stretch test AUC", "Deadline test status"],
-                           [[r[k] for k in ("run_id", "best_test_auc", "milestone_test_auc", "stretch_test_auc", "best_test_status")]
-                            for r in runs]))
+    sections.append(_table(["Run", "Selection", f"Held-out {metric}", "Test status", "Test metrics"],
+                           [[r["run_id"], "best", r["best_test_score"], r["best_test_status"],
+                             json.dumps(r["best_test_metrics"], sort_keys=True)] for r in runs]
+                           + [[r["run_id"], name, t["test_score"], t["test_status"], json.dumps(t["test_metrics"], sort_keys=True)]
+                              for r in runs for name, t in r["targets"].items()]))
     sections.append("<h2>API accounting through stopping</h2><p>Dollar totals cover reported model-provider charges "
                     "for all roles, including failed calls, reviews and reflection where recorded. Unknown billing is preserved: "
                     "known cost is only a subtotal when incomplete. Training/tool compute and post-run work are recorded separately; "
@@ -377,11 +512,10 @@ def generate_report(root: Path) -> Path:
                             "Reasoning tokens", "Complete token total", "Usage complete"],
                            [[r[k] for k in ("run_id", "known_cost", "total_cost", "input_tokens", "output_tokens", "cached_tokens",
                                             "reasoning_tokens", "total_tokens", "token_usage_complete")] for r in runs]))
-    sections.append("<h3>Accounting at first threshold attainment</h3>")
-    sections.append(_table(["Run", "Threshold", "Reached", "Time (s)", "Known USD", "Complete USD", "Complete tokens"],
-                           [[r["run_id"], name, r[name + "_reached"], r[name + "_seconds"], r[name + "_known_cost"],
-                             r[name + "_total_cost"], r[name + "_total_tokens"]]
-                            for r in runs for name in ("milestone", "stretch")]))
+    sections.append("<h3>Accounting at first target attainment</h3>")
+    sections.append(_table(["Run", "Target", "Reached", "Time (s)", "Known USD", "Complete USD", "Complete tokens"],
+                           [[r["run_id"], name, t["reached"], t["seconds"], t["known_cost"], t["total_cost"], t["total_tokens"]]
+                            for r in runs for name, t in r["targets"].items()]))
     sections.append("<h2>Training/tool compute</h2><p>Trial-process elapsed seconds include preprocessing, fitting and scoring, "
                     "and failed or timed-out attempts where measured. This is wall time, not CPU-seconds or a billed dollar estimate. "
                     "Additional tool compute is unknown unless present in the run's accounting record.</p>")

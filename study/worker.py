@@ -21,10 +21,19 @@ from study.science import build_pipeline
 
 
 def execute(request: dict) -> dict:
-    pipeline = build_pipeline(request["config"], seed=request["seed"])
+    adapter = None
+    if 'problem' in request:
+        from study.problem import ProblemSpec
+        from study.tasks import get_adapter
+        adapter = get_adapter(ProblemSpec.from_dict(request['problem']))
+    pipeline = (adapter.build_pipeline if adapter else build_pipeline)(request['config'], seed=request['seed'])
     with np.load(request["train_path"], allow_pickle=False) as train, np.load(request["validation_path"], allow_pickle=False) as validation, threadpool_limits(limits=1):
         pipeline.fit(train["X"], train["y"])
-        score = float(roc_auc_score(validation["y"], pipeline.predict_proba(validation["X"])[:, 1]))
+        if adapter is None:
+            score = float(roc_auc_score(validation['y'], pipeline.predict_proba(validation['X'])[:, 1]))
+        else:
+            metrics = adapter.metrics(pipeline, validation['X'], validation['y'])
+            score = metrics[adapter.problem.objective['metric']]
     artifact = Path(request["artifact_path"])
     metadata = request["metadata"] | {"config": request["config"], "seed": request["seed"]}
     with tempfile.NamedTemporaryFile(dir=artifact.parent, suffix=".joblib.tmp", delete=False) as handle:
@@ -45,7 +54,14 @@ def execute(request: dict) -> dict:
             os.close(descriptor)
     finally:
         temporary.unlink(missing_ok=True)
-    return {"status": "completed", "validation_auc": score, "artifact_hash": hashlib.sha256(artifact.read_bytes()).hexdigest()}
+    result = {'status': 'completed', 'artifact_hash': hashlib.sha256(artifact.read_bytes()).hexdigest()}
+    if adapter is None:
+        result['validation_auc'] = score
+    else:
+        result.update(metrics=metrics, score=score)
+        if adapter.problem.objective['metric'] == 'roc_auc':
+            result['validation_auc'] = score
+    return result
 
 
 def main() -> None:

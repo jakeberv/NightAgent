@@ -30,6 +30,36 @@ billing; inclusion of all scheduled runs after interruption; and visibility of
 already-saved test scores after postrun evaluation timeout. Final scoped review
 found no unresolved actionable findings.
 
+## Configurable problem framework
+
+The initial runner was checkpointed first as `39f8fd6` after 98 tests passed.
+The subsequent refactor adds strict YAML/JSON profiles, trusted classification
+and regression adapters, generic metric direction and named targets, CLI
+validation, and frozen problem/data identities throughout recovery and reporting.
+
+- Final full suite: `.venv/bin/python -m pytest -q` — **165 passed in 20.37 seconds**.
+  Compilation and `git diff --check` also passed.
+- Offline end-to-end checks each completed five conditions × four real trials:
+  synthetic regression (RMSE), three-class CSV classification (accuracy), and the
+  original binary synthetic smoke (ROC-AUC). These generated held-out evaluations,
+  HTML reports, and CSV summaries, using only scripted model/literature responses.
+  The final multiclass and legacy smokes also verified frozen dataset identity.
+- The official MNIST archive matched SHA-256
+  `731c5ac602752760c8e48fbffcf8c3b850d9dc2a2aedcf2cc48468fc17b673d1`.
+  Preparation produced 48,000 training, 12,000 validation and the original 10,000
+  test images. No full MNIST fitting or test scoring was performed; the 0.95
+  accuracy target remains unproven. Fixture tests cover multiclass NPZ fitting
+  and preservation of the official-test arrays.
+- The MAGIC profile also prepared the actual source successfully into a separate
+  frozen dataset. Its test labels remain unevaluated.
+- Independent review findings were fixed with regression tests: incompatible
+  class-label representations fail validation, narrowed parameter bounds cannot
+  contradict enums, and reports refuse different dataset fingerprints or mixed
+  known/unknown identities. The final scoped review found no remaining actionable
+  issue, with 96 relevant tests passing independently.
+- The verified lock adds PyYAML 6.0.3. The [profile guide](problem-definitions.md)
+  documents supported inputs, metrics, targets, commands and extension boundaries.
+
 The final study dataset/protocol, model/provider, repeats, run allowance, and
 secondary caps remain explicit pilot choices. The implementation and synthetic
 smoke do not establish that any interaction strategy is superior.

@@ -7,8 +7,6 @@
   "trial_timeout_seconds": 60,
   "trial_cap": 1000,
   "dollar_cap": 20,
-  "milestone": 0.93,
-  "stretch": 0.95,
   "training_seed": 42,
   "history_trials": 12,
   "model_timeout_seconds": 90,

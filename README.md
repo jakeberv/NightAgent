@@ -5,9 +5,12 @@ NightAgent is a friendly AI apprentice that learns from our interactions and put
 ## Controlled experimental study
 
 The [study runner](study/README.md) implements the updated five-condition,
-equal-wall-time classification experiment using OpenRouter. It includes
-bounded classifier tools, scheduled supervision/reflection, supervisor-only
+equal-wall-time experiment using OpenRouter. It includes
+bounded classification/regression tools, scheduled supervision/reflection, supervisor-only
 literature access, isolated held-out evaluation, and offline verification.
+Use [problem profiles](docs/problem-definitions.md) to specify datasets, objectives,
+named targets, and search spaces without changing the runner. Bundled examples
+cover MAGIC, multiclass CSV, MNIST accuracy, and regression.
 See its README for setup, the MAGIC feasibility pilot, and the overnight CLI.
 The conversational prototype below remains available separately.
 

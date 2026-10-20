@@ -1,0 +1,21 @@
+schema_version: 1
+id: mnist
+task: tabular_classification
+brief: Classify handwritten digits zero through nine from flattened 28 by 28 pixel images; validation is drawn only from the original training data.
+dataset:
+  format: npz
+  path: ../../study-data/mnist-source/mnist.npz
+  feature_array: x_train
+  target_array: y_train
+  test_feature_array: x_test
+  test_target_array: y_test
+  flatten: true
+evaluation:
+  split: {method: predefined_test, train: 0.8, validation: 0.2, test: official, seed: 42}
+  objective: {metric: accuracy, direction: maximize}
+  additional_metrics: [macro_f1]
+targets:
+  - {name: accurate, value: 0.95}
+search_space:
+  preset: tabular_classification_small
+  models: [logistic, random_forest, histogram_gradient_boosting]

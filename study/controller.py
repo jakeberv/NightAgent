@@ -23,7 +23,7 @@ def function_tool(name, description, parameters):
 EMPTY = {"type": "object", "properties": {}, "additionalProperties": False}
 
 
-def tools_for(role, config):
+def tools_for(role, config, problem=None):
     if role == "reflection":
         return []
     tools = [
@@ -31,8 +31,13 @@ def tools_for(role, config):
         function_tool("read_results", "Read the common bounded recent-trial history.", EMPTY),
     ]
     if role == "researcher":
-        from .science import ANALYSIS_SCHEMA
-        tools.append(function_tool("run_analysis", "Run exactly one bounded classifier trial.", ANALYSIS_SCHEMA))
+        if problem is None:
+            from .science import ANALYSIS_SCHEMA
+            schema = ANALYSIS_SCHEMA
+        else:
+            from .tasks import get_adapter
+            schema = get_adapter(problem).analysis_schema
+        tools.append(function_tool("run_analysis", "Run exactly one bounded experiment.", schema))
     if role == "supervisor" and config.literature:
         for name, field, description in (
             ("literature_search", "query", "Search scholarly literature for a specific uncertainty."),
@@ -49,49 +54,119 @@ def agent_result(result):
             if key not in ("artifact", "artifact_hash")}
 
 
-def select_result(summary, result, accounting, config):
+def resolve_problem(config, data_dir, problem=None):
+    """Resolve and verify science before starting any model or allowance clock."""
+    from .problem import ProblemSpec, assert_problem_matches, legacy_problem, problem_from_data
+    frozen = problem_from_data(data_dir)
+    if problem is not None:
+        if isinstance(problem, dict):
+            problem = ProblemSpec.from_dict(problem)
+        assert_problem_matches(data_dir, problem)
+        return problem
+    if frozen is not None:
+        assert_problem_matches(data_dir, frozen)
+        return frozen
+    return legacy_problem(milestone=config.milestone, stretch=config.stretch)
+
+
+def prepared_fingerprint(data_dir):
+    """Return prepared content identity; fixture-only legacy runs may have none."""
+    manifest = Path(data_dir) / "manifest.json"
+    return json.loads(manifest.read_text()).get("data_fingerprint") if manifest.exists() else None
+
+
+def initial_summary(config, problem, data_fingerprint=None):
+    return {"condition": config.condition, "repeat": config.repeat,
+        "allowance_seconds": config.allowance_seconds, "config": config.to_dict(),
+        "problem": problem.to_dict(), "problem_hash": problem.fingerprint,
+        "data_fingerprint": data_fingerprint, "objective": dict(problem.objective), "target_definitions": problem.targets,
+        "target_selections": {target["name"]: None for target in problem.targets},
+        "trials": 0, "best": None, "milestone": None, "stretch": None,
+        "training_seconds": 0.0}
+
+
+def select_result(summary, result, accounting, config, problem=None):
     if result.get("status") != "completed":
         return
-    score = result.get("validation_auc")
-    if type(score) not in (float, int) or not math.isfinite(score) or not 0 <= score <= 1:
+    objective = problem.objective if problem is not None else {"metric": "roc_auc", "direction": "maximize"}
+    metric = objective["metric"]
+    score = result.get("score", result.get("metrics", {}).get(metric))
+    if score is None and metric == "roc_auc":
+        score = result.get("validation_auc")
+    if type(score) not in (float, int) or not math.isfinite(score):
         return
-    if result["elapsed_seconds"] > config.allowance_seconds:
+    from .problem import validate_metric_value
+    try:
+        validate_metric_value(metric, score)
+    except (ValueError, KeyError):
+        return
+    elapsed = result.get("elapsed_seconds")
+    if type(elapsed) not in (float, int) or not math.isfinite(elapsed) or not 0 <= elapsed <= config.allowance_seconds:
         return
     selected = {key: result[key] for key in (
-        "trial_id", "elapsed_seconds", "validation_auc", "artifact", "artifact_hash")}
-    selected["accounting"] = accounting.snapshot()
-    if summary["best"] is None or score > summary["best"]["validation_auc"]:
+        "trial_id", "elapsed_seconds", "artifact", "artifact_hash")}
+    selected.update(score=score, metrics=dict(result.get("metrics") or {metric: score}),
+                    accounting=accounting.snapshot())
+    if metric == "roc_auc":
+        selected["validation_auc"] = score
+    minimize = objective["direction"] == "minimize"
+    best = summary.get("best")
+    previous_score = best.get("score", best.get("validation_auc")) if best else None
+    better = previous_score is None or (score < previous_score if minimize else score > previous_score)
+    if better or (score == previous_score and elapsed < best["elapsed_seconds"]):
         summary["best"] = selected
-    for name, threshold in (("milestone", config.milestone), ("stretch", config.stretch)):
-        if summary[name] is None and score >= threshold:
-            summary[name] = selected
+    targets = problem.targets if problem is not None else [
+        {"name": "milestone", "value": config.milestone}, {"name": "stretch", "value": config.stretch}]
+    selections = summary.setdefault("target_selections", {})
+    for target in targets:
+        name, threshold = target["name"], target["value"]
+        reached = score <= threshold if minimize else score >= threshold
+        previous = selections.get(name, summary.get(name) if name in ("milestone", "stretch") else None)
+        if reached and (previous is None or elapsed < previous["elapsed_seconds"]):
+            selections[name] = selected
+            if name in ("milestone", "stretch"):
+                summary[name] = selected
+        else:
+            selections.setdefault(name, previous)
 
 
 async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, project=None, literature=None,
-                  provider_metadata=None):
+                  provider_metadata=None, problem=None):
     """Run once in a NEW directory. Existing runs must be recovered, never resumed."""
-    from .science import project_info, run_trial
     if trial_runner is None:
+        from .science import run_trial
         trial_runner = run_trial
     run_dir, data_dir = Path(run_dir).resolve(), Path(data_dir).resolve()
+    problem = resolve_problem(config, data_dir, problem)
+    data_fingerprint = prepared_fingerprint(data_dir)
     if project is None:
-        project = project_info(data_dir)
+        from .problem import problem_from_data
+        if problem_from_data(data_dir) is not None:
+            from .tasks import get_adapter
+            project = get_adapter(problem).describe(data_dir)
+        else:
+            from .science import project_info
+            project = project_info(data_dir)
     # Provisioning happens before the allowance clock starts.
     run_dir.mkdir(parents=True, exist_ok=False)
     atomic_json(run_dir / "config.json", config.to_dict())
     atomic_json(run_dir / "project.json", project)
+    atomic_json(run_dir / "problem.json", problem.to_dict())
+    atomic_json(run_dir / "resolved-config.json", {"config": config.to_dict(),
+        "problem": problem.to_dict(), "problem_hash": problem.fingerprint,
+        "data_fingerprint": data_fingerprint})
     if provider_metadata is not None:
         atomic_json(run_dir / "provider.json", provider_metadata)
     history = []
     feedback = reflection = None
     accounting = Accounting()
-    summary = {"condition": config.condition, "repeat": config.repeat,
-               "allowance_seconds": config.allowance_seconds, "config": config.to_dict(),
-               "trials": 0, "best": None, "milestone": None, "stretch": None, "training_seconds": 0.0}
+    summary = initial_summary(config, problem, data_fingerprint)
     started = time.monotonic()
     deadline = started + config.allowance_seconds
     journal = Journal(run_dir, started)
     journal.emit("run_started", config=config.to_dict(), project=project,
+                 problem=problem.to_dict(), problem_hash=problem.fingerprint,
+                 data_fingerprint=data_fingerprint,
                  deadline_utc=(datetime.now(timezone.utc) + timedelta(seconds=config.allowance_seconds)).isoformat())
 
     def remaining():
@@ -112,7 +187,8 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             "best": agent_result(summary["best"] or {}), "last_supervisor_feedback": feedback,
             "last_explicit_reflection": reflection, "trials_attempted": summary["trials"],
             "remaining_seconds": max(0, remaining()), "accounting": accounting.snapshot(),
-            "targets": {"milestone": config.milestone, "stretch": config.stretch}},
+            "objective": problem.objective,
+            "targets": {target["name"]: target["value"] for target in problem.targets}},
             allow_nan=False)
 
     async def model_call(role, messages, tools):
@@ -148,9 +224,8 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             return response["message"]
 
     async def phase(role):
-        instructions = {"researcher": prompts.RESEARCHER, "supervisor": prompts.SUPERVISOR,
-                        "reflection": prompts.REFLECTION}[role]
-        tools = tools_for(role, config)
+        instructions = prompts.instructions_for(role, problem)
+        tools = tools_for(role, config, problem)
         schemas = {tool["function"]["name"]: tool["function"]["parameters"] for tool in tools}
         messages = [{"role": "system", "content": instructions},
                     {"role": "user", "content": context()}]
@@ -204,9 +279,9 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         if remaining() <= 0 and result["status"] == "completed":
                             result["status"] = "late"
                         journal.emit("trial_finished", result=result)
-                        select_result(summary, result, accounting, config)
+                        select_result(summary, result, accounting, config, problem)
                         journal.emit("selection", best=summary["best"], milestone=summary["milestone"],
-                                     stretch=summary["stretch"])
+                                     stretch=summary["stretch"], target_selections=summary["target_selections"])
                         atomic_json(run_dir / "checkpoint.json", summary)
                         history.append(agent_result(result))
                         return agent_result(result)
@@ -281,10 +356,24 @@ def recover_run(run_dir):
     if stopped:
         atomic_json(run_dir / "summary.json", stopped["summary"])
         return stopped["summary"]
-    config = StudyConfig(**json.loads((run_dir / "config.json").read_text()))
-    summary = {"condition": config.condition, "repeat": config.repeat,
-        "config": config.to_dict(), "allowance_seconds": config.allowance_seconds,
-        "trials": 0, "best": None, "milestone": None, "stretch": None, "training_seconds": 0.0}
+    from .problem import ProblemSpec, legacy_problem
+    data_fingerprint = next((event.get("data_fingerprint") for event in events
+                             if event["type"] == "run_started"), None)
+    frozen_path = run_dir / "resolved-config.json"
+    if frozen_path.exists():
+        frozen = json.loads(frozen_path.read_text())
+        config = StudyConfig(**frozen["config"])
+        data_fingerprint = frozen.get("data_fingerprint", data_fingerprint)
+        problem = ProblemSpec.from_dict(frozen["problem"])
+        if problem.fingerprint != frozen["problem_hash"]:
+            raise ValueError("Frozen run problem fingerprint does not match")
+    else:
+        config = StudyConfig(**json.loads((run_dir / "config.json").read_text()))
+        if (run_dir / "problem.json").exists():
+            problem = ProblemSpec.from_dict(json.loads((run_dir / "problem.json").read_text()))
+        else:
+            problem = legacy_problem(milestone=config.milestone, stretch=config.stretch)
+    summary = initial_summary(config, problem, data_fingerprint)
     accounting = Accounting()
     started_calls = finished_calls = 0
     for event in events:
@@ -298,7 +387,7 @@ def recover_run(run_dir):
         elif event["type"] == "trial_finished":
             result = event["result"]
             summary["training_seconds"] += result.get("duration_seconds", 0)
-            select_result(summary, result, accounting, config)
+            select_result(summary, result, accounting, config, problem)
     for _ in range(started_calls - finished_calls):
         accounting.add(None)  # An in-flight request may have been billed.
     summary.update(stop_reason="interrupted", elapsed_seconds=events[-1]["elapsed_seconds"] if events else 0,

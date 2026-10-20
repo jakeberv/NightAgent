@@ -3,15 +3,16 @@ import json
 
 
 class FakeModel:
-    def __init__(self):
+    def __init__(self, options=None):
         self.trials = 0
+        self.options = options
 
     async def complete(self, messages, tools, *, timeout):
         role = messages[0]["content"].splitlines()[0]
         calls = []
         content = "Compare nonlinear capacity against the completed validation evidence."
         if role == "ROLE: researcher":
-            options = [
+            options = self.options or [
                 {"model": "logistic", "preprocessing": "standard", "params": {"C": 1}},
                 {"model": "random_forest", "preprocessing": "none", "params": {"n_estimators": 30}},
                 {"model": "histogram_gradient_boosting", "preprocessing": "none", "params": {"max_iter": 40}},
@@ -25,7 +26,7 @@ class FakeModel:
                 t["function"]["name"] == "literature_search" for t in tools):
             content = "Research question: do nonlinear tree models warrant a controlled comparison?"
             calls = [{"id": "fake-literature", "type": "function", "function": {
-                "name": "literature_search", "arguments": json.dumps({"query": "gradient boosting classification"})}}]
+                "name": "literature_search", "arguments": json.dumps({"query": "controlled model comparison"})}}]
         message = {"role": "assistant", "content": content}
         if calls:
             message["tool_calls"] = calls

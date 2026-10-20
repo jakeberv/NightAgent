@@ -5,3 +5,4 @@ joblib>=1.4,<2
 jsonschema>=4.22,<5
 matplotlib>=3.8,<4
 pytest>=8,<10
+PyYAML>=6,<7
