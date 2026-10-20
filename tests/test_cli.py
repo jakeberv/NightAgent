@@ -223,10 +223,36 @@ def test_profile_cli_prepare_run_evaluate_report_uses_configured_objective(
     assert summary["best"]["score"] == summary["best"]["metrics"][metric]
     assert summary["target_selections"]["acceptable"] is not None
     assert "validation_auc" not in summary["best"]
+    assert (run / "report.html").exists()
+    assert (run / "figures" / "workflow.svg").exists()
+    assert not (run / "test-results.json").exists()
     asyncio.run(dispatch(Namespace(command="evaluate", output=run, data=data)))
     report = build_report_data(run)
     assert report["runs"][0]["best_test_score"] is not None
     assert report["runs"][0]["targets"]["acceptable"]["reached"]
+
+
+def test_failed_pilot_still_generates_report_without_scoring_test_data(tmp_path, monkeypatch):
+    from argparse import Namespace
+    from study.__main__ import dispatch
+    data, run = tmp_path / 'data', tmp_path / 'run'
+    prepare_dataset(data, synthetic=True)
+    config = tmp_path / 'config.json'
+    config.write_text(json.dumps({'allowance_seconds': 10, 'trial_cap': 1}))
+    class Unavailable:
+        async def describe(self):
+            return {'offline': True}
+        async def complete(self, *args, **kwargs):
+            raise RuntimeError('simulated provider failure')
+        async def aclose(self):
+            pass
+    monkeypatch.setattr('study.__main__.live_model', lambda _: Unavailable())
+    with pytest.raises(RuntimeError, match='Search failed'):
+        asyncio.run(dispatch(Namespace(command='run', config=config, data=data,
+            output=run, condition=None, quiet=True)))
+    assert (run / 'report.html').exists()
+    assert json.loads((run / 'report-accounting.json').read_text())['api_calls'] == 0
+    assert not (run / 'test-results.json').exists()
 
 
 def test_suite_evaluates_identical_selected_artifact_once_across_runs(tmp_path):

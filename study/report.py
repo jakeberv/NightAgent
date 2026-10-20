@@ -1,10 +1,8 @@
 """Offline study reports. Unknown outcomes and accounting are never zero-filled."""
 from __future__ import annotations
 
-import base64
 import csv
 import html
-import io
 import json
 import math
 import os
@@ -211,6 +209,24 @@ def _run_data(path: Path, warnings: list[str], summary_override=None, shared_tes
     measured = [_number(t.get("training_seconds")) for t in trials]
     if training is None and measured and all(t is not None for t in measured):
         training = sum(measured)
+    attempts = (summary["trials"] if isinstance(summary.get("trials"), int)
+                else len(summary.get("trials") or trials))
+    outcomes = dict.fromkeys(("Completed", "Failed", "Timed out", "Late", "Other / unknown"), 0)
+    valid_ids = {t["trial_id"] for t in valid}
+    for item in trials:
+        status = item.get("status")
+        late = (status == "late" or status == "completed" and allowance is not None
+                and _number(item.get("elapsed_seconds")) is not None and item["elapsed_seconds"] > allowance)
+        label = ("Completed" if item["trial_id"] in valid_ids else "Late" if late else
+                 {"failed": "Failed", "timeout": "Timed out"}.get(status, "Other / unknown"))
+        outcomes[label] += 1
+    outcomes["Other / unknown"] += max(0, attempts - len(trials))
+    calls = [e for e in events if e.get("type") == "model_call"]
+    model_durations = [_number(e.get("duration_seconds")) for e in calls]
+    queue_durations = [_number(t.get("queue_seconds")) for t in trials]
+    def measured_total(values):
+        known = [value for value in values if value is not None and value >= 0]
+        return sum(known) if known else None
     best_test = test_result("best")
     row = {
         "run_id": summary.get("run_id", path.parent.name),
@@ -221,13 +237,20 @@ def _run_data(path: Path, warnings: list[str], summary_override=None, shared_tes
         "problem": summary.get("problem"), "target_definitions": definitions,
         "elapsed_seconds": _number(summary.get("elapsed_seconds")),
         "stop_reason": str(summary.get("stop_reason", "unknown")),
-        "trial_attempts": (summary["trials"] if isinstance(summary.get("trials"), int)
-                           else len(summary.get("trials") or trials)),
+        "trial_attempts": attempts, "trial_outcomes": outcomes,
+        "model_seconds": measured_total(model_durations),
+        "model_seconds_complete": bool(calls) and all(v is not None and v >= 0 for v in model_durations)
+            and len(calls) == sum(e.get("type") == "model_call_started" for e in events),
+        "queue_seconds": measured_total(queue_durations),
+        "queue_seconds_complete": bool(trials) and len(trials) == attempts
+            and all(v is not None and v >= 0 for v in queue_durations),
         "valid_completed_trials": len(valid),
         "best_score": best["score"] if best else None,
         "best_metrics": (best.get("metrics") or {metric: best["score"]}) if best else {},
         "best_trial_id": best["trial_id"] if best else None,
         "best": best, "best_curve": curve, "training_seconds": training,
+        "training_seconds_complete": training is not None and len(trials) == attempts
+            and all(value is not None and value >= 0 for value in measured),
         **{"best_" + key: value for key, value in best_test.items()},
         **_accounting(summary.get("accounting")),
         "evaluation_seconds": _number(postrun.get("evaluation_seconds")),
@@ -382,7 +405,7 @@ def _table(headers: list[str], rows: list[list[Any]]) -> str:
                                                        + "</tr>" for r in rows) + "</tbody></table>")
 
 
-def _plots(data: dict) -> str:
+def _plots(data: dict, root: Path) -> str:
     # Headless reports must also work in restricted, non-writable home folders.
     os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "nightagent-matplotlib"))
     from matplotlib.figure import Figure
@@ -440,10 +463,8 @@ def _plots(data: dict) -> str:
         progress.legend(fontsize=7)
     if any(a["targets"] for a in data["conditions"].values()):
         attainment.legend(fontsize=6)
-    buffer = io.BytesIO()
-    figure.savefig(buffer, format="png", dpi=130)
-    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
-    return f'<img alt="Validation progress, all-run attainment, API cost and tokens" src="data:image/png;base64,{encoded}">'
+    from .report_graphics import export_figure
+    return export_figure(figure, root, "performance", "Validation progress, all-run attainment, API cost and tokens")
 
 
 def generate_report(root: Path) -> Path:
@@ -470,6 +491,8 @@ def generate_report(root: Path) -> Path:
                 f"({html.escape(objective['direction'])}) within each run's scheduled allowance. "
                 "Every scheduled run is listed, including failures and runs with no valid model. "
                 "Held-out test results are separate generalization checks.</p>"]
+    from .report_graphics import overview, workflow_plot
+    sections.append(overview(data))
     if data["problem_hash"] is not None:
         sections.append("<p>Frozen problem hash: " + _display(data["problem_hash"]) + "</p>")
         sections.append("<details><summary>Frozen problem definition</summary><pre>"
@@ -488,7 +511,13 @@ def generate_report(root: Path) -> Path:
                     "Nonattainers have unknown crossing time, never the deadline as their crossing time. "
                     "Early stops carry their last completed score to the scheduled deadline; no uncompleted work is credited. "
                     "Dotted vertical lines mark allowances; dashed horizontal lines mark frozen targets.</p>")
-    sections.append(_plots(data) if runs else "<p>No run summaries found.</p>")
+    sections.append(_plots(data, root) if runs else "<p>No run summaries found.</p>")
+    if runs:
+        sections.append("<h2>Trial outcomes and resource use</h2><p>Completed trials have a valid score within the allowance. "
+                        "Late results and missing outcomes stay separate. Resource bars sum recorded component wall time across runs; "
+                        "they are not suite elapsed time or CPU-seconds. Queue waiting is excluded from local trial time. "
+                        "An asterisk marks an incomplete subtotal; unknown durations are not zero.</p>")
+        sections.append(workflow_plot(data, root))
     sections.append("<h2>Every run: primary outcome and stop reason</h2>")
     sections.append(_table(["Run", "Condition", "Repeat", "Allowance (s)", "Actual stop (s)", "Stop reason",
                             f"Best validation {metric}", "Attempts"],
@@ -539,7 +568,11 @@ def generate_report(root: Path) -> Path:
     document = ('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
                 '<title>Overnight study report</title><style>body{font:15px system-ui,sans-serif;max-width:1200px;margin:2rem auto;padding:0 1rem;color:#172033}'
                 'table{border-collapse:collapse;display:block;overflow-x:auto;margin:1rem 0;width:100%}th,td{padding:.55rem;border:1px solid #cbd5e1;text-align:left}'
-                'th{background:#f1f5f9}img{max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere}p{line-height:1.6}</style>'
+                'th{background:#f1f5f9}img{max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere}p{line-height:1.6}'
+                '.overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin:1.5rem 0}'
+                '.card{background:#f1f5f9;border:1px solid #cbd5e1;border-top:4px solid #2563eb;border-radius:8px;padding:1rem}'
+                '.card span{display:block;font-size:.85rem;color:#475569}.card strong{display:block;font-size:1.8rem;margin-top:.5rem}'
+                'figure{margin:1.5rem 0}figcaption{color:#475569;font-size:.85rem}a{color:#1d4ed8}</style>'
                 '<body>' + "\n".join(sections) + '</body></html>')
     output = root / "report.html"
     output.write_text(document, encoding="utf-8")

@@ -283,6 +283,18 @@ time, never an invented deadline crossing. Attainment curves, held-out test
 checks, tokens, charged/lower-bound dollars and training wall seconds are
 reported separately. Cached and reasoning tokens are subsets, not extra tokens.
 Post-search local evaluation/reporting compute is metered separately.
+Single `run` commands now automatically write the graphical report after search
+and print its path in the final JSON, including when a frozen search failed.
+This step reads saved results without evaluating test data or making API calls.
+Suites retain their existing post-search evaluation/reporting phases and reserve.
+The report includes overview cards, performance/attainment/cost/token charts,
+trial-outcome bars and recorded model/local-trial/queue time. Incomplete durations
+are marked as subtotals; unknown values stay unknown. Component times summed
+across concurrent runs are not suite elapsed time or CPU-seconds. Embedded charts
+make `report.html` self-contained; `figures/performance.{png,svg}` and
+`figures/workflow.{png,svg}` provide downloadable exports. Keep that folder with
+the report if you want the download links to work. Use `study report --output`
+to regenerate these outputs for earlier runs or after held-out evaluation.
 Reports reject comparisons with different frozen problems, objectives, or dataset
 fingerprints. Historical groups with no recorded dataset identity remain readable,
 but cannot be pooled with runs having known identity.

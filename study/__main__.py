@@ -251,10 +251,15 @@ async def _dispatch(args, progress):
             try:
                 summary = await run_one(config, args.data, args.output, model,
                                         provider_metadata=provider_metadata, problem=problem, progress=progress)
-                print(json.dumps({k: summary[k] for k in ("condition", "trials", "stop_reason", "accounting")}, indent=2))
-                require_successful_runs([summary])
             finally:
                 await model.aclose()
+            # Render even failed searches, after the model is closed and outside
+            # the search allowance. Reporting reads artifacts; it never scores test data.
+            from .report import generate_report
+            report_path = generate_report(args.output)
+            print(json.dumps({k: summary[k] for k in ("condition", "trials", "stop_reason", "accounting")}
+                             | {"report": str(report_path.resolve())}, indent=2))
+            require_successful_runs([summary])
         else:
             deadline = datetime.fromisoformat(args.deadline)
             summaries = await run_suite(config, args.data, args.output, repeats=args.repeats, deadline=deadline,

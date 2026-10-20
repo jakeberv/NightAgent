@@ -52,12 +52,27 @@ pilot_output="study-runs/magic-live-pilot-$(date +%Y%m%d-%H%M%S)"
   --data study-data/magic-profile --output "$pilot_output"
 pilot_status=$?
 printf 'Pilot exit code: %s\n' "$pilot_status"
-.venv/bin/python -m study report --output "$pilot_output"
 ```
 
-Record `pilot_status` before reporting: the report command has its own exit code.
-If preflight failed before creating the output directory, fix that reported error
-before generating a report.
+The pilot automatically creates `report.html`, `summary.csv`, and downloadable
+PNG/SVG figures under `figures/` after search stops. The final JSON includes the
+report path. On macOS, open it with `open "$pilot_output/report.html"`.
+Reports are also generated for frozen failed searches; their exit status remains
+nonzero. Preflight failures and interrupted commands may require fixing the error
+or recovering the run before reporting.
+
+The report opens with outcome and spending cards, followed by validation progress,
+target attainment, cost/token comparisons, trial outcomes and resource-time charts.
+Resource figures distinguish model-call time, local trial time and CPU queue time.
+Incomplete measurements are labeled; component time summed across concurrent runs
+is not suite elapsed time. HTML embeds the charts for offline viewing; PNG/SVG
+downloads are separate files to keep with the report when sharing its links.
+Generating reports makes no API calls and does not evaluate held-out test data.
+To rebuild a report for an existing run, use:
+
+```bash
+.venv/bin/python -m study report --output "$pilot_output"
+```
 
 `--max-cores 4` sets this command's shared local training thread budget. Change
 4 to your preferred ceiling; the runner caps it at the machine's logical CPU

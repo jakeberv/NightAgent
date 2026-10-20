@@ -179,3 +179,22 @@ tool schemas.
   allowances but not training time; API guards remain per run. Omission preserves
   the original sequential single-thread policy. Concurrent resource competition
   can affect wall-time comparisons, so keep the policy fixed across conditions.
+
+## Automatic graphical completion reports
+
+- Full suite: **268 passed in 46.52 seconds**; compilation and whitespace checks
+  passed. Review verified that interrupted trials mark recorded training time as
+  an incomplete subtotal. Tests cover missing durations, unknown outcomes,
+  exported figures, automatic reports for successful and failed pilots, and
+  preserving nonzero search failure status without scoring test data.
+- Single-run CLI completion now writes `report.html`, `summary.csv`, and
+  `figures/performance.{png,svg}` / `figures/workflow.{png,svg}`, then includes the
+  report path in its final JSON. Existing suite postrun deadlines remain intact.
+  Reports use frozen artifacts only, add no API usage, and record rendering time.
+- Reports include overview cards, existing performance/attainment/cost/token
+  figures, trial-outcome bars and component wall-time totals. Missing and partial
+  timing is explicit; sums across concurrent runs are not suite elapsed time.
+- Rebuilt reports for `magic-live-20261020-150222` and
+  `balanced-offline-20261020-152500`. Inspected the rendered single-run performance
+  figure and both workflow figures; fixed axis bounds so unknown durations remain
+  visible even when no bar exists. No paid inference or held-out scoring was run.

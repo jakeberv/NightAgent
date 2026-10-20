@@ -143,6 +143,63 @@ def test_report_csv_is_portable_unknowns_blank_and_html_is_self_contained(tmp_pa
     assert row["best_test_auc"] == ""
 
 
+def test_report_exports_graphics_and_preserves_missing_resource_measurements(tmp_path):
+    from study.report import build_report_data, generate_report
+    write_run(tmp_path, 'mixed', trials=5, training_seconds=3, events=[
+        {'type': 'trial_finished', 'elapsed_seconds': 5, 'result': {
+            'trial_id': 1, 'status': 'completed', 'validation_auc': .94,
+            'elapsed_seconds': 5, 'duration_seconds': 4, 'training_seconds': 2, 'queue_seconds': 2}},
+        {'type': 'trial_finished', 'elapsed_seconds': 6, 'result': {
+            'trial_id': 2, 'status': 'failed', 'duration_seconds': 1, 'training_seconds': 1}},
+        {'type': 'trial_finished', 'elapsed_seconds': 7, 'result': {
+            'trial_id': 3, 'status': 'timeout'}},
+        {'type': 'trial_finished', 'elapsed_seconds': 110, 'result': {
+            'trial_id': 4, 'status': 'completed', 'validation_auc': .99,
+            'elapsed_seconds': 110, 'duration_seconds': 1}},
+        {'type': 'model_call_started'},
+        {'type': 'model_call', 'duration_seconds': 4},
+        {'type': 'model_call_started'},
+    ])
+    row = build_report_data(tmp_path)['runs'][0]
+    assert row['trial_outcomes'] == {'Completed': 1, 'Failed': 1, 'Timed out': 1,
+                                     'Late': 1, 'Other / unknown': 1}
+    assert row['model_seconds'] == 4
+    assert row['model_seconds_complete'] is False
+    assert row['queue_seconds'] == 2
+    assert row['queue_seconds_complete'] is False
+    document = generate_report(tmp_path).read_text()
+    for name in ('performance', 'workflow'):
+        png = tmp_path / 'figures' / f'{name}.png'
+        svg = tmp_path / 'figures' / f'{name}.svg'
+        assert png.read_bytes().startswith(b'\x89PNG')
+        assert '<svg' in svg.read_text()
+        assert f'figures/{name}.svg' in document
+    assert document.count('data:image/png;base64,') == 2
+    assert 'incomplete' in document
+    assert json.loads((tmp_path / 'report-accounting.json').read_text())['api_calls'] == 0
+
+
+def test_unrecorded_resource_durations_are_unknown_not_zero(tmp_path):
+    from study.report import build_report_data
+    write_run(tmp_path, 'unmeasured', trials=[trial('1', 3, .9)])
+    row = build_report_data(tmp_path)['runs'][0]
+    assert row['model_seconds'] is None
+    assert row['queue_seconds'] is None
+
+
+def test_interrupted_trial_keeps_training_time_labeled_as_subtotal(tmp_path):
+    from study.report import build_report_data
+    write_run(tmp_path, 'interrupted', trials=2, training_seconds=4, events=[
+        {'type': 'trial_finished', 'elapsed_seconds': 6, 'result': {
+            'trial_id': 1, 'status': 'completed', 'validation_auc': .94,
+            'elapsed_seconds': 6, 'duration_seconds': 5, 'training_seconds': 4}},
+        {'type': 'trial_started', 'trial_id': 2},
+    ])
+    row = build_report_data(tmp_path)['runs'][0]
+    assert row['training_seconds'] == 4
+    assert row['training_seconds_complete'] is False
+
+
 def test_nested_science_results_and_postrun_metering(tmp_path):
     from study.report import build_report_data
     folder = write_run(tmp_path, "nested", trials=[trial("one", 20, .94)], training_seconds=7)
