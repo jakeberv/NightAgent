@@ -1,6 +1,6 @@
 # NightAgent
 
-NightAgent is a friendly AI apprentice that learns from our interactions and puts that learning into action.
+NightAgent is a research apprentice that adapts bounded experiments using measured results and feedback from a supervisor agent.
 
 ## Controlled experimental study
 
@@ -20,7 +20,7 @@ The conversational prototype below remains available separately.
 
 A supervised research apprentice for scientists. A supervisor sets the research direction, reviews results, and gives feedback; NightAgent performs analyses with tools and carries confirmed lessons into later work. Learning changes its stored context, not its model weights. In the current prototype the supervisor is itself an agent: the scientist writes the research question, and the supervisor's values are defined in a private persona.
 
-The workshop goal is to build a small, inspectable prototype and evaluate two things separately: whether it becomes a better research student, and whether its research produces useful, supported scientific insights.
+The workshop goal is to evaluate research process reliability and held-out classifier performance separately. The controlled study compares how much time, API cost and tokens each interaction strategy needs to achieve a fixed classification target. Keep scientific exploration open-ended and execution bounded: humans define the brief and budget, and agents revise hypotheses within frozen tools, data splits and metrics. A supervisor opinion is not ground truth; lessons retain measured evidence, scope and unverified interpretations. Transfer across independent runs is not established.
 
 ## How it works
 
@@ -134,7 +134,7 @@ The scientific task, dataset, analysis script, and role owners are still open. C
 - [NOTES.md](NOTES.md): design rationale, evaluation details, candidate tasks, and open decisions.
 - [Shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z): collaborative spec draft.
 
-Status as of 20 October 2026: orchestrator prototype with student and supervisor agents (`nightagent/`, MNIST example project) on branch `dev-ben2`; kickoff run on MNIST; no evaluation results yet. Next, choose an accessible task and script, assign owners, and build the fixed baseline before adding the adaptive loop.
+Status as of 20 October 2026: the controlled study runner includes five strategies, live CLI views, complete usage accounting and offline reports. MAGIC live pilots and local Fashion-MNIST GPU calibration have run; repeated overnight comparisons remain pending. The separate `nightagent/` conversational prototype and the original workshop proposal remain available. See [the Fashion pilot](docs/fashion-pilot.md) and [study verification](docs/study-verification.md) for runnable checks and limitations.
 
 ## Name and guiding ideas
 
@@ -144,7 +144,7 @@ Inspired by [Night Science](https://night-science.org/): explore before judging,
 
 Josef Osumeje - josumeje@umich.edu
 
-Ben Moseley
+Ben Moseley - b.moseley@imperial.ac.uk
 
 Jake Berv — jacob.berv@gmail.com
 

@@ -4,34 +4,36 @@ Josef Osumeje, Ben Moseley, Jake Berv, Guido Herrera-R, Weiwei Chen.
 Repository: https://github.com/jakeberv/NightAgent
 
 ## 1. Task
-A supervised research apprentice learns from experiments and feedback across meetings. Input: question, dataset, approved script. Output: reproducible analyses, evidence, next steps. Scientific task remains open.
+For scientists, one researcher explores classification approaches; one supervisor frames/revises questions and reviews evidence. Humans set the broad brief and execution limits; discoveries remain open-ended.
+Example: labeled dataset + “Which approaches work well, and why?” → classifier, evidence-linked findings, browser report. Dataset/approaches unchosen; access unchecked.
 
-## 2. Why an agent?
-The scientist sets goals; the model chooses bounded analyses and follow-ups. Combine Tutorial 1’s tools/traces with Tutorial 2’s memory. Explore alternatives; test against evidence.
+## 2. Why agents?
+Does supervision help? The researcher adaptively chooses configurations, comparisons, replications, or stopping. Roles share one language model/harness: Tutorial 1’s tools/traces plus Tutorial 2’s reflection. Cross-run learning is untested.
 
 ## 3. Tools and data
 
 - inspect_project: project → schema, methods, constraints.
-- run_analysis: approved method and validated parameters → run ID, artifacts.
-- read_results: run IDs → results and provenance.
-- save_report: cited findings and next steps → Markdown report.
+- run_analysis: approved classifier/parameters → run ID, validation metrics, artifacts.
+- read_results: run IDs → results, history, provenance.
+- save_report: evidence-linked findings → Markdown/HTML report.
 
-Select accessible data/scripts before implementation; save configurations, results, and JSONL traces.
-After feedback, extract ≤3 actions/lessons. For each, count unresolved checks for unclear meaning, unclear scope, and conflicting instructions (0–3): ambiguity, not calibrated probability or scientific truth. At zero, seek confirmation; otherwise ask ≤1 consolidated clarification per meeting. Unresolved items stay pending; execute only agreed actions. Confirmed JSON memories retain source/scope; merge duplicates and supersede outdated entries.
+Fix one dataset, 2–3 approved approaches, parameter bounds, train/validation/test splits, and metric. Fit preprocessing on training only. Agents cannot alter evaluation or access tests during search.
+Loop: framing → researcher → training/validation → review. Cite runs, revise hypotheses, record uncertainty, recommend one action/stop. Replicate within budget or report inconclusive evidence; no prescribed winner.
+JSONL records questions/revisions, configurations, results, and reviews. Memory retains scoped, evidence-linked lessons; suggestions remain hypotheses until supported.
 
 ## 4. Baseline — Tuesday, 5 PM
-CLI: fixed analysis script plus one summarization call.
+Fixed classifier plus one model summary; localhost server displays plots/metrics.
 
 ## 5. Evaluation — Wednesday, 11 AM
-Six two-meeting cases (clear/ambiguous/conflicting feedback), two repeats per condition: memory off, unconditional updates, checked updates. Match model, tools, data, prior results, and budgets; script supervisor responses, reset memory between cases, withhold answers, predefine scorecards.
-Student (outer loop): trace-backed pass rates for understanding, clarification, correction retention, completion or justified stopping, initiative, honest reporting, escalation. Compare performance before and after feedback; count incorrect memories, missed feedback, repeated errors, supervision burden.
-Science (inner loop): verify correctness, provenance, reproducibility. Scientist rates relevance, evidence, added insight versus baseline: 0 absent, 1 partial, 2 strong. Require findings, artifacts, limitations, and a testable next step. Useful negative or inconclusive findings count; unsupported novelty does not.
-Report scorecards separately, with cost and runtime. Define scientific checks after task selection.
+Six cases, two repeats per condition: fixed baseline, researcher alone, researcher plus supervisor. Match briefs, models, tools, splits, history, experiment/model-call/token budgets. Reset memory; freeze evaluation.
+Process: read-only post-run LLM scores question alignment, experimental design, evidence use, interaction quality, and uncertainty 0–2 with event citations. Mark inapplicable interactions N/A; compare shared criteria separately. Code checks claims against results, references, budgets/stopping. Audit sample ratings; judge scores are estimates. Trace overlap optional.
+Outcomes: validation selects classifiers; fixed code scores untouched tests using predeclared accuracy/macro-F1. Report reproducibility, uncertainty, cost/runtime, and separate process/outcome scorecards. Evaluate supported conclusions, not prescribed discoveries. Hide test scores from the trace judge.
 
 ## 6. Demo — Wednesday, 1 PM
-Run analysis; clarify ambiguous feedback; confirm memory; restart. Show whether behavior improves, findings versus baseline, both scorecards, artifacts.
+Launch once; display questions, experiments, reviews, revisions, classifier comparisons, and trace scores without human intervention.
 
 ## 7. Risks, limits, roles
-Main risk: missing data/script. Tuesday-noon fallback: baseline plus confirmed memory.
-One scientist, project, and model; CLI, four prewritten tools. Per cycle: ≤5 model calls including feedback, ≤2 analyses, ≤60 seconds/analysis; return when blocked. Pilot estimates evaluation cost; proposed $5 cap, subject to credits.
-Assign owners: harness/memory, tools/data, evaluation/demo. Defer generated tools, web/GitHub automation, multi-agent coordination, GUI.
+Risks: unavailable data, leakage, unsupported lessons. Tuesday-noon fallback: fixed baseline/report.
+Search caps: ≤3 research/review rounds, ≤6 analyses, ≤60 seconds/analysis, ≤15 model calls including framing, ≤30,000 tokens. Harness enforces limits.
+Meter post-run evaluation separately within the proposed $5 total evaluation cap; pilot against available credits.
+Assign owners: harness/memory, tools/data, evaluation/report. Defer generated tools, web/GitHub automation, parallel agents, chat UI.
