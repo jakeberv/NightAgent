@@ -41,8 +41,11 @@ def contract_schema(role, memory=False):
             supervisor_response={"enum": ["followed", "modified", "rejected", "not_applicable"]},
             response_reason=prose())
     elif role == "supervisor":
-        properties.update(assessment=prose(), unresolved_question=prose(),
-                          recommendation=prose(), expected_outcome=prose())
+        properties.update(motivation=prose(), alternative_explanations={
+            "type": "array", "minItems": 2, "maxItems": 3, "uniqueItems": True,
+            "items": prose(240)}, assessment=prose(), unresolved_question=prose(),
+            cross_field_connection=prose(), recommendation=prose(),
+            expected_outcome=prose(), falsifying_outcome=prose(), resource_check=prose())
     elif role == "reflection":
         properties.update(what_changed=prose(), uncertainty=prose(), next_comparison=prose())
     else:
@@ -135,6 +138,9 @@ def validate_contract(contract, role, history, *, has_feedback=False, memory=Fal
     if errors:
         return errors
     errors = evidence_errors(contract["evidence"], history)
+    if (role == "supervisor" and not contract["evidence"]
+            and any(row.get("status") == "completed" for row in history)):
+        errors.append("Cite at least one completed validation measurement in this review.")
     if role == "researcher":
         baseline = contract["baseline_trial_id"]
         completed = {row.get("trial_id") for row in history if row.get("status") == "completed"}

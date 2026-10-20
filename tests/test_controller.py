@@ -39,7 +39,7 @@ class ScriptedModel:
 
 
 async def trial(data_dir, trial_dir, config, *, seed, timeout):
-    return {"status": "completed", "validation_auc": .96, "artifact": "fake.joblib",
+    return {"status": "completed", "validation_auc": .96, "metrics": {"roc_auc": .96}, "artifact": "fake.joblib",
             "artifact_hash": str(trial_dir), "elapsed_seconds": .01}
 
 
@@ -56,18 +56,18 @@ def test_exact_cadence_continues_after_threshold_and_skips_terminal_review(tmp_p
     summary = asyncio.run(run_one(config, tmp_path / "data", tmp_path / "run", model,
                                  trial_runner=trial, project={"features": 10}))
     assert model.roles.count("ROLE: researcher") == 7
-    assert model.roles.count("ROLE: supervisor") == reviews
+    assert model.roles.count("ROLE: supervisor") == reviews + (condition != "researcher_alone")
     assert model.roles.count("ROLE: reflection") == reflections
     assert summary["stop_reason"] == "trial_cap"
     assert summary["best"]["trial_id"] == 1  # earliest wins ties
     assert summary["milestone"]["trial_id"] == 1
     assert summary["stretch"]["trial_id"] == 1
-    for role, names in model.tools:
+    for index, (role, names) in enumerate(model.tools):
         assert ("run_analysis" in names) == (role == "ROLE: researcher")
         assert ("literature_search" in names) == (
-            role == "ROLE: supervisor" and condition == "periodic_reflection_literature")
+            role == "ROLE: supervisor" and condition == "periodic_reflection_literature" and index > 0)
     if reflections:
-        assert model.roles[5:8] == ["ROLE: supervisor", "ROLE: reflection", "ROLE: researcher"]
+        assert model.roles[6:9] == ["ROLE: supervisor", "ROLE: reflection", "ROLE: researcher"]
 
 
 def test_failed_trials_count_towards_review_cadence(tmp_path):
@@ -76,7 +76,7 @@ def test_failed_trials_count_towards_review_cadence(tmp_path):
     model = ScriptedModel()
     result = asyncio.run(run_one(StudyConfig(condition="periodic", trial_cap=4),
         tmp_path, tmp_path / "run", model, trial_runner=failed, project={}))
-    assert model.roles == ["ROLE: researcher"] * 3 + ["ROLE: supervisor", "ROLE: researcher"]
+    assert model.roles == ["ROLE: supervisor"] + ["ROLE: researcher"] * 3 + ["ROLE: supervisor", "ROLE: researcher"]
     assert result["trials"] == 4 and result["best"] is None
 
 
@@ -201,7 +201,8 @@ def test_literature_cap_limits_actual_io_and_keeps_unhelpful_evidence(tmp_path):
     class Searching(ScriptedModel):
         async def complete(self, messages, tools, *, timeout):
             response = await super().complete(messages, tools, timeout=timeout)
-            if messages[0]["content"].startswith("ROLE: supervisor") and len(messages) == 2:
+            if (messages[0]["content"].startswith("ROLE: supervisor") and len(messages) == 2
+                    and json.loads(messages[1]["content"])["trials_attempted"] > 0):
                 response["message"]["tool_calls"] = [{
                     "id": f"search-{i}", "type": "function", "function": {
                         "name": "literature_search", "arguments": '{"query":"tree capacity"}'}}
@@ -230,7 +231,8 @@ def test_failed_literature_redirect_is_visible_to_supervisor_and_journal(tmp_pat
     class Reading(ScriptedModel):
         async def complete(self, messages, tools, *, timeout):
             response = await super().complete(messages, tools, timeout=timeout)
-            if messages[0]["content"].startswith("ROLE: supervisor"):
+            if (messages[0]["content"].startswith("ROLE: supervisor")
+                    and json.loads(messages[1]["content"])["trials_attempted"] > 0):
                 if len(messages) == 2:
                     response["message"]["tool_calls"] = [{"id": "fetch", "type": "function",
                         "function": {"name": "literature_fetch",

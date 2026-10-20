@@ -8,6 +8,9 @@ The [study runner](study/README.md) implements the updated five-condition,
 equal-wall-time experiment using OpenRouter. It includes
 bounded classification/regression tools, scheduled supervision/reflection, supervisor-only
 literature access, isolated held-out evaluation, and offline verification.
+Supervised runs begin with question framing. Every supervisor review explicitly
+records alternatives, a testable question, cross-field reasoning, a bounded
+comparison with distinguishing outcomes, evidence, and resource constraints.
 Use [problem profiles](docs/problem-definitions.md) to specify datasets, objectives,
 named targets, and search spaces without changing the runner. Bundled examples
 cover MAGIC binary AUC, multiclass CSV, MNIST multiclass AUC, and regression.

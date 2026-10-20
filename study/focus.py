@@ -83,6 +83,8 @@ def narrative(state):
         role = "Supervisor advice" if guidance["role"] == "supervisor" else "Reflection"
         after = guidance["after_trial"]
         heading = f"{role} after trial {after}" if after is not None else role
+        if guidance.get('stage') == 'framing':
+            heading = 'Supervisor framing'
         contract = guidance["contract"]
         fields = (("Assessment", "assessment"), ("Suggested next test", "recommendation"),
                   ("Open question", "unresolved_question")) if guidance["role"] == "supervisor" else (
@@ -90,6 +92,14 @@ def narrative(state):
                       ("Uncertainty", "uncertainty"))
         rows = [(label, contract.get(key), 1 if index < 2 else 2)
                 for index, (label, key) in enumerate(fields) if contract.get(key)]
+        if guidance['role'] == 'supervisor':
+            alternatives = contract.get('alternative_explanations', [])
+            if alternatives:
+                rows.append(('Alternatives', ' '.join(alternatives), 2))
+            rows.extend((label, contract[key], 2) for label, key in (
+                ('Motivation', 'motivation'), ('Cross-field connection', 'cross_field_connection'),
+                ('Expected', 'expected_outcome'), ('Would weaken it', 'falsifying_outcome'),
+                ('Resource limits', 'resource_check')) if contract.get(key))
         summary = contract.get("summary") or guidance["summary"]
         return heading, rows or [("Agent interpretation", summary, 1)], summary
     if lab.trial_id is None:
