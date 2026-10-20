@@ -108,7 +108,22 @@ a USD 3 guard, and periodic supervision with reflection.
 Live runs default to a responsive Rich dashboard in the alternate terminal screen,
 overwriting frames without a clear-before-redraw pass to reduce flicker. The normal
 screen and cursor are restored on exit. It includes a spinner, budget bars,
-best-result card, recent trials, score-history charts, findings, targets and usage. `--verbose` enables the full scrolling log;
+best-result card, recent trials, score-history charts, findings, targets and usage.
+The research-lab header highlights the actual active role. At 100 columns or wider,
+each role has a distinct ASCII robot avatar; only a busy role animates. API waiting
+has no invented completion percentage. Disabled roles are labeled for the run's
+condition. With at least 76 columns and 33 terminal rows, an experiment notebook
+shows the latest trial's actual settings, changes versus the previous completed
+trial (not necessarily the agent's chosen baseline), and a bounded researcher
+excerpt labeled **Agent interpretation**. More space reveals the four avatar
+stations; use a 100-column, 35-row window or larger for a demo.
+Measured discoveries announce new bests, ties, targets and unsuccessful trials,
+with a brief sparkle for improvements and target crossings. The connected trial
+trail uses `★` for new best, `=` for tied best, `×` for unsuccessful and `·` for other
+completed trials. Compact windows prioritize activity, scores, budgets and findings.
+All lab state comes from recorded events, adding no model calls or token usage;
+full rationale and configuration remain in the trace when excerpts are shortened.
+`--verbose` enables the full scrolling log;
 `--no-animation` uses plain text and `--quiet` hides all progress. Plain-text
 summaries print every 15 seconds when events change, plus a final summary.
 Adjust with `--summary-interval SECONDS` (0 disables printed summaries).

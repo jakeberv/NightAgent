@@ -19,6 +19,8 @@ def interval_seconds(value, *, allow_zero=False):
 
 class Findings:
     def __init__(self):
+        from .lab import Lab
+        self.lab = Lab()
         self.run_id = None
         self.elapsed = 0
         self.event_at = None
@@ -58,6 +60,7 @@ class Findings:
             self.event_at = datetime.fromisoformat(event["timestamp"])
         if "accounting" in event:
             self.accounting = event["accounting"]
+        self.lab.update(event, self)
         if kind == "model_call_started":
             self.activity = f"{event.get('role', 'agent')} model call in progress"
         elif kind == "model_call":

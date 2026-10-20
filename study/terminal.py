@@ -146,6 +146,86 @@ def recent_panel(state, rows):
     return Panel(table, title="Recent experiments", border_style="bright_black", padding=(0, 1))
 
 
+def role_strip(state, *, expanded=False, elapsed=0):
+    """Highlight actual roles; animation means activity, never percent complete."""
+    lab = state.lab
+    condition = state.config.get("condition")
+    enabled = {"researcher", "local", "supervisor", "reflection"}
+    if condition == "researcher_alone":
+        enabled -= {"supervisor", "reflection"}
+    elif condition in ("frequent", "periodic"):
+        enabled.discard("reflection")
+    stations = [("researcher", "Researcher", "[o_o]", "Choose a test"),
+                ("local", "Local fit", "[=:=]", "Fit + validate"),
+                ("supervisor", "Supervisor", "[o-O]", "Review evidence"),
+                ("reflection", "Reflection", "[o~o]", "Reconsider")]
+    if expanded:
+        table = Table.grid(expand=True, padding=(0, 1))
+        for _ in stations:
+            table.add_column(ratio=1)
+        cells = []
+        for role, label, face, purpose in stations:
+            active = role == lab.role
+            if active and lab.busy and int(elapsed * 2) % 2:
+                face = {"researcher": "[o.o]", "local": "[:=:]",
+                        "supervisor": "[O-o]", "reflection": "[-~-]"}[role]
+            pulse = (">" if int(elapsed * 2) % 2 else "»") if active and lab.busy else "·"
+            style = "bold cyan" if active else "dim"
+            cells.append(text(f"{pulse} {face} {label}\n  {purpose if role in enabled else 'Off in this condition'}", style))
+        table.add_row(*cells)
+        return table
+    result = Text(no_wrap=True, overflow="ellipsis")
+    for index, (role, label, _, _) in enumerate(stations):
+        if index:
+            result.append(" > ", "dim")
+        result.append(("● " if role == lab.role else "") + label.replace(" experiment", "") +
+                      (" (off)" if role not in enabled else ""), "bold cyan" if role == lab.role else "dim")
+    return result
+
+
+def experiment_panel(state, width):
+    lab = state.lab
+    result = Text()
+    if lab.trial_id is None:
+        result.append("Waiting for the researcher's first experiment", "dim")
+    else:
+        heading = text(f"Trial {lab.trial_id} · {lab.config.get('model', 'unspecified')} · "
+                       f"preprocessing {lab.config.get('preprocessing', 'default')}", "bold cyan")
+        heading.truncate(width - 4, overflow="ellipsis")
+        result.append(heading)
+        result.append("\n")
+        comparison = f"vs completed trial {lab.comparison}" if lab.comparison is not None else "first experiment"
+        changes = "; ".join(lab.changes) if lab.changes else ("same explicit settings" if lab.comparison is not None else "no comparison yet")
+        change_line = text(f"Settings {comparison}: {changes}", "dim")
+        change_line.truncate(width - 4, overflow="ellipsis")
+        result.append(change_line)
+        result.append("\n")
+        result.append("Agent interpretation (excerpt): ", "bold magenta")
+        rationale = text(lab.rationale or "No rationale recorded for this trial.")
+        rationale.truncate(2 * (width - 4) - len("Agent interpretation (excerpt): ") - 12, overflow="ellipsis")
+        result.append(rationale)
+    return Panel(result, title="Experiment notebook · latest trial", border_style="cyan", padding=(0, 1))
+
+
+def trial_trail(state, width=116):
+    rows = list(state.recent)
+    # Preserve the newest outcomes when IDs or the trail outgrow the terminal.
+    removed = False
+    while len(rows) > 1 and 8 + sum(len(str(row["trial_id"])) + 1 for row in rows) + 3 * (len(rows) - 1) > width:
+        rows.pop(0)
+        removed = True
+    trail = Text("Trail … " if removed else "Trail  ", style="dim", no_wrap=True, overflow="ellipsis")
+    for index, row in enumerate(rows):
+        if index:
+            trail.append(" ─ ", "dim")
+        failed = row["status"] != "completed"
+        new = row["outcome"] == "New best"
+        tied = row["outcome"] == "Tied best"
+        trail.append(f"{'×' if failed else '★' if new else '=' if tied else '·'}{row['trial_id']}",
+                     "red" if failed else "green" if new else "cyan" if tied else "dim")
+    return trail
+
+
 def dashboard(state, *, width, height, spinner=None):
     """Fit the available terminal; small terminals retain activity, score and cost."""
     elapsed = elapsed_now(state)
@@ -162,10 +242,18 @@ def dashboard(state, *, width, height, spinner=None):
             title="NIGHTAGENT", border_style="cyan", height=min(8, height))
     layout = Layout()
     metrics_height = 8 if width >= 76 else 14
-    recent_height = min(8, max(4, height - 3 - metrics_height - 4 - 4))
-    layout.split_column(Layout(name="header", size=3), Layout(name="metrics", size=metrics_height),
-        Layout(name="recent", size=recent_height), Layout(name="chart", size=4), Layout(name="findings"))
-    status = Text()
+    expanded = width >= 76 and height >= 32
+    stations_expanded = expanded and width >= 100 and height >= 34
+    header_height = 6 if stations_expanded else 4
+    notebook_height = 6 if expanded else 0
+    recent_height = min(8, max(4, height - header_height - notebook_height - metrics_height - 4 - 6))
+    sections = [Layout(name="header", size=header_height)]
+    if expanded:
+        sections.append(Layout(name="experiment", size=notebook_height))
+    sections.extend([Layout(name="metrics", size=metrics_height), Layout(name="recent", size=recent_height),
+                     Layout(name="chart", size=4), Layout(name="findings")])
+    layout.split_column(*sections)
+    status = Text(no_wrap=True, overflow="ellipsis")
     status.append(activity, "bold cyan")
     status.append(f" · {state.completed} ok / {state.unsuccessful} failed", "dim")
     if state.event_at is not None:
@@ -173,16 +261,23 @@ def dashboard(state, *, width, height, spinner=None):
         status.append(f" · last event {age:.0f}s ago", "yellow" if age > 30 else "dim")
     spinner = spinner or Spinner("dots", style="cyan")
     spinner.update(text=status)
-    layout["header"].update(Panel(spinner,
+    header = [role_strip(state, expanded=stations_expanded, elapsed=elapsed), spinner]
+    if stations_expanded:
+        header.append(text(state.lab.action, "dim", no_wrap=True, overflow="ellipsis"))
+    if expanded:
+        layout["experiment"].update(experiment_panel(state, width))
+    layout["header"].update(Panel(Group(*header),
         title=text(f"NIGHTAGENT · {state.run_id}", "bold"),
-        subtitle="LIVE FINDINGS", border_style="cyan", padding=(0, 1)))
+        subtitle=text(f"RESEARCH LAB · {state.problem_id or 'experiment'}"), border_style="cyan", padding=(0, 1)))
     if width >= 76:
         layout["metrics"].split_row(Layout(budget(state, elapsed)), Layout(result_panel(state)))
     else:
         layout["metrics"].split_column(Layout(budget(state, elapsed), size=8), Layout(result_panel(state)))
     layout["recent"].update(recent_panel(state, max(1, recent_height - 3)))
     layout["chart"].update(Panel(score_chart(state, width - 4), title="Validation trend · shared scale", border_style="bright_black", padding=(0, 1)))
-    facts = Text()
+    facts = Text(no_wrap=True, overflow="ellipsis")
+    if not expanded and state.lab.trial_id is not None:
+        facts.append(text(f"Trial {state.lab.trial_id}: {state.lab.config.get('model', 'model')} · "))
     facts.append("Observed: ", "bold")
     facts.append(text(state.fact).plain)
     if state.review:
@@ -190,7 +285,16 @@ def dashboard(state, *, width, height, spinner=None):
         excerpt = " ".join(text(str(feedback)).plain.split()).replace("**", "").lstrip("# ")
         facts.append(f"\nSupervisor after trial {trial} (interpretation): ", "bold magenta")
         facts.append(excerpt[:180] + ("…" if len(excerpt) > 180 else ""), "dim")
-    layout["findings"].update(Panel(facts, title="Findings", border_style="magenta", padding=(0, 1)))
+    content = [facts]
+    if expanded:
+        content.insert(0, trial_trail(state, width - 4))
+        if state.lab.discoveries:
+            latest = state.lab.discoveries[-1]
+            celebrating = (latest["style"] == "green" and not state.stopped and state.lab.celebration_at is not None and
+                           0 <= elapsed - state.lab.celebration_at < 4)
+            marker = ("✦" if int(elapsed * 2) % 2 else "✧") if celebrating else "•"
+            content.insert(1, text(f"{marker} {latest['message']}", latest["style"]))
+    layout["findings"].update(Panel(Group(*content), title="Findings · measured discoveries", border_style="magenta", padding=(0, 1)))
     return layout
 
 

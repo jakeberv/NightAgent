@@ -74,7 +74,7 @@ def test_default_panel_replaces_itself_and_hides_raw_model_content(monkeypatch):
             await asyncio.sleep(.35)
         text = stream.getvalue()
         assert "RAW_MODEL_CONTENT" not in text
-        assert "FINDINGS" in text and "\x1b[H" in text
+        assert "RESEARCH LAB" in text and "\x1b[H" in text
         assert "No selected model yet" in text
     asyncio.run(scenario())
 
