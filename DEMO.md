@@ -40,8 +40,10 @@ A new offline suite with scripted decisions and real synthetic-data CPU fits can
 verify this pipeline. Present it as engineering rehearsal, not language-model
 strategy evidence. The [revised paid preflight](docs/revised-preflight-results.md)
 completed but failed solo-memory acceptance; strict demo export must reject that
-suite. Use the historical fallback below. Held-out Fashion scoring and the
-overnight run remain pending.
+suite. The [corrected solo revalidation](docs/solo-memory-revalidation.md) passed,
+but does not supply a new accepted five-arm suite. Use the historical fallback
+until an overnight suite passes audit; consult [readiness](docs/workshop-readiness.md)
+for operational status.
 
 ## Historical real replay available from a fresh clone
 
@@ -74,8 +76,8 @@ Retain the historical-source and repaired-contract warnings. This is one matched
 repeat and a mechanism demonstration. A delivered lesson shows what entered a
 later context; it does not prove that the lesson caused an action or improved
 performance. The approximately $18.12 projection once derived from this preflight
-is historical only. The revised preflight supplies a provisional estimate, but
-its memory-coverage failure must be corrected and revalidated before launch.
+is historical only. The corrected solo revalidation refreshes the provisional cost estimate and
+resolves the observed coverage failure; it does not establish a memory benefit.
 
 If services or compute fail during the workshop, show the saved real replay and
 identify it as historical. Do not recreate missing real artifacts or substitute

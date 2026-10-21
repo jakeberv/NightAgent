@@ -5,7 +5,7 @@ def function_tool(name, description, parameters):
                                            "parameters": parameters}}
 
 
-def tools_for(role, config, problem=None):
+def tools_for(role, config, problem=None, *, require_lesson_update=False):
     if role == "reflection":
         return []
     # Both are supplied in every refreshed context; fetching them adds no evidence.
@@ -20,7 +20,8 @@ def tools_for(role, config, problem=None):
         from copy import deepcopy
         from .reasoning import request_contract_schema
         schema = deepcopy(schema)
-        schema["properties"]["intent"] = request_contract_schema("researcher", config.lesson_memory)
+        schema["properties"]["intent"] = request_contract_schema("researcher", config.lesson_memory,
+            require_lesson_update=require_lesson_update)
         schema["required"] = [*schema["required"], "intent"]
         tools.append(function_tool("run_analysis", "Run exactly one bounded experiment.", schema))
     if role == "supervisor" and config.literature:

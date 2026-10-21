@@ -73,7 +73,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
         atomic_json(run_dir / "provider.json", provider_metadata)
     from .tasks import get_adapter
     permitted_experiments = get_adapter(problem).analysis_schema
-    from .reasoning import LessonMemory, validate_contract, parse_contract, schema_errors, ground_contract, resolve_contract_evidence, request_contract_schema
+    from .reasoning import LessonMemory, validate_contract, parse_contract, schema_errors, ground_contract, resolve_contract_evidence, request_contract_schema, lesson_update_required
     memory = LessonMemory(config.memory_limit)
     state = RunState(config, problem, clock=time.monotonic,
                      data_fingerprint=data_fingerprint)
@@ -98,11 +98,12 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             journal.emit("lesson_memory", lessons=memory.snapshot())
             atomic_json(run_dir / "lessons.json", {"scope": "this run only", "lessons": memory.snapshot()})
 
-    def ground_accepted(contract, role, *, framing=False):
+    def ground_accepted(contract, role, *, framing=False, require_lesson_update=False):
         contract, changes = ground_contract(contract, history=history, targets=state.targets(),
                                             capacity=state.capacity(role, framing, phase_completed=True))
         errors = validate_contract(contract, role, history, has_feedback=state.feedback is not None,
-            memory=config.lesson_memory, supervisor_strategy=config.supervisor_strategy, framing=framing)
+            memory=config.lesson_memory, supervisor_strategy=config.supervisor_strategy, framing=framing,
+            require_lesson_update=require_lesson_update)
         if errors:
             journal.emit("failure", error="Runner-generated contract failed validation", details=errors)
             raise StopRun("invalid_grounded_contract")
@@ -111,11 +112,15 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
         return contract
 
     async def phase(role, *, framing=False):
+        require_lesson_update = lesson_update_required(role, memory=config.lesson_memory,
+            history=history, lessons=memory.snapshot())
         protocol = {'supervisor_strategy': config.supervisor_strategy, 'framing': framing}
         instructions = prompts.instructions_for(role, problem, **protocol)
         from .reasoning import instructions as contract_instructions
-        instructions += contract_instructions(role, memory=config.lesson_memory, **protocol)
-        tools = [] if framing else model_tools.tools_for(role, config, problem)
+        instructions += contract_instructions(role, memory=config.lesson_memory,
+            require_lesson_update=require_lesson_update, **protocol)
+        tools = [] if framing else model_tools.tools_for(role, config, problem,
+            require_lesson_update=require_lesson_update)
         schemas = {tool["function"]["name"]: tool["function"]["parameters"] for tool in tools}
         messages = [{"role": "system", "content": instructions},
                     {"role": "user", "content": context(role, framing=framing)}]
@@ -184,9 +189,10 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                     if name == "run_analysis":
                         intent = resolve_contract_evidence(args.pop("intent", None), history)
                         errors = validate_contract(intent, "researcher", history,
-                            has_feedback=state.feedback is not None, memory=config.lesson_memory)
+                            has_feedback=state.feedback is not None, memory=config.lesson_memory,
+                            require_lesson_update=require_lesson_update)
                         if not errors:
-                            intent = ground_accepted(intent, "researcher")
+                            intent = ground_accepted(intent, "researcher", require_lesson_update=require_lesson_update)
                         if errors:
                             journal.emit("decision_contract", trial_id=summary["trials"] + 1,
                                          contract=intent, valid=False, errors=errors)

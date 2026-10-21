@@ -6,8 +6,12 @@ not the older three-arm `fashion-overnight-config.json` or the seven-attempt
 preflight. The [saved live preflight](targeted-preflight.md#historical-live-results--2026-10-20)
 used the former memory policy and is historical evidence. The
 [revised 21 October paid preflight](revised-preflight-results.md) failed solo
-lesson-memory coverage. **Do not launch overnight** until the writing contract
-is corrected and a fresh bounded preflight passes, with funding verified.
+lesson-memory coverage; its failed receipt remains intact. The corrected contract
+passed [targeted paid solo revalidation](solo-memory-revalidation.md). The other
+four arms were not rerun, and no combined current-source five-arm pass is claimed.
+Launch the reviewed correction from merged `main` after the final host and
+operational budget checks below pass. Autonomous launch is authorized without
+further intervention when these conditions hold.
 
 ## Frozen protocol
 
@@ -35,11 +39,22 @@ empty in each independent run and never transfer across repeats.
 
 ## Launch on the tested Mac
 
-Resolve the [documented preflight blocker](revised-preflight-results.md), run a
-fresh accepted [targeted preflight](targeted-preflight.md), refresh the usage
-estimate and verify funding. The failed run projects $18.48 for the scientific
-matrix, or $24.03 with a 30% planning reserve; both remain provisional until the
-memory-contract correction is revalidated. The earlier $18.12 estimate is historical.
+Verify fresh Copilot review and merge of the corrected source, then use the
+updated `main`. The [solo revalidation](solo-memory-revalidation.md) passed with
+seven fits, seven calls and a clean audit. Its cost/time rate replaces the
+original solo rate for a **$18.38** planning projection, or **$23.89 with a 30%
+reserve**. The other four rates come from the original five-arm run; this combines
+cost planning inputs only. The earlier $18.48/$24.03 and $18.12 projections are
+historical, and the reserve is not a billing ceiling.
+
+Immediately before launch, confirm AC power, adequate free space and available
+MPS. Refresh the provider key allowance and effective budget; both must cover
+the buffered forecast, with successful billed pilot calls already verified.
+Retain the $5 per-run guards, provider key cap and unknown-cost stops. Account-wide
+balance remains unavailable through the inference key (403); the authorized
+operational gate does not require independent balance visibility. Do not purchase
+credits or raise limits. The [readiness ledger](workshop-readiness.md) and dated
+run logs retain checks and actual launch status.
 
 From the repository root, use the existing virtual environment and credential
 file. This command starts paid model calls. It retains a console log and exit

@@ -2,9 +2,11 @@
 
 Updated 21 October 2026. The current memory-default implementation was merged
 into main in [PR 14](https://github.com/jakeberv/NightAgent/pull/14) at `3b4a385`.
-The [revised live preflight](revised-preflight-results.md) completed, but failed
-researcher-alone memory coverage. The overnight comparison remains **NO-GO**;
-its cost estimate is provisional and underlying account funding is unverified.
+The [revised live preflight](revised-preflight-results.md) exposed a researcher-alone
+memory gap. The [contract correction](https://github.com/jakeberv/NightAgent/pull/15)
+passed offline checks and [targeted solo revalidation](solo-memory-revalidation.md).
+The [readiness ledger](workshop-readiness.md) tracks integration and launch gates;
+the full repeated comparison and held-out scoring remain pending at validation.
 
 ## The original goal
 
@@ -42,7 +44,7 @@ stay fixed; a tool trains the classifiers it chooses.
 | Original ambition | Current implementation | Evidence still needed |
 | --- | --- | --- |
 | Autonomous research within a scientist's brief | Researcher selects bounded experiments; supervised arms receive framing and later reviews. | A revised live comparison and human inspection of decisions. |
-| Retain feedback and evidence | Scoped lessons cite recorded measurements and survive the recent-history window within a run. | Repair and verify researcher-alone lesson creation and delivery, then test whether lessons improve later choices or outcomes. Delivery alone does not establish benefit. |
+| Retain feedback and evidence | Scoped lessons cite recorded measurements and survive the recent-history window within a run. The corrected solo contract passed live lesson creation and delivery checks. | Whether those lessons improve later choices or outcomes in matched repeats. Delivery alone does not establish benefit. |
 | Change behavior after feedback | Decision contracts record whether advice was followed, modified or rejected and which configuration ran next. | Whether the response was scientifically useful, with trace review and matched outcomes. |
 | Improve over a longer research project | A separate conversational prototype stores project files across meetings. The controlled study resets lessons in every independent repeat. | Controlled tests of transfer between sessions, projects or tasks; these have not been performed. |
 
@@ -67,10 +69,16 @@ The [revised paid preflight](revised-preflight-results.md) completed 35 successf
 validation fits with verified artifacts, 65 real model calls and $1.665021 cost.
 Its audit failed on researcher-alone memory coverage: all seven decisions omitted
 the optional lesson updates, so no lessons were written or delivered. The other
-four arms passed their coverage checks. These observations reveal a gap between
-the enabled memory policy and actual behavior; they do not establish memory
-benefit or a winning supervision strategy. The repeated overnight comparison
-and held-out Fashion scoring remain pending.
+four arms passed their coverage checks. This failed result remains preserved.
+
+The [corrected solo rerun](solo-memory-revalidation.md) completed seven fits and
+seven model calls for $0.163809, with three lesson-update events and five later
+researcher contexts receiving lessons. Its audit passed with zero errors and
+warnings, and all seven artifacts verified. Only the failed solo arm was rerun;
+these two suites are not a combined five-arm pass under the corrected source.
+The repeated overnight comparison and held-out Fashion scoring remain pending
+at this validation stage. These observations do not establish memory benefit
+or a winning supervision strategy.
 
 The [saved real-model replay](evidence/fashion-demo/demo.md) shows an
 advice → configuration → result → lesson → later-context sequence under the
@@ -84,12 +92,13 @@ engineering cases, labeled replay and presentation. The
 [milestone checklist](workshop-milestones.md) separates artifacts from submission
 and remaining work.
 
-Then fix and verify researcher-alone memory coverage, remeasure cost in an
-accepted bounded live preflight, and verify funding before the matched comparison.
-The current projection needs refreshing after the correction. Freeze search
-before held-out scoring, audit the evidence, and inspect a small trace sample
-for useful advice and appropriate lesson scope. Report uncertainty across the
-three repeats.
+Then complete the integration and launch checks recorded in the
+[readiness ledger](workshop-readiness.md), using the corrected solo cost
+measurement and the declared resource guards. Underlying account balance remains
+unavailable; current key allowance and successful billing are separate evidence.
+Freeze search before held-out scoring, audit the evidence, and inspect a small
+trace sample for useful advice and appropriate lesson scope. Report uncertainty
+across the three repeats.
 
 Longer-term work can test retained learning across independent sessions and new
 tasks, with fresh comparisons and separate apprentice/science scorecards.

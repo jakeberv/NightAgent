@@ -6,6 +6,14 @@ adds one explicit memory-off control. All supervised arms use Night Science and
 initial framing. Literature is disabled in every arm. The historical paid results
 below used the former memory policy and do not validate this revised design.
 
+The [21 October revised five-arm run](revised-preflight-results.md) failed only
+solo-memory coverage. After the writing-contract correction, the
+[targeted solo-only paid revalidation](solo-memory-revalidation.md) passed with
+seven fits, seven calls and zero audit errors or warnings. The original failed
+receipt is preserved; the other four arms were not paid rerun. This is no combined
+current-source five-arm pass. Current launch conditions are in the
+[overnight runbook](five-arm-overnight.md).
+
 | Arm ID | Treatment | Declared contrast |
 |---|---|---|
 | `researcher_alone` | Researcher alone, memory on | Adaptive baseline |
@@ -37,7 +45,10 @@ separate in aggregates and plots as well as pairs. Legacy comparisons retain
 their original grouping behavior. The context policy separates new runs from
 historical context variants in matched analysis.
 
-## Current bounded preflight recipe
+## Reusable full five-arm preflight recipe
+
+This command remains available for a full preflight. It was not repeated for the
+first-observation correction, which was revalidated only in the failed solo arm.
 
 Each arm has a 300-second allowance, seven-attempt cap and $2 API guard: **$10 in
 combined guards**, with possible final-call overrun. Seven attempts permit reviews
@@ -79,10 +90,21 @@ not establish strategy superiority or causal benefits of advice or memory.
 The [21 October revised paid preflight](revised-preflight-results.md) completed
 35 fits and 65 calls for $1.665021, but failed researcher-alone memory coverage.
 The audit reported two errors from the absent lesson register/delivery and zero
-warnings. Overnight is **NO-GO** until the writing contract is corrected, tested
-and accepted in a fresh bounded preflight, with funding verified. The portable
-receipt preserves this failed result; do not weaken acceptance or relabel it.
-Offline scripted scores remain engineering evidence.
+warnings, producing the original **NO-GO**. Its portable receipt preserves that
+failed result. The corrected contract passed **961 offline tests** and the
+[bounded paid solo revalidation](solo-memory-revalidation.md): seven successful
+fits, seven calls, $0.163809 and 92.816 seconds, with 85.4667% best validation
+accuracy. Three lesson-update events revised one saved ID; the first note preceded
+fit 2 and reached five later researcher contexts. No invalid decision attempt
+occurred, and the audit returned zero errors and warnings. All 49 source files
+matched the corrected checkout. No full five-arm paid rerun was made.
+
+Launch proceeds from reviewed, merged `main` after final host and visible
+key-allowance/effective-budget checks, using the [approved operational funding
+gate](workshop-readiness.md#paid-launch-assessment). Independent account balance
+visibility is unavailable and is not required for this authorized launch.
+Offline scripted scores and this single live trajectory do not establish
+strategy benefit.
 
 ## Historical fixes and offline verification — 2026-10-20
 
@@ -147,6 +169,8 @@ superiority or validation of the revised memory-default protocol. Some model hyp
 change multiple settings; the reports mark interpretations unverified and
 comparisons confounded where applicable. Treat those as trace material, not
 causal claims. Run artifacts are retained locally under `study-runs/` and are
-not versioned. The overnight run has not been launched. The approximately $18.12
-projection once extrapolated from these timings and costs is historical only;
-four memory-enabled arms require a new bounded usage pilot before paid launch.
+not versioned. At the time of this earlier receipt the overnight run had not
+launched. The approximately $18.12 projection extrapolated from these timings
+and costs is historical only; the current planning estimate and launch conditions
+are recorded in the [solo revalidation](solo-memory-revalidation.md) and
+[readiness ledger](workshop-readiness.md).

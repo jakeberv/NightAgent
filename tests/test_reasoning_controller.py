@@ -44,7 +44,7 @@ class StructuredModel:
 
 
 def test_bad_evidence_repairs_within_existing_budget_before_training(tmp_path):
-    model = StructuredModel(invalid_first=True)
+    model = StructuredModel(invalid_first=True, memory=True)
     result = asyncio.run(run_one(StudyConfig(decision_protocol='structured_v1', trial_cap=2),
         tmp_path, tmp_path / 'run', model, trial_runner=trial, project={'feature_names': ['a'] * 10}))
     assert result['trials'] == 2 and model.calls == 3

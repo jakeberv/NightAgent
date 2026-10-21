@@ -14,7 +14,8 @@ development history have distinct homes.
 | [Demo script](../DEMO.md) | Presentation sequence and honest fallback using saved real evidence |
 | [Readiness](workshop-readiness.md) | Dated verification results, known limits and prerequisites for a paid launch |
 | [Evaluation cases](evaluation-cases.md) | Eight named engineering acceptance cases and how to run them |
-| [Revised paid preflight result](revised-preflight-results.md) | Real-model measurements, failed memory coverage, diagnosis and launch decision |
+| [Revised paid preflight result](revised-preflight-results.md) | Preserved five-arm failure, real-model measurements and diagnosis |
+| [Solo-memory revalidation](solo-memory-revalidation.md) | Corrected contract's paid solo PASS, current cost planning and operational funding basis |
 | [Fixed reference](fixed-reference.md) | Non-agent classifier result and reproducible receipt |
 
 ## Run the controlled study
@@ -26,7 +27,7 @@ Follow [getting started](getting-started.md) for an offline first run, then the
 |---|---|
 | [Study reference](study-reference.md) | Commands, contracts, reports, logs and recovery details |
 | [Workshop protocol](workshop-protocol.md) | Current treatments, controls, outcomes and interpretation rules |
-| [Targeted preflight](targeted-preflight.md) | Bounded five-arm live check before committing to a larger run |
+| [Targeted preflight](targeted-preflight.md) | Reusable bounded five-arm recipe, acceptance rules and separate solo correction result |
 | [Five-arm overnight](five-arm-overnight.md) | Current paid recipe, frozen settings and independent audit |
 | [Memory policy](memory-default.md) | Default lesson memory, explicit opt-out and the matched control |
 | [Configuration index](configurations.md) | Presets and which comparison each serves |

@@ -1,9 +1,16 @@
 # Revised paid preflight — 21 October 2026
 
-**Overnight decision: NO-GO.** The revised five-arm preflight completed all 35
+**Original decision: NO-GO.** The revised five-arm preflight completed all 35
 fits, but failed the required researcher-alone memory coverage. Underlying account
-funding also remains unverified. The audit criteria have not been weakened, and
-no automatic paid rerun or overnight launch was attempted.
+funding was unverified. The audit criteria were not weakened, and no automatic
+paid rerun or overnight launch was attempted at the time of this receipt.
+
+The corrected contract subsequently passed a
+[targeted paid solo revalidation](solo-memory-revalidation.md). The original
+35-fit failed receipt and measurements below remain unchanged; the other four
+arms were not rerun. No combined current-source five-arm pass is claimed. Current
+launch conditions use reviewed, merged source and the approved operational
+funding gate in the [readiness ledger](workshop-readiness.md#paid-launch-assessment).
 
 ## What ran
 
@@ -60,18 +67,36 @@ The instruction says “You may provide at most two”; the controller correctly
 persists only supplied nonempty updates. Nothing was dropped.
 
 Acceptance requires each enabled arm to demonstrate writing and later delivery.
-The implemented request contract permits omission. The scripted `FakeModel`
+The then-implemented request contract permitted omission. The scripted `FakeModel`
 automatically supplies a lesson when evidence is available, so earlier checks
 proved persistence and isolation without exercising a live model's omission.
 
-Before another live comparison, align the request contract with the declared
-memory behavior. At the first eligible researcher decision with completed
-evidence and an empty register, require a cited, scoped observation note through
-the existing update field. Permit an inconclusive observation; require no
-invented insight or causal conclusion. Cover omission and bounded repair,
-first-call exemption, later delivery and memory-off isolation with offline tests.
-Review that prospective change and run a fresh bounded paid preflight. Preserve
-this failed result as evidence.
+The corrective action was to require a cited, scoped observation note through
+the existing update field on each eligible researcher decision with completed
+citable evidence while its register remains empty. Inconclusive observations
+are valid; no invented insight or causal conclusion is required. Existing turn
+and resource budgets bound repairs before another fit. Omission, empty updates,
+first-call and failed/uncitable-evidence exemptions, equivalent proposals, later
+delivery and memory-off isolation now have offline coverage. Researcher notes
+persist when a new fit is admitted; reused or deadline-skipped proposals do not
+fill the register. Once it is nonempty, further updates are optional.
+
+## Subsequent targeted correction
+
+The corrected source passed **961 tests in 145.14 seconds** and was revalidated
+only in the failed `researcher_alone` arm. The
+[new receipt](evidence/solo-memory-revalidation-2026-10-21.json) records **seven
+fits, seven calls, $0.163809 and 92.816 seconds**, with **85.4667% best validation
+accuracy**. Three lesson-update events revised one saved ID; the first note was
+saved before fit 2 and delivered to five later researcher contexts. There were
+zero invalid decision attempts. The single-run audit passed with **zero errors
+and zero warnings**, and all 49 runtime source files matched the corrected
+checkout. Held-out scoring remained disabled.
+
+This establishes the repaired solo writing/delivery behavior. The original four
+other arms retain their earlier evidence; no full five-arm paid rerun occurred
+and this does not establish strategy benefit. Fresh Copilot review, merge into
+`main`, and final host and operational budget checks precede overnight launch.
 
 ## Human trace review
 
@@ -97,25 +122,40 @@ unverified and excluded from delivered compact lesson context.
 
 ## Cost, funding and host checks
 
-A provisional projection scales each arm's observed API cost per elapsed second
+The original provisional projection scaled each arm's observed API cost per elapsed second
 to 600 seconds and three repeats:
 
 `3 × sum(600 × arm cost / arm elapsed seconds) = $18.48`.
 
-A **30% planning reserve gives $24.03**. This is a budgeting assumption, not a
-confidence interval or a billing ceiling. Longer histories, provider latency,
-configuration choices and a memory-contract fix can change usage; remeasure
-after that fix. Fifteen $5 guards still sum to $75 and permit in-flight overrun.
+A **30% planning reserve gave $24.03**. These values describe the original run,
+before the correction. They are budgeting assumptions, not a confidence interval
+or a billing ceiling. Longer histories, provider latency and configuration
+choices can change usage. Fifteen $5 guards still sum to $75 and permit in-flight
+overrun.
 
-The key allowance was checked before and after the run and covers this
+The key allowance was checked before and after the run and covered that
 provisional buffered estimate. Numeric account/key receipts remain ignored
 locally. **Underlying account balance is unverified:** the credits endpoint
 returned 403 for the regular inference key, and the browser was signed out.
-Successful pilot billing proves that these calls were funded; it does not
-establish funding for the overnight matrix. No credits were purchased or limits
-changed.
+Successful pilot billing proved that those calls were funded. No credits were
+purchased or limits changed.
 
 AC power, a charged battery, approximately 1.8 TiB free space and available MPS
-were confirmed before execution. Recheck the host and both funding gates at the
-actual launch. The [readiness ledger](workshop-readiness.md) and
-[milestone checklist](workshop-milestones.md) record the remaining work.
+were confirmed before execution. Current launch conditions are recorded below
+and in the [readiness ledger](workshop-readiness.md); the
+[milestone checklist](workshop-milestones.md) tracks workshop work.
+
+## Current planning and launch basis
+
+The [updated projection](solo-memory-revalidation.md) replaces only the original
+solo cost/time rate with the corrected solo rate: **$18.38**, or **$23.89 with a
+30% reserve**. The original four other rates remain cost planning inputs; this
+does not combine the runs into new scientific evidence.
+
+The user authorized autonomous launch from reviewed, merged `main` after final
+host checks and a fresh key allowance/effective budget covering that buffered
+forecast, together with successful billed pilot calls. Keep the $5 per-run
+guards, provider key cap and unknown-cost stops. Underlying account balance
+remains unavailable through the inference key (403); independent account-wide
+balance visibility is not a required gate and is not claimed. No purchase or
+limit increase is authorized. The dated run logs record actual launch status.
