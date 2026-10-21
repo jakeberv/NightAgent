@@ -76,6 +76,15 @@ leaves totals incomplete. Dollar guards check known charges between calls; a
 request may exceed a guard, and a timed-out request may incur an unknown charge.
 A guard is not a billing ceiling.
 
+The provider owns one total call deadline. It retains generation headers before
+reading the JSON body and reserves at most five seconds (10% of shorter limits)
+within that same deadline for one generation-receipt lookup when billing is
+unknown. Only a matching, finalized receipt supplies actual charges and token
+counts. A failed attempt with unresolved cost stops before retry, including when
+exploratory unknown-cost execution is enabled. No missing charge is treated as
+zero. Cancelled calls retain received evidence and remain cancelled. Receipt
+lookups add no inference attempt; their elapsed time counts against the call.
+
 ## Problems, prepared data and equivalent trials
 
 The [problem guide](problem-definitions.md) owns profile format, CSV/NPZ input,
@@ -102,6 +111,16 @@ Safe aliases resolve defaults: `sqrt` and `log2`, for example, both select three
 random-forest features on ten-feature data. Scaling is never assumed equivalent;
 unknown metadata cannot establish an alias. Reuse is not independent replication.
 Agents cannot change the fixed training seed within a matched run.
+
+Every arm also receives `completed_configurations`: an execution registry of all
+completed effective configurations and seeds, including trials outside recent
+history. It shares parameter bases and stores per-configuration differences;
+failed fits are excluded. It is available with memory off and contains no lesson
+interpretations. `last_reused_proposal` and the reuse count persist across phases.
+These fields help agents choose novel comparisons; the equivalence guard still
+checks every proposal, and the harness does not choose an alternative. The
+42-fit overnight solo history adds about 7.6 kB (47%) to its measured context,
+so paid token cost and reduced duplicates need a new operational pilot.
 
 Random forests accept `sqrt`, `log2` or `all` for `max_features`; numeric `1` and
 `1.0` are rejected because scikit-learn gives them different meanings. Context

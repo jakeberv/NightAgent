@@ -84,9 +84,11 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                  data_fingerprint=data_fingerprint,
                  deadline_utc=(datetime.now(timezone.utc) + timedelta(seconds=config.allowance_seconds)).isoformat())
 
+    reuse_feedback = {'count': 0, 'latest': None}
+
     def context(role=None, *, framing=False):
         return build_context(state, project=project, permitted_experiments=permitted_experiments,
-                             memory=memory, role=role, framing=framing)
+                             memory=memory, role=role, framing=framing, reuse_feedback=reuse_feedback)
 
     model_call = ModelCalls(state=state, journal=journal, model=model, context=context)
     trial_executor = TrialExecutor(state=state, journal=journal, trial_runner=trial_runner,
@@ -126,9 +128,21 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                     {"role": "user", "content": context(role, framing=framing)}]
         browser_calls = other_calls = 0
         seen_calls = {}
+        pending_invalid = None
         turns = config.max_turns_without_trial if role == "researcher" else config.review_tool_calls + 1
         for _ in range(turns):
-            message = await model_call(role, messages, tools, framing=framing)
+            try:
+                message = await model_call(role, messages, tools, framing=framing)
+            except StopRun as stop:
+                details = stop.details
+                if (role != 'researcher' and pending_invalid is not None
+                        and str(stop) == 'deadline' and details.get('reason') == 'deadline_admission'
+                        and details.get('role') == role):
+                    journal.emit('contract_abandoned', role=role, reason='deadline_admission',
+                        **pending_invalid,
+                        remaining_seconds=details.get('remaining_seconds'),
+                        required_seconds=details.get('required_seconds'))
+                raise
             messages.append(message)
             calls = message.get("tool_calls") or []
             if not calls:
@@ -150,6 +164,9 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                                  stage="framing" if framing else "review",
                                  contract=contract, valid=not errors, errors=errors)
                     if errors:
+                        pending_invalid = {'after_trial': summary['trials'],
+                            'stage': 'framing' if framing else 'review',
+                            'contract': contract, 'errors': errors}
                         # The review has finished gathering evidence. Repairs
                         # only need the recorded measurements and format limits.
                         tools, schemas = [], {}
@@ -157,6 +174,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                             "Correct the contract using the evidence already supplied. Return only the JSON object, "
                             "without a preamble or code fence. " + " ".join(errors)})
                         continue
+                    pending_invalid = None
                     accept_lessons(contract)
                     return contract
                 messages.append({"role": "user", "content": "Choose the next experiment with run_analysis."})
@@ -215,6 +233,8 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                                          remaining_seconds=max(0, available), required_seconds=required)
                             raise StopRun('deadline')
                         if equivalent:
+                            reuse_feedback['count'] += 1
+                            reuse_feedback['latest'] = {'config': args, 'matched_trial_ids': equivalent}
                             prior = next(row for row in history if row['trial_id'] == equivalent[0])
                             result = {'status': 'reused', 'matched_trial_ids': equivalent,
                                       'observation': compact_result(prior),

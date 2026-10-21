@@ -284,11 +284,36 @@ class _Audit:
             self.check(summary.get(key) == replay[key], 'selection',
                        f'{key} disagrees with selections reconstructed from raw fits and usage', name)
 
+    def terminal_abandonment(self, es, index, event, pending, completed, config):
+        """A rejected review is harmless only at a proven terminal deadline boundary."""
+        role = event.get('role')
+        if (role not in ('supervisor', 'reflection') or not pending or index < 2 or
+                index != len(es) - 2):
+            return False
+        invalid, skipped, stopped = pending[-1], es[index - 1], es[-1]
+        remaining, required = skipped.get('remaining_seconds'), skipped.get('required_seconds')
+        numeric_budget = (type(remaining) in (int, float) and type(required) in (int, float) and
+                          math.isfinite(remaining) and math.isfinite(required) and 0 <= remaining < required)
+        scheduled = (bool(config.reflection) if role == 'reflection' else
+                     bool(config.review_every and completed % config.review_every == 0))
+        return bool(completed > 0 and scheduled and event.get('stage') == 'review' and
+            type(event.get('after_trial')) is int and event['after_trial'] == completed and
+            event.get('reason') == 'deadline_admission' and
+            es[index - 2] is invalid and invalid.get('after_trial') == completed and
+            invalid.get('stage') == 'review' and
+            event.get('contract') == invalid.get('contract') and
+            isinstance(event.get('errors'), list) and event['errors'] and
+            event['errors'] == invalid.get('errors') and
+            skipped.get('type') == 'model_call_skipped' and skipped.get('role') == role and
+            skipped.get('reason') == 'deadline_admission' and numeric_budget and
+            stopped.get('type') == 'run_stopped' and
+            (stopped.get('summary') or {}).get('stop_reason') == 'deadline')
+
     def interactions(self, es, config, n, name):
         advice = None; source = 'none'; lessons = []; contexts = 0; delivered = 0; updates = 0
         reflection = None; completed = 0; accepted = {}; invalid = {}; decision = None
         completed_fits = 0; reviewed = set(); reflected = set()
-        for event in es:
+        for index, event in enumerate(es):
             kind = event['type']
             if kind.endswith('_contract'):
                 self.check(type(event.get('valid')) is bool, 'events', 'Contract is missing its validity result', name)
@@ -303,6 +328,17 @@ class _Audit:
                     accepted[kind] = event
                     for repaired in invalid.pop(phase, []):
                         self.issue('contract_repaired', '; '.join(repaired.get('errors') or ['Invalid contract']), name, warning=True)
+            if kind == 'contract_abandoned':
+                role = event.get('role')
+                phase = ((role + '_contract', completed, 'review')
+                         if role in ('supervisor', 'reflection') else None)
+                pending = invalid.get(phase, [])
+                if self.check(self.terminal_abandonment(es, index, event, pending, completed, config),
+                              'contract_abandoned', 'Review abandonment lacks a terminal deadline chain', name):
+                    invalid.pop(phase)
+                    self.issue('contract_abandoned',
+                               'Rejected terminal review was abandoned at deadline; it was not accepted or delivered',
+                               name, warning=True)
             if kind in ('framing', 'review', 'reflection'):
                 contract_kind = 'reflection_contract' if kind == 'reflection' else 'supervisor_contract'
                 contract = accepted.pop(contract_kind, {})

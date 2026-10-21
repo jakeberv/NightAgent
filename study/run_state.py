@@ -12,6 +12,10 @@ from .selection import initial_summary
 class StopRun(Exception):
     """A harness safeguard ended the search normally."""
 
+    def __init__(self, reason, *, details=None):
+        super().__init__(reason)
+        self.details = dict(details or {})
+
 
 @dataclass
 class RunState:

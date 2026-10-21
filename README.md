@@ -29,7 +29,15 @@ The protocol enables lesson memory in the first four approaches. Every independe
 
 ## Where we are
 
-As of 21 October 2026, the memory-default implementation is [merged](https://github.com/jakeberv/NightAgent/pull/14). A [real preflight](docs/revised-preflight-results.md) completed 35 experiments for $1.67, but the researcher working alone retained no lessons. A subsequent [contract fix](https://github.com/jakeberv/NightAgent/pull/15) passed offline checks and a [targeted solo revalidation](docs/solo-memory-revalidation.md), demonstrating lesson creation and later delivery. The other four arms were not rerun after the fix. The full repeated comparison and held-out scoring remain pending at this validation stage. The saved replay demonstrates the earlier workflow; it does not establish that supervision or memory improves performance. See [readiness and evidence](docs/workshop-readiness.md) for integration, cost and funding gates.
+The [overnight comparison](docs/overnight-results.md) ran all 15 attempts and
+produced 349 verified fits, with $22.444005 known cost and two calls with unknown
+billing.
+Its original audit failed: two arms stopped early and one final supervisor note
+could not be repaired before the deadline. The saved results establish no winning
+approach or memory benefit. All 12 memory-enabled runs saved and later delivered
+lessons, so the [demo](DEMO.md) can show the mechanism with those limits visible.
+See [readiness](docs/workshop-readiness.md) for the reliability correction and
+what a new accepted comparison would require.
 
 This repository also contains a separate [conversational research prototype](nightagent/README.md) built with the Claude Agent SDK. It supports open-ended student–supervisor meetings and project files; the controlled workshop study described above provides the fixed experiments and comparative evaluation.
 

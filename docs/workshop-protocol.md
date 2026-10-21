@@ -12,7 +12,15 @@ The memory-default implementation was merged into main in
 [contract fix](https://github.com/jakeberv/NightAgent/pull/15) passed offline checks
 and [targeted solo revalidation](solo-memory-revalidation.md). Integration and
 launch gates are tracked in the [readiness ledger](workshop-readiness.md).
-The full 15-run comparison and held-out scoring remain pending at revalidation.
+At that revalidation stage, the full comparison and held-out scoring were pending.
+
+The subsequent [overnight comparison](overnight-results.md) completed 349 fits
+and post-search held-out scoring, but failed acceptance after two timeout stops
+and a rejected terminal review. Current reliability fixes and review/CI results
+are recorded in [readiness](workshop-readiness.md). The new execution registry
+and timeout policy change operational context: old and corrected attempts must
+not be spliced into a new accepted comparison. A recorded mechanism demo remains
+available without a claim of strategy superiority.
 
 ## Research question and tutorial components
 

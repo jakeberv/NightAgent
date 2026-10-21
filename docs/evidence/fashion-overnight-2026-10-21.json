@@ -1,0 +1,635 @@
+{
+  "schema_version": 1,
+  "kind": "historical_failed_overnight_receipt",
+  "recorded_date": "2026-10-21",
+  "suite_path": "study-runs/fashion-five-arm-overnight-20261021-020151",
+  "launch_commit": "621f225b09f65ead8a499f1bf4804510dd11133d",
+  "created_at_utc": "2026-10-21T06:01:53.828068+00:00",
+  "search_completed_at_utc": "2026-10-21T07:10:56.918158+00:00",
+  "finished_at_utc": "2026-10-21T07:11:50.891540+00:00",
+  "local_timezone": "America/Toronto",
+  "launcher_exit_code": 2,
+  "original_audit": {
+    "immutable": true,
+    "status": "fail",
+    "errors": [
+      {
+        "scope": "r00-frequent",
+        "code": "stop",
+        "message": "Run must stop at an expected limit with a valid selected model"
+      },
+      {
+        "scope": "r00-frequent",
+        "code": "accounting",
+        "message": "Calls or cost/token accounting are incomplete"
+      },
+      {
+        "scope": "r00-frequent",
+        "code": "fit",
+        "message": "Need at least seven complete attempts and matching start/finish records"
+      },
+      {
+        "scope": "r00-periodic_reflection_no_memory",
+        "code": "stop",
+        "message": "Run must stop at an expected limit with a valid selected model"
+      },
+      {
+        "scope": "r00-periodic_reflection_no_memory",
+        "code": "accounting",
+        "message": "Calls or cost/token accounting are incomplete"
+      },
+      {
+        "scope": "r00-periodic_reflection_no_memory",
+        "code": "fit",
+        "message": "Need at least seven complete attempts and matching start/finish records"
+      },
+      {
+        "scope": "r01-periodic_reflection",
+        "code": "contract_unrepaired",
+        "message": "Invalid supervisor request at lesson_updates.0.summary: Use at most 240 characters (received 241); rewrite as short complete sentences."
+      }
+    ],
+    "warning_counts": {
+      "model_call": 2,
+      "final_interaction": 2,
+      "contract_repaired": 14
+    },
+    "error_count": 7,
+    "warning_count": 18,
+    "source_matched_launch_checkout": true,
+    "source_match_scope": "The original audit compared against the launch checkout; this is not a claim that later reliability changes match the old source.",
+    "totals": {
+      "runs": 15,
+      "fits": 349,
+      "artifacts_verified": 349,
+      "calls": 663,
+      "cost": 22.444005
+    }
+  },
+  "accounting": {
+    "known_cost_usd": 22.444005,
+    "cost_complete": false,
+    "cost_interpretation": "Lower bound; two timed-out calls have no usage or billing receipt.",
+    "successful_calls": 661,
+    "timed_out_calls": 2,
+    "raw_message_matches": 661,
+    "raw_usage_matches": 661,
+    "invalid_executed_decisions": 0
+  },
+  "held_out": {
+    "evaluated_after_frozen_search": true,
+    "unique_artifacts": 29,
+    "selection_records": 37,
+    "status": "completed"
+  },
+  "descriptive_arm_means": [
+    {
+      "arm": "researcher_alone",
+      "attempts": 3,
+      "completed_fits": 120,
+      "mean_best_validation_accuracy": 0.8802222222222222,
+      "mean_selected_held_out_accuracy": 0.8680333333333333,
+      "mean_known_cost_usd": 1.452423,
+      "all_costs_complete": true,
+      "includes_truncated_attempt": false
+    },
+    {
+      "arm": "frequent",
+      "attempts": 3,
+      "completed_fits": 42,
+      "mean_best_validation_accuracy": 0.8697777777777778,
+      "mean_selected_held_out_accuracy": 0.8608333333333333,
+      "mean_known_cost_usd": 1.0917109999999999,
+      "all_costs_complete": false,
+      "includes_truncated_attempt": true
+    },
+    {
+      "arm": "periodic",
+      "attempts": 3,
+      "completed_fits": 78,
+      "mean_best_validation_accuracy": 0.8737777777777778,
+      "mean_selected_held_out_accuracy": 0.8660666666666667,
+      "mean_known_cost_usd": 1.7975470000000002,
+      "all_costs_complete": true,
+      "includes_truncated_attempt": false
+    },
+    {
+      "arm": "periodic_reflection",
+      "attempts": 3,
+      "completed_fits": 58,
+      "mean_best_validation_accuracy": 0.8817777777777778,
+      "mean_selected_held_out_accuracy": 0.8688,
+      "mean_known_cost_usd": 1.7887510000000002,
+      "all_costs_complete": true,
+      "includes_truncated_attempt": false
+    },
+    {
+      "arm": "periodic_reflection_no_memory",
+      "attempts": 3,
+      "completed_fits": 51,
+      "mean_best_validation_accuracy": 0.8704444444444445,
+      "mean_selected_held_out_accuracy": 0.8636666666666666,
+      "mean_known_cost_usd": 1.3509030000000002,
+      "all_costs_complete": false,
+      "includes_truncated_attempt": true
+    }
+  ],
+  "arm_mean_interpretation": "Means of all three attempts, including two truncated seed-42 attempts. The suite failed acceptance and establishes no winner.",
+  "paired_validation_contrasts": [
+    {
+      "a": "researcher_alone",
+      "b": "frequent",
+      "direction": "b minus a",
+      "matched_pairs": 3,
+      "n": 3,
+      "mean_delta": -0.010444444444444404,
+      "sd_delta": 0.018774490179003026,
+      "ci95": [
+        -0.05708286351699202,
+        0.03619397462810322
+      ]
+    },
+    {
+      "a": "frequent",
+      "b": "periodic",
+      "direction": "b minus a",
+      "matched_pairs": 3,
+      "n": 3,
+      "mean_delta": 0.003999999999999966,
+      "sd_delta": 0.029901690773451377,
+      "ci95": [
+        -0.07027991769542749,
+        0.07827991769542741
+      ]
+    },
+    {
+      "a": "periodic",
+      "b": "periodic_reflection",
+      "direction": "b minus a",
+      "matched_pairs": 3,
+      "n": 3,
+      "mean_delta": 0.008000000000000044,
+      "sd_delta": 0.015044378795195627,
+      "ci95": [
+        -0.02937230871500241,
+        0.045372308715002495
+      ]
+    },
+    {
+      "a": "periodic_reflection_no_memory",
+      "b": "periodic_reflection",
+      "direction": "b minus a",
+      "matched_pairs": 3,
+      "n": 3,
+      "mean_delta": 0.011333333333333381,
+      "sd_delta": 0.021089755280177588,
+      "ci95": [
+        -0.04105652308974141,
+        0.06372318975640817
+      ]
+    }
+  ],
+  "healthy_memory_pairs": [
+    {
+      "training_seed": 43,
+      "validation_delta_on_minus_off": 0.0,
+      "held_out_delta_on_minus_off": 0.0
+    },
+    {
+      "training_seed": 44,
+      "validation_delta_on_minus_off": -0.0016666666666665941,
+      "held_out_delta_on_minus_off": -0.007299999999999973
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "r00-frequent",
+      "arm": "frequent",
+      "training_seed": 42,
+      "completed_fits": 4,
+      "elapsed_seconds": 194.36651908420026,
+      "stop_reason": "unknown_cost",
+      "best_validation_accuracy": 0.8483333333333334,
+      "selected_held_out_accuracy": 0.84,
+      "known_cost_usd": 0.31509,
+      "cost_complete": false
+    },
+    {
+      "run_id": "r00-periodic_reflection_no_memory",
+      "arm": "periodic_reflection_no_memory",
+      "training_seed": 42,
+      "completed_fits": 6,
+      "elapsed_seconds": 189.17018383299,
+      "stop_reason": "unknown_cost",
+      "best_validation_accuracy": 0.848,
+      "selected_held_out_accuracy": 0.8452,
+      "known_cost_usd": 0.284571,
+      "cost_complete": false
+    },
+    {
+      "run_id": "r00-periodic_reflection",
+      "arm": "periodic_reflection",
+      "training_seed": 42,
+      "completed_fits": 18,
+      "elapsed_seconds": 540.0972707918845,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.8836666666666667,
+      "selected_held_out_accuracy": 0.8679,
+      "known_cost_usd": 1.8294300000000001,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r00-periodic",
+      "arm": "periodic",
+      "training_seed": 42,
+      "completed_fits": 27,
+      "elapsed_seconds": 579.1493452498689,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.8833333333333333,
+      "selected_held_out_accuracy": 0.8752,
+      "known_cost_usd": 1.6171650000000002,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r00-researcher_alone",
+      "arm": "researcher_alone",
+      "training_seed": 42,
+      "completed_fits": 42,
+      "elapsed_seconds": 591.8045220409986,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.88,
+      "selected_held_out_accuracy": 0.8705,
+      "known_cost_usd": 1.5029609999999998,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r01-researcher_alone",
+      "arm": "researcher_alone",
+      "training_seed": 43,
+      "completed_fits": 41,
+      "elapsed_seconds": 584.3511395000387,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.8773333333333333,
+      "selected_held_out_accuracy": 0.8596,
+      "known_cost_usd": 1.519827,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r01-periodic_reflection_no_memory",
+      "arm": "periodic_reflection_no_memory",
+      "training_seed": 43,
+      "completed_fits": 24,
+      "elapsed_seconds": 557.8969618331175,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.882,
+      "selected_held_out_accuracy": 0.8704,
+      "known_cost_usd": 1.8687000000000002,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r01-periodic",
+      "arm": "periodic",
+      "training_seed": 43,
+      "completed_fits": 25,
+      "elapsed_seconds": 583.8791178329848,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.8566666666666667,
+      "selected_held_out_accuracy": 0.8493,
+      "known_cost_usd": 1.9043070000000002,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r01-periodic_reflection",
+      "arm": "periodic_reflection",
+      "training_seed": 43,
+      "completed_fits": 21,
+      "elapsed_seconds": 551.3112510421779,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.882,
+      "selected_held_out_accuracy": 0.8704,
+      "known_cost_usd": 1.7177790000000002,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r01-frequent",
+      "arm": "frequent",
+      "training_seed": 43,
+      "completed_fits": 20,
+      "elapsed_seconds": 579.4762657920364,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.8813333333333333,
+      "selected_held_out_accuracy": 0.8744,
+      "known_cost_usd": 1.564266,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r02-frequent",
+      "arm": "frequent",
+      "training_seed": 44,
+      "completed_fits": 18,
+      "elapsed_seconds": 566.4224591248203,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.8796666666666667,
+      "selected_held_out_accuracy": 0.8681,
+      "known_cost_usd": 1.3957769999999998,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r02-periodic",
+      "arm": "periodic",
+      "training_seed": 44,
+      "completed_fits": 26,
+      "elapsed_seconds": 588.3202485421207,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.8813333333333333,
+      "selected_held_out_accuracy": 0.8737,
+      "known_cost_usd": 1.871169,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r02-researcher_alone",
+      "arm": "researcher_alone",
+      "training_seed": 44,
+      "completed_fits": 37,
+      "elapsed_seconds": 579.9466931249481,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.8833333333333333,
+      "selected_held_out_accuracy": 0.874,
+      "known_cost_usd": 1.334481,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r02-periodic_reflection",
+      "arm": "periodic_reflection",
+      "training_seed": 44,
+      "completed_fits": 19,
+      "elapsed_seconds": 579.5913003750611,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.8796666666666667,
+      "selected_held_out_accuracy": 0.8681,
+      "known_cost_usd": 1.8190440000000003,
+      "cost_complete": true
+    },
+    {
+      "run_id": "r02-periodic_reflection_no_memory",
+      "arm": "periodic_reflection_no_memory",
+      "training_seed": 44,
+      "completed_fits": 21,
+      "elapsed_seconds": 564.67714095884,
+      "stop_reason": "deadline",
+      "best_validation_accuracy": 0.8813333333333333,
+      "selected_held_out_accuracy": 0.8754,
+      "known_cost_usd": 1.8994380000000004,
+      "cost_complete": true
+    }
+  ],
+  "memory": {
+    "enabled_runs": 12,
+    "enabled_runs_saved_and_delivered": 12,
+    "disabled_runs": 3,
+    "disabled_runs_saved_or_delivered": 0,
+    "researcher_requests": 380,
+    "requests_with_notes": 360,
+    "requests_with_older_measurements": 177,
+    "executed_decisions_citing_older_memory_measurements": 19,
+    "counting_method": "Read each researcher model_call_started context, including repair requests. Older means a cited lesson measurement whose trial ID is outside that request's recent_trials. Count an executed decision when its validated evidence cites one of those older IDs. These are delivery and citation observations, not causal attribution.",
+    "per_run": [
+      {
+        "run_id": "r00-frequent",
+        "enabled": true,
+        "researcher_requests": 8,
+        "requests_with_notes": 7,
+        "requests_with_older_measurements": 0,
+        "executed_decisions_citing_older_memory_measurements": 0,
+        "lesson_save_events": 4
+      },
+      {
+        "run_id": "r00-periodic",
+        "enabled": true,
+        "researcher_requests": 35,
+        "requests_with_notes": 33,
+        "requests_with_older_measurements": 14,
+        "executed_decisions_citing_older_memory_measurements": 0,
+        "lesson_save_events": 9
+      },
+      {
+        "run_id": "r00-periodic_reflection",
+        "enabled": true,
+        "researcher_requests": 29,
+        "requests_with_notes": 28,
+        "requests_with_older_measurements": 8,
+        "executed_decisions_citing_older_memory_measurements": 0,
+        "lesson_save_events": 22
+      },
+      {
+        "run_id": "r00-periodic_reflection_no_memory",
+        "enabled": false,
+        "lesson_save_events": 0
+      },
+      {
+        "run_id": "r00-researcher_alone",
+        "enabled": true,
+        "researcher_requests": 47,
+        "requests_with_notes": 45,
+        "requests_with_older_measurements": 34,
+        "executed_decisions_citing_older_memory_measurements": 0,
+        "lesson_save_events": 1
+      },
+      {
+        "run_id": "r01-frequent",
+        "enabled": true,
+        "researcher_requests": 22,
+        "requests_with_notes": 21,
+        "requests_with_older_measurements": 8,
+        "executed_decisions_citing_older_memory_measurements": 0,
+        "lesson_save_events": 19
+      },
+      {
+        "run_id": "r01-periodic",
+        "enabled": true,
+        "researcher_requests": 42,
+        "requests_with_notes": 40,
+        "requests_with_older_measurements": 25,
+        "executed_decisions_citing_older_memory_measurements": 1,
+        "lesson_save_events": 9
+      },
+      {
+        "run_id": "r01-periodic_reflection",
+        "enabled": true,
+        "researcher_requests": 21,
+        "requests_with_notes": 19,
+        "requests_with_older_measurements": 7,
+        "executed_decisions_citing_older_memory_measurements": 0,
+        "lesson_save_events": 25
+      },
+      {
+        "run_id": "r01-periodic_reflection_no_memory",
+        "enabled": false,
+        "lesson_save_events": 0
+      },
+      {
+        "run_id": "r01-researcher_alone",
+        "enabled": true,
+        "researcher_requests": 47,
+        "requests_with_notes": 45,
+        "requests_with_older_measurements": 27,
+        "executed_decisions_citing_older_memory_measurements": 13,
+        "lesson_save_events": 9
+      },
+      {
+        "run_id": "r02-frequent",
+        "enabled": true,
+        "researcher_requests": 21,
+        "requests_with_notes": 20,
+        "requests_with_older_measurements": 0,
+        "executed_decisions_citing_older_memory_measurements": 0,
+        "lesson_save_events": 17
+      },
+      {
+        "run_id": "r02-periodic",
+        "enabled": true,
+        "researcher_requests": 41,
+        "requests_with_notes": 39,
+        "requests_with_older_measurements": 22,
+        "executed_decisions_citing_older_memory_measurements": 0,
+        "lesson_save_events": 9
+      },
+      {
+        "run_id": "r02-periodic_reflection",
+        "enabled": true,
+        "researcher_requests": 26,
+        "requests_with_notes": 24,
+        "requests_with_older_measurements": 8,
+        "executed_decisions_citing_older_memory_measurements": 0,
+        "lesson_save_events": 25
+      },
+      {
+        "run_id": "r02-periodic_reflection_no_memory",
+        "enabled": false,
+        "lesson_save_events": 0
+      },
+      {
+        "run_id": "r02-researcher_alone",
+        "enabled": true,
+        "researcher_requests": 41,
+        "requests_with_notes": 39,
+        "requests_with_older_measurements": 24,
+        "executed_decisions_citing_older_memory_measurements": 5,
+        "lesson_save_events": 5
+      }
+    ]
+  },
+  "duplicate_proposals_reused": 86,
+  "manual_mechanism_trace": {
+    "label": "Valid local trace from a failed historical suite; not an accepted strict demo export.",
+    "run_id": "r02-periodic_reflection",
+    "events_path": "study-runs/fashion-five-arm-overnight-20261021-020151/runs/r02-periodic_reflection/events.jsonl",
+    "journal_lines": {
+      "supervisor_review": 184,
+      "executed_decision_contract": 193,
+      "trial_finished": 200,
+      "saved_lesson": 206,
+      "later_researcher_request": 208
+    },
+    "trials": [
+      {
+        "trial_id": 9,
+        "config": {
+          "model": "torch_cnn",
+          "params": {
+            "batch_size": 256,
+            "channels": 16,
+            "epochs": 5,
+            "learning_rate": 0.005,
+            "weight_decay": 0.001
+          },
+          "preprocessing": "none"
+        },
+        "validation_accuracy": 0.8703333333333333,
+        "artifact_sha256": "fcf03f4d15b8096e90cf67f61d46b6b20ddd449c7176d390051e8286a0990245",
+        "result_json_sha256": "22631da18533dd77972735a5e957f90b3ad63e010523dccc193c8aaa4af3cd1e"
+      },
+      {
+        "trial_id": 10,
+        "config": {
+          "model": "torch_cnn",
+          "params": {
+            "batch_size": 256,
+            "channels": 16,
+            "epochs": 5,
+            "learning_rate": 0.007,
+            "weight_decay": 0.001
+          },
+          "preprocessing": "none"
+        },
+        "validation_accuracy": 0.8666666666666667,
+        "artifact_sha256": "7f99e2fcfd37331a88e5badd2ca7ecbc2c89113b507b5c591c749ef7aa53ec3b",
+        "result_json_sha256": "012761ea3f9bfede90965ea4e70548180a58f05678153f728dcf1fd39b7a723a"
+      }
+    ],
+    "lesson": {
+      "id": "cnn_learning_rate_boost",
+      "status": "inconclusive",
+      "summary": "On validation, trial 9 recorded accuracy=0.87033333; trial 10 recorded accuracy=0.86666667; trial 8 recorded accuracy=0.85933333. Broader conclusions remain untested.",
+      "scope": "Validation trials 9, 10, 8 compared learning_rate=0.005/0.007/0.003. This split alone does not establish causality.",
+      "evidence": [
+        {
+          "trial_id": 9,
+          "metric": "accuracy",
+          "split": "validation",
+          "value": 0.8703333333333333
+        },
+        {
+          "trial_id": 10,
+          "metric": "accuracy",
+          "split": "validation",
+          "value": 0.8666666666666667
+        },
+        {
+          "trial_id": 8,
+          "metric": "accuracy",
+          "split": "validation",
+          "value": 0.8593333333333333
+        }
+      ],
+      "interpretation": {
+        "status": "unverified",
+        "summary": "On validation, trial 9 recorded accuracy=0.87033333; trial 10 recorded accuracy=0.86666667; trial 8 recorded accuracy=0.85933333. Broader conclusions remain untested.",
+        "scope": "Validation trials 9, 10, 8 compared learning_rate=0.005/0.007/0.003. This split alone does not establish causality."
+      }
+    },
+    "delivered_lesson_id": "cnn_learning_rate_boost",
+    "validation_delta_trial10_minus_trial9": -0.003666666666666596
+  },
+  "interpretation_limits": [
+    "No invalid decision was executed; 14 decision contract violations were repaired and the final invalid supervisor note was rejected.",
+    "All four reported paired validation-accuracy intervals include zero.",
+    "Memory delivery and citation do not show that memory caused a decision or improved performance. Model prose can misrecall an old configuration; use hashed results and grounded measurements.",
+    "Reliability corrections and any future paid validation have separate provenance. Do not splice changed-context or changed-retry runs into an accepted old five-arm suite."
+  ],
+  "input_sha256": {
+    "suite.json": "55282a4956733a92b5263f1ccb62db4a78f13141be59825994144c6d6a8e7205",
+    "summary.csv": "319a471c9d06a2288200d3a51556691d74e38fe0288989c762abb43219c37000",
+    "paired-comparisons.json": "43938eb080966a7597f7bd9fef311e5fcf41249d37b8c1ca6a92bca3f5028b9b",
+    "audit-summary.json": "b907de149e923c25edbfc5e4cadd73d773e93a7cd9af790e1f5d79c12bed0643",
+    "search-complete.json": "bea1ac77f6d8f195a82ee45967ba9609ad79b780ff97e8f760bd0397d7f55430",
+    "completion.json": "adee945bd8554eb587e9ad628623612efc7e6a9dc707d199305c2d2a8cdee06a",
+    "evaluation/test-results.json": "c24749cfd15f987948a97912c7b7c0a1a982341eb6aaae23381d37226a67d2f9",
+    "launcher-exit-code.txt": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+    "runs/r00-frequent/events.jsonl": "b62ebaf958f5f14e519169ad2f0dd950105224210539767c2b9eaf5bbee8fbfc",
+    "runs/r00-periodic/events.jsonl": "a7df70b536135a4a9184d9f799b010df1503d97b1953bc8e18d5fa1d61673ed0",
+    "runs/r00-periodic_reflection/events.jsonl": "1f939d0191778fe6c5be57e8b0279a1b52bbcd6826798ca2ccdc307bee5815fe",
+    "runs/r00-periodic_reflection_no_memory/events.jsonl": "1815552433c533f9aaa697dee76452f056555198272a8b1aefb5a1948ab37355",
+    "runs/r00-researcher_alone/events.jsonl": "15ff38309f4affe9b21ac78d72596c7038c7841b8690ab22315f259bd865fd4e",
+    "runs/r01-frequent/events.jsonl": "7aaab2eb3a1ac5f499e50b6bef7bb69c06d3596d4de3e78c51d2254030818bee",
+    "runs/r01-periodic/events.jsonl": "a6df0e646847cd4ae6778a149563c4156f81eafb2fcfc5fb7b7c8290ced42925",
+    "runs/r01-periodic_reflection/events.jsonl": "a48b3aeae0c883b5d21b299b79152afa84b2c43227cfde4271e9cbbe8a7734c0",
+    "runs/r01-periodic_reflection_no_memory/events.jsonl": "8067b3601211a286a49ee499ae76c97c24253ab22f2bd6377408117aecb34dfb",
+    "runs/r01-researcher_alone/events.jsonl": "90d8e50fd3a778b25b17c276b990dc5d3c066f177ecde3387842a416e54142d1",
+    "runs/r02-frequent/events.jsonl": "5499423466a02bb7f17f2d3309babdf49c9677755ba796db550475ca2c55ec7d",
+    "runs/r02-periodic/events.jsonl": "4fc1f7aa0d5a967c448d2ad3828a8a3b6535c3c25d4fde3c08fbd648eac14cab",
+    "runs/r02-periodic_reflection/events.jsonl": "7c1c45e5765a1f1395ae041884cffecf580f0f38abc36959309c687407f534d8",
+    "runs/r02-periodic_reflection_no_memory/events.jsonl": "360c0fa84e3347e6c797357892066cb3ebbfcda468903935b0645962e7ae2bf1",
+    "runs/r02-researcher_alone/events.jsonl": "d98b97c7db39cd247665956d344ca9208e5e5b4aabf098937b127d3e8af34506"
+  }
+}
