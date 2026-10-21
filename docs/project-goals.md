@@ -76,9 +76,13 @@ seven model calls for $0.163809, with three lesson-update events and five later
 researcher contexts receiving lessons. Its audit passed with zero errors and
 warnings, and all seven artifacts verified. Only the failed solo arm was rerun;
 these two suites are not a combined five-arm pass under the corrected source.
-The repeated overnight comparison and held-out Fashion scoring remain pending
-at this validation stage. These observations do not establish memory benefit
-or a winning supervision strategy.
+The subsequent [overnight comparison](overnight-results.md) completed 349 fits
+and held-out scoring, but failed acceptance after timeout/accounting stops and
+an unrepaired final review. All 12 memory-enabled runs saved and later delivered
+lessons. These observations support a mechanism demonstration, without
+establishing memory benefit or a winning supervision strategy. The
+[reliability correction](workshop-readiness.md#reliability-correction) has offline
+regression coverage; its live operational revalidation remains separate.
 
 The [saved real-model replay](evidence/fashion-demo/demo.md) shows an
 advice → configuration → result → lesson → later-context sequence under the
@@ -92,13 +96,16 @@ engineering cases, labeled replay and presentation. The
 [milestone checklist](workshop-milestones.md) separates artifacts from submission
 and remaining work.
 
-Then complete the integration and launch checks recorded in the
-[readiness ledger](workshop-readiness.md), using the corrected solo cost
-measurement and the declared resource guards. Underlying account balance remains
-unavailable; current key allowance and successful billing are separate evidence.
-Freeze search before held-out scoring, audit the evidence, and inspect a small
-trace sample for useful advice and appropriate lesson scope. Report uncertainty
-across the three repeats.
+Present the [recorded mechanism demo](../DEMO.md) with its acceptance limits.
+Before another long run, complete integration and a small paid operational
+preflight as recorded in the [readiness ledger](workshop-readiness.md). Remeasure
+cost under the corrected context: the original overnight cost was at least
+$22.44, exceeding remaining key allowance. Underlying account balance remains
+unavailable; key allowance and successful billing are separate evidence.
+A new comparative claim requires a fresh five-arm, three-repeat matrix from
+one frozen source, with search frozen before held-out scoring and full audit
+acceptance. Inspect traces for useful advice and appropriate lesson scope, and
+report uncertainty across the three repeats.
 
 Longer-term work can test retained learning across independent sessions and new
 tasks, with fresh comparisons and separate apprentice/science scorecards.
