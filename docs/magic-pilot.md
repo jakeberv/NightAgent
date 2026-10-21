@@ -1,4 +1,34 @@
-# Short MAGIC pilot
+# MAGIC CPU comparison and short pilot
+
+## Current five-arm comparison
+
+The [README](../README.md#run-the-complete-comparison) provides the full
+five-arm, three-repeat command for MAGIC Gamma Telescope. It reuses the current
+interaction and budget settings with `--device cpu`; the MAGIC problem profile
+supplies logistic regression, random forest and histogram gradient boosting,
+with ROC-AUC targets of 0.93 and 0.95. No GPU or PyTorch is required. This is a
+different scientific task from Fashion-MNIST; compare approaches within each
+dataset rather than pooling their scores.
+
+Download and extract the [UCI source archive](https://archive.ics.uci.edu/dataset/159/magic+gamma+telescope),
+placing `magic04.data` at `study-data/magic-source/magic04.data`. These are
+Monte Carlo simulated gamma/hadron telescope events. The README prepares a fresh
+`study-data/magic-five-arm` directory so historical prepared data stays intact.
+Use the base study environment; the paid launch uses the same credential setup
+described below.
+
+**CPU verification, 21 October:** CLI validation and fresh preparation passed on
+the 19,020-row source, producing 11,412 training, 3,804 validation and 3,804 test
+examples. A scripted five-arm rehearsal completed **35 real CPU fits in 48.57
+seconds**, covering all three classifier families, with verified artifacts,
+required feedback/memory, report completion and an audit with **zero errors or
+warnings**. Import guards and estimator records confirmed the classical path
+does not require PyTorch. No paid model calls or held-out scoring occurred.
+The [verification receipt](evidence/overnight-reliability-verification.json)
+records its scope and evidence locations. This verifies CPU operation; it is not
+a new live-model comparison or cost estimate.
+
+## Short operational pilot
 
 This is an operational check of authenticated tool calls, completed classifier
 trials, supervisor feedback, reflection, and charged usage. It does not establish
@@ -249,7 +279,7 @@ destination, and retain original/final URLs and the redirect chain. Publisher
 access restrictions, PDFs, and pages requiring JavaScript can still prevent
 useful retrieval; those outcomes remain visible to the supervisor.
 
-## All five strategies
+## Earlier five-strategy comparison with literature
 
 For an operational comparison, use one repeat of every strategy with the same
 five-minute, 12-trial, USD 3 per-run guard. Two runs overlap and share eight local

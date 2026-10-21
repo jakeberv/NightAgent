@@ -138,3 +138,33 @@ def test_oversized_abandonment_budget_fails_without_crashing(suite, field, sign)
     result = audit(suite)
     assert not result['passed']
     assert 'contract_abandoned' in codes(result)
+
+
+@pytest.mark.parametrize('intervening_write', [False, True])
+@pytest.mark.parametrize('failed_retries', [False, True])
+def test_abandonment_validates_all_rejected_repairs_before_clearing_phase(suite, intervening_write, failed_retries):
+    run, es = terminal_chain(suite)
+    first = es[-4]
+    failed_repairs(es, status='completed')
+    if failed_retries:
+        start, finish = es[-5:-3]
+        failed = [deepcopy(start), {**deepcopy(finish), 'status': 'failed'}]
+        start['attempt'] = finish['attempt'] = 1
+        es[-5:-5] = failed
+    second = deepcopy(first); second['errors'] = ['second rejected format']
+    es.insert(-3, second); es[-2]['errors'] = second['errors']
+    if failed_retries:
+        failed_repairs(es)
+    if intervening_write:
+        # Same register value keeps independent snapshot checks consistent: the
+        # abandonment protocol must detect the forbidden write itself.
+        first_index = next(i for i, e in enumerate(es) if e is first)
+        es.insert(first_index + 1, deepcopy(next(e for e in reversed(es) if e['type'] == 'lesson_memory')))
+    write(run/'summary.json', es[-1]['summary']); save_events(run, es)
+    result = audit(suite)
+    if intervening_write:
+        assert not result['passed'], result
+        assert 'contract_abandoned' in codes(result), result
+    else:
+        assert result['passed'], result
+        assert any(w['code'] == 'contract_abandoned' for w in result['warnings'])

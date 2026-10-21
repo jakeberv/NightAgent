@@ -284,6 +284,44 @@ class _Audit:
             self.check(summary.get(key) == replay[key], 'selection',
                        f'{key} disagrees with selections reconstructed from raw fits and usage', name)
 
+    @staticmethod
+    def rejected_review_repairs(es, index, pending, role, config):
+        """Check every rejected reply and its repair calls; no side effects are allowed."""
+        first = next((i for i in range(index - 1) if es[i] is pending[0]), None)
+        if first is None:
+            return False
+        waiting, attempt, rejection = 'start', 0, 1
+        for record in es[first + 1:index - 1]:
+            kind = record.get('type')
+            if waiting == 'rejection':
+                if rejection >= len(pending) or record is not pending[rejection]:
+                    return False
+                rejection += 1
+                waiting, attempt = 'start', 0
+                continue
+            if (record.get('role') != role or type(record.get('attempt')) is not int or
+                    record['attempt'] != attempt):
+                return False
+            if waiting == 'start':
+                if kind != 'model_call_started':
+                    return False
+                waiting = 'finish'
+            else:
+                if kind != 'model_call' or record.get('status') not in ('completed', 'failed'):
+                    return False
+                accounting = Accounting()
+                accounting.add(record.get('usage'))
+                if not (accounting.cost_complete and accounting.token_usage_complete):
+                    return False
+                if record['status'] == 'failed':
+                    attempt += 1
+                    if attempt > config.model_retries:
+                        return False
+                    waiting = 'start'
+                else:
+                    waiting = 'rejection'
+        return waiting == 'start' and rejection == len(pending)
+
     def terminal_abandonment(self, es, index, event, pending, completed, config):
         """A rejected review is harmless only at a proven terminal deadline boundary."""
         role = event.get('role')
@@ -297,23 +335,8 @@ class _Audit:
                               math.isfinite(remaining) and math.isfinite(required) and 0 <= remaining < required)
         except OverflowError:
             numeric_budget = False
-        invalid_index = next((i for i in range(index - 1) if es[i] is invalid), None)
-        if invalid_index is None:
+        if not self.rejected_review_repairs(es, index, pending, role, config):
             return False
-        repairs = es[invalid_index + 1:index - 1]
-        if len(repairs) % 2 or len(repairs) // 2 > config.model_retries:
-            return False
-        for attempt in range(len(repairs) // 2):
-            start, finish = repairs[2 * attempt:2 * attempt + 2]
-            if not (start.get('type') == 'model_call_started' and finish.get('type') == 'model_call' and
-                    start.get('role') == finish.get('role') == role and
-                    type(start.get('attempt')) is int and type(finish.get('attempt')) is int and
-                    start['attempt'] == finish['attempt'] == attempt and finish.get('status') == 'failed'):
-                return False
-            accounting = Accounting()
-            accounting.add(finish.get('usage'))
-            if not (accounting.cost_complete and accounting.token_usage_complete):
-                return False
         scheduled = (bool(config.reflection) if role == 'reflection' else
                      bool(config.review_every and completed % config.review_every == 0))
         return bool(completed > 0 and scheduled and event.get('stage') == 'review' and

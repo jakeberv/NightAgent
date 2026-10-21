@@ -27,6 +27,59 @@ The protocol enables lesson memory in the first four approaches. Every independe
 - **Understand the project:** [goals and scope](docs/project-goals.md), [one-page workshop spec](SPEC.md), and [milestone checklist](docs/workshop-milestones.md).
 - **Run or develop the study:** use the [documentation guide](docs/README.md) for setup, experiment methods, configuration, and launch instructions.
 
+## Run the complete comparison
+
+From this repository, install the [study environment](docs/getting-started.md#install-the-study-environment)
+and configure [OpenRouter credentials](docs/magic-pilot.md). Both commands below
+make paid model calls: five approaches × three repeats, ten minutes per run,
+with a $5 guard per run ($75 combined; an in-flight call can exceed a guard).
+They finish with held-out evaluation, a comparison report and an acceptance audit.
+Check funding and run the [operational preflight](docs/workshop-readiness.md#what-requires-new-validation)
+before another full comparison. The previous Fashion run cost at least $22.44;
+current key allowance does not cover a repeat at that cost.
+
+**Fashion-MNIST, matching the overnight design.** First [prepare the data and
+install the neural dependencies](docs/fashion-pilot.md). This uses Apple MPS;
+keep the Mac awake and connected to power. The [overnight runbook](docs/five-arm-overnight.md)
+also provides a sleep-preventing launcher with a retained console log.
+
+```bash
+run_output="study-runs/fashion-five-arm-$(date +%Y%m%d-%H%M%S)"
+deadline="$(.venv/bin/python -c 'from datetime import datetime,timedelta; print((datetime.now().astimezone()+timedelta(hours=2)).isoformat())')"
+.venv/bin/python -m study suite \
+  --config study/fashion-five-arm-overnight-config.json \
+  --env-file ../AgenticAI2026_Tutorial-3/.env \
+  --problem study/problems/fashion-mnist.yaml --data study-data/fashion-mnist \
+  --repeats 3 --order-seed 2026 --reserve-seconds 1200 \
+  --deadline "$deadline" --audit --output "$run_output"
+```
+
+**MAGIC Gamma Telescope, CPU only.** The earlier astronomy task compares gamma
+and hadron events using logistic regression, random forests and gradient
+boosting. It needs no GPU or PyTorch. Save the [UCI source](https://archive.ics.uci.edu/dataset/159/magic+gamma+telescope)
+as `study-data/magic-source/magic04.data`, then run:
+
+```bash
+.venv/bin/python -m study prepare \
+  --problem study/problems/magic.yaml --output study-data/magic-five-arm
+run_output="study-runs/magic-five-arm-$(date +%Y%m%d-%H%M%S)"
+deadline="$(.venv/bin/python -c 'from datetime import datetime,timedelta; print((datetime.now().astimezone()+timedelta(hours=2)).isoformat())')"
+.venv/bin/python -m study suite \
+  --config study/fashion-five-arm-overnight-config.json --device cpu \
+  --env-file ../AgenticAI2026_Tutorial-3/.env \
+  --problem study/problems/magic.yaml --data study-data/magic-five-arm \
+  --repeats 3 --order-seed 2026 --reserve-seconds 1200 \
+  --deadline "$deadline" --audit --output "$run_output"
+```
+
+The astronomy command reuses the same interaction and budget settings; its
+problem profile supplies the CPU classifiers and ROC-AUC targets instead of the
+Fashion models and accuracy targets. See the [MAGIC guide](docs/magic-pilot.md)
+for the CPU verification and a shorter pilot. If `OPENROUTER_API_KEY` is already
+set, omit `--env-file`; otherwise change that path to your credential file.
+Open `$run_output/report.html` after either run, and inspect `audit-summary.json`
+before treating its comparison as accepted.
+
 ## Where we are
 
 The [overnight comparison](docs/overnight-results.md) ran all 15 attempts and

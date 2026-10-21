@@ -2,10 +2,10 @@
   "schema_version": 1,
   "scope": "Offline reliability correction only; not a new paid five-arm scientific result.",
   "full_regression": {
-    "passed": 1056,
-    "seconds": 158.62,
+    "passed": 1060,
+    "seconds": 159.45,
     "exit_code": 0,
-    "log": "study-runs/overnight-reliability-fix-20261021/full-after-copilot.log"
+    "log": "study-runs/overnight-reliability-fix-20261021/full-after-phase-review.log"
   },
   "source_sha256": {
     "worker.py": "35fc5f789cac8258dc2f16f53d78f0596ba249c8f40352c380616c5c400c1146",
@@ -16,7 +16,7 @@
     "tasks.py": "044205d355132c65579fcc975206ac078a9556213822a854dac8fc3495259910",
     "config.py": "5cccc9e7464773f7d8bf7a74c45f1ff977aa4b345b468a8bb6307411e296e3bb",
     "suite.py": "4ecc828521b595350f8036eb2f6c596dc01f814d1ccf60f3829f90b872fb3951",
-    "audit.py": "df31e25808efb385144de1f46f1a69a093c731f20a5433c7b7334c37b5fdaf26",
+    "audit.py": "70895d423ce7d3a995a3b68af1384552dbeb9f1bb43d896d950045178fbb5ca4",
     "recovery.py": "b751b6da217015eb7eaabc0b9d6e3bbfc4eb35ae7d3683b81d1b0b87d6f66374",
     "fake.py": "ae916f6f4fd0bedbd0c4fbdffcb2967424eccd1863409909598cd642f1209b04",
     "provider.py": "8bae924843480e68f0a31fb64577c6f7c56c54f87cd947b392f186959dbebeed",
@@ -74,6 +74,11 @@
     "controller_billed_repair": {
       "passed": 15,
       "source": "study-runs/overnight-reliability-fix-20261021/terminal-duplicates-billed-repair-green.txt"
+    },
+    "complete_rejected_review_phase": {
+      "passed": 4,
+      "source": "study-runs/overnight-reliability-fix-20261021/copilot-phase-multiple-green.log",
+      "scope": "Repeated invalid replies with known billed retries; intervening lesson writes must fail."
     }
   },
   "historical_overnight_audit": {
@@ -90,18 +95,119 @@
     "passed": 8,
     "total": 8,
     "underlying_checks": 52,
-    "seconds": 18.649873042013496,
-    "source": "study-runs/overnight-reliability-fix-20261021/workshop-evaluation-after-copilot/results.json"
-  },
-  "previous_full_regression": {
-    "passed": 1041,
-    "seconds": 155.72,
-    "exit_code": 0,
-    "log": "study-runs/overnight-reliability-fix-20261021/full.log"
+    "seconds": 11.686255875043571,
+    "source": "study-runs/overnight-reliability-fix-20261021/workshop-evaluation-final/results.json"
   },
   "copilot_findings_fixed": [
     "Contiguous known-billing failed repair attempts before deadline-abandoned review",
-    "Oversized skipped-repair budgets produce a failed audit verdict instead of OverflowError"
+    "Oversized skipped-repair budgets produce a failed audit verdict instead of OverflowError",
+    "Validate the entire repair sequence from the first pending rejected review; no intervening writes or deliveries may be hidden by a later rejection."
   ],
-  "related_accounting_guard": "Unrepresentable costs remain unknown and do not lose the accounting record."
+  "related_accounting_guard": "Unrepresentable costs remain unknown and do not lose the accounting record.",
+  "earlier_full_regressions": [
+    {
+      "passed": 1041,
+      "seconds": 155.72,
+      "exit_code": 0,
+      "log": "study-runs/overnight-reliability-fix-20261021/full.log"
+    },
+    {
+      "passed": 1056,
+      "seconds": 158.62,
+      "exit_code": 0,
+      "log": "study-runs/overnight-reliability-fix-20261021/full-after-copilot.log"
+    }
+  ],
+  "magic_cpu_verification": {
+    "scope": "Scripted controller and real CPU train/validation fits; workflow feasibility only, not evidence of an LLM or scientific winner.",
+    "source": "study-runs/overnight-reliability-fix-20261021/magic-cpu-verification.json",
+    "receipt_sha256": "4f05b17cfc63306f3593eec9918263e16126ed95b808d3b5b90463fc6533ff2c",
+    "source_data": {
+      "page": "https://archive.ics.uci.edu/dataset/159/magic+gamma+telescope",
+      "data_sha256": "e9314b7ebd4b4b59a3b3d65f7316663963777b16a46786877651dbbaa640b36a",
+      "event_origin": "CORSIKA Monte Carlo simulated gamma/hadron telescope events, per magic04.names",
+      "rows": 19020,
+      "features": 10
+    },
+    "problem": {
+      "path": "study/problems/magic.yaml",
+      "sha256": "d20ede36489751a9a1fe80dc419e58ac63274dd67fe4a6dd8209bb0c0d22a895",
+      "fingerprint": "c9992258cdaf079122fdc58d600b7b9e975d5b53b4251742ad40f1861eb1e31e",
+      "validated_by_cli": true,
+      "objective": {
+        "metric": "roc_auc",
+        "direction": "maximize"
+      }
+    },
+    "prepared_data": {
+      "path": "study-runs/overnight-reliability-fix-20261021/magic-cpu-check-data",
+      "data_fingerprint": "a7a701476c0eb47a143901bec53b5a4791e42654d194a985ecb7c22b904da069",
+      "partitions": {
+        "test": {
+          "rows": 3804,
+          "sha256": "e42b3e880deb6cfebea435145a2473c9debbca90d07f1cc29bb95609a5914421"
+        },
+        "train": {
+          "rows": 11412,
+          "sha256": "9d0adeba668e73c73259380798cd6096cddb6c164b259f470da6cbc2f0492915"
+        },
+        "validation": {
+          "rows": 3804,
+          "sha256": "02663547dbadc4be4e599dc657f1ba46576019700e5010a2027f50630470b55b"
+        }
+      },
+      "split_protocol": {
+        "method": "stratified_holdout",
+        "seed": 42,
+        "test": 0.2,
+        "train": 0.6,
+        "validation": 0.2
+      }
+    },
+    "suite": {
+      "path": "study-runs/overnight-reliability-fix-20261021/magic-cpu-check-suite",
+      "arm_count": 5,
+      "repeats": 1,
+      "fits": 35,
+      "device": "cpu",
+      "max_cores": 4,
+      "validation_only": true,
+      "audit_passed": true,
+      "audit_errors": [],
+      "audit_warnings": [],
+      "postrun": {
+        "evaluate": "skipped_validation_only",
+        "report": "completed"
+      },
+      "seconds": 48.56932504102588
+    },
+    "raw_evidence_sha256": {
+      "suite.json": "0feed22ac85afc692d6e47ae3558fa8322f048e4ccc1f040ef9d4c0ce2e9f86b",
+      "audit-summary.json": "1c0f6f3e4ce4c78872505544cdba393e1a8359ea6ce45648f7d310a0389ac183",
+      "completion.json": "f120f01231dd5510b56a387a73f65608613a69623b0a88188a87278935ab48e0",
+      "summary.csv": "1366b7e8e459a3cca2a43e3577e32638be36fc198421249afa50756142ba142f"
+    },
+    "neural_dependency_check": {
+      "passed": true,
+      "method": "Fresh parent process import hook rejects torch/study.torch_models; import CLI/controller, resolve MAGIC execution config, construct all seven pipelines and diagnostic descriptions. Static worker dispatch imports torch only for torch_ model names.",
+      "blocked_import_attempts": [],
+      "torch_imported": false,
+      "resolved_device_from_inherited_mps_config": "cpu",
+      "classical_estimators": {
+        "logistic": "sklearn.linear_model._logistic.LogisticRegression",
+        "random_forest": "sklearn.ensemble._forest.RandomForestClassifier",
+        "histogram_gradient_boosting": "sklearn.ensemble._hist_gradient_boosting.gradient_boosting.HistGradientBoostingClassifier"
+      },
+      "real_fit_actual_estimators_verified": [
+        "sklearn.ensemble._forest.RandomForestClassifier",
+        "sklearn.ensemble._hist_gradient_boosting.gradient_boosting.HistGradientBoostingClassifier",
+        "sklearn.linear_model._logistic.LogisticRegression"
+      ],
+      "resource_records_checked": 105,
+      "additional_fits": 0
+    },
+    "historical_source_and_data_unchanged": true,
+    "paid_calls": 0,
+    "heldout_scored": false
+  }
 }
