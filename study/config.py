@@ -7,7 +7,23 @@ CONDITIONS = (
     "periodic_reflection_literature",
 )
 SUPERVISOR_STRATEGIES = ('standard', 'night_science')
-COMPARISONS = ('schedules', 'supervisor_strategies')
+COMPARISONS = ('schedules', 'supervisor_strategies', 'apprentice_interactions')
+APPRENTICE_ARMS = (
+    ('researcher_alone', 'researcher_alone', False),
+    ('frequent', 'frequent', False),
+    ('periodic', 'periodic', False),
+    ('periodic_reflection', 'periodic_reflection', False),
+    ('periodic_reflection_memory', 'periodic_reflection', True),
+)
+APPRENTICE_CONTRASTS = tuple((a[0], b[0]) for a, b in zip(APPRENTICE_ARMS, APPRENTICE_ARMS[1:]))
+
+
+def apprentice_arm(config):
+    """Recognize only the declared style/schedule/memory combinations."""
+    if config.get('supervisor_strategy') != 'night_science' or type(config.get('lesson_memory')) is not bool:
+        return None
+    return next((name for name, condition, memory in APPRENTICE_ARMS
+                 if config.get('condition') == condition and config['lesson_memory'] == memory), None)
 
 
 @dataclass(frozen=True)
@@ -40,6 +56,7 @@ class StudyConfig:
     device: str = 'auto'
     decision_protocol: str = "structured_v1"
     reasoning_policy: str = "grounded_v3"
+    context_policy: str = "active_advice_v1"
     supervisor_policy: str = "supervision_v2"
     supervisor_strategy: str = "night_science"
     comparison: str = "schedules"
@@ -47,6 +64,8 @@ class StudyConfig:
     memory_limit: int = 6
 
     def __post_init__(self):
+        if self.context_policy != 'active_advice_v1':
+            raise ValueError('context_policy must be active_advice_v1')
         if self.deadline_policy != 'observed_v1':
             raise ValueError('deadline_policy must be observed_v1')
         if self.supervisor_policy != "supervision_v2":
@@ -55,6 +74,8 @@ class StudyConfig:
             raise ValueError('Unknown supervisor_strategy')
         if self.comparison not in COMPARISONS:
             raise ValueError('Unknown comparison')
+        if self.comparison == 'apprentice_interactions' and apprentice_arm(self.to_dict()) is None:
+            raise ValueError('Invalid apprentice_interactions arm: use Night Science and the declared schedule/memory settings')
         if self.device not in ('auto', 'cpu', 'mps'):
             raise ValueError('device must be auto, cpu, or mps')
         if self.reasoning_policy != "grounded_v3":
@@ -97,9 +118,10 @@ class StudyConfig:
     def to_dict(self):
         return asdict(self)
 
-    def for_run(self, condition, repeat, *, supervisor_strategy=None):
+    def for_run(self, condition, repeat, *, supervisor_strategy=None, lesson_memory=None):
         return replace(self, condition=condition, repeat=repeat,
                        supervisor_strategy=self.supervisor_strategy if supervisor_strategy is None else supervisor_strategy,
+                       lesson_memory=self.lesson_memory if lesson_memory is None else lesson_memory,
                        training_seed=self.training_seed + repeat)
 
     @property
@@ -117,6 +139,9 @@ class StudyConfig:
 
 def comparison_arms(config):
     """Freeze the intended arms separately from review cadence and run identity."""
+    if config.comparison == 'apprentice_interactions':
+        return [{'arm': name, 'condition': condition, 'supervisor_strategy': 'night_science',
+                 'lesson_memory': memory} for name, condition, memory in APPRENTICE_ARMS]
     if config.comparison == 'supervisor_strategies':
         return [
             {'arm': 'researcher_alone', 'condition': 'researcher_alone', 'supervisor_strategy': 'night_science'},

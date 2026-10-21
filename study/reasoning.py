@@ -102,6 +102,16 @@ def resolve_contract_evidence(contract, history):
         errors = schema_errors(evidence, EVIDENCE_REFERENCES, 'evidence references')
         if errors:
             raise ValueError(' '.join(errors))
+        for citation in evidence:
+            row = records.get(citation['trial_id'])
+            if row is None:
+                raise ValueError(f"Trial {citation['trial_id']} is not a completed trial in this run.")
+            allowed = sorted(name for name, value in (row.get('metrics') or {}).items()
+                             if type(value) in (int, float) and math.isfinite(value))
+            if citation['metric'] not in allowed:
+                raise ValueError(f"Metric {citation['metric']!r} is not a recorded numeric metric for trial "
+                                 f"{citation['trial_id']}. Allowed metrics: {', '.join(allowed) or 'none'}. "
+                                 "fit_diagnostics is context, not a metric citation.")
         record['evidence'] = [{**citation, 'split': 'validation',
                                'value': recorded_measurement(citation, records)} for citation in evidence]
         errors = evidence_errors(record['evidence'], history)
@@ -422,6 +432,8 @@ Prefer under 200 characters per field to leave room for the evidence. Lesson
 summary and scope are each limited to 240 characters. These limits are characters,
 not tokens. Before returning, check every field against its length limit.
 Cite completed validation measurements using only trial_id and metric.
+Choose metric names from evidence_metrics_by_trial for that trial. fit_diagnostics
+is diagnostic context, not a metric; do not put it in an evidence citation.
 Do not supply split or value; the harness adds the validation split and exact
 recorded measurement. Evidence checks validate references, not whether
 your hypothesis or interpretation is true. Use an empty evidence list before the
