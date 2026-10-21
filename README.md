@@ -18,11 +18,11 @@ After feedback, the student extracts the actions and lessons and checks each for
 
 ## Minimal prototype
 
-Following [autoresearch](https://github.com/karpathy/autoresearch), agent behaviour is defined in plain-language protocols, and Claude Code does the work. A small Python orchestrator ([nightagent/run.py](nightagent/run.py), using the Claude Agent SDK) runs a **student** and a **supervisor** as separate Claude Code sessions and relays the supervision meetings between them. The human only writes the question and starts the run. Memory is markdown files in the project folder.
+Following [autoresearch](https://github.com/karpathy/autoresearch), agent behaviour is defined in plain-language protocols, and Claude Code does the work. A small Python orchestrator ([nightagent/run.py](nightagent/run.py), using the Claude Agent SDK) runs a **student** and a **supervisor** as separate Claude Code sessions, relays the supervision meetings between them, and ends with an independent **reviewer**; [nightagent/experiment.py](nightagent/experiment.py) compares supervisor-student relationships. The human only writes the question and starts the run. Memory is markdown files in the project folder.
 
 ### Repository layout
 
-This repository defines the agents and how they work. It does not store project work: the only project content kept here is each example project's starting `QUESTION.md` (enforced by `.gitignore`).
+This repository defines the agents and how they work. It does not store project work: the only project content kept here is each example project's starting `QUESTION.md` and its hidden task metric (enforced by `.gitignore`).
 
 - [nightagent/](nightagent/): the NightAgent application: the agents' protocols and the orchestrator that runs them. See its [README](nightagent/README.md).
   - [STUDENT.md](nightagent/STUDENT.md): how the student works: phases, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
@@ -51,7 +51,7 @@ Each run goes from the kickoff meeting to sign-off (or a meeting limit), then an
 
 ### How the loop works
 
-The outer loop is supervision meetings, where the supervisor steers. The inner loop is research between meetings, where the student works alone. Each phase is a fresh session, so the project files are the only memory; only the supervisor knows its persona.
+The outer loop is supervision meetings, where the supervisor steers. The inner loop is research between meetings, where the student works alone. Each phase is a fresh session, so the project files are the only memory; each agent knows only its own persona.
 
 ```
 SETUP (human, once per research question)
@@ -62,8 +62,8 @@ SETUP (human, once per research question)
 
 EACH RUN (orchestrator)
   copy any missing template files into the project (never overwrites)
-  decide the next phase from meetings/:
-      supervisor said "Signed off" → stop
+  decide the next phase from meetings/ and review/:
+      supervisor said "Signed off", or the meeting limit → REVIEW, then stop
       no M00 minutes             → MEETING (kickoff)
       brief newer than minutes   → MEETING
       otherwise                  → RESEARCH

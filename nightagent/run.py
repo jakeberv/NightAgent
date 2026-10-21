@@ -1,4 +1,4 @@
-"""NightAgent orchestrator: runs a student agent and a supervisor agent as separate Claude Code sessions.
+"""NightAgent orchestrator: runs a student, a supervisor and a reviewer agent as separate Claude Code sessions.
 
 Usage:
     python nightagent/run.py <project_dir> --relationship pastoral   # first run: choose the relationship
@@ -24,22 +24,21 @@ Design decisions:
 - Relationships. A relationship pairs a supervision style (personas/supervisors/) with a student
   personality (personas/students/); --supervisor and --student can also be chosen separately. Every
   supervisor has the same private research values (personas/supervisor-values.md), so conditions
-  differ only in style. Each agent sees only its own persona.
+  differ only in style.
 - The condition is recorded next to the project, not inside it (.<project>.nightagent.json), so the
   agents never see which relationship they are in. It is fixed on the first run.
 - The end: when the supervisor signs off, or after --max-meetings meetings without sign-off, an
   independent reviewer agent assesses the project (REVIEWER.md) against the hidden task metric of the
   research question (hidden-question-metrics.md, which neither agent sees) and writes review/.
-- Only the supervisor sees its persona. The student is never given it; reads outside the project are
-  blocked, and a hook blocks the student's tool calls that name private files.
+- Each agent sees only its own persona. The student is never given the supervisor's, and a hook
+  blocks the student's tool calls that name private files.
 - Isolation from the machine's own Claude Code configuration: setting_sources=[] means no agent loads
   CLAUDE.md files or settings.json, so behaviour depends only on the files in nightagent/.
-- Containment without an OS sandbox (Claude Code's sandbox refuses network hosts that no setting
-  allows, which stops pip and dataset downloads). Instead: bypass-permissions mode is off and reads
-  outside the project are blocked (PERMISSIONS, from the owner's own Claude Code policy); all agents
-  run in "dontAsk" mode, so anything that would need a human's approval is denied; and a PreToolUse
-  hook (guard) keeps file tools inside the project and refuses shell commands that name a path
-  outside it (see guard for what that does not catch).
+- No extra restrictions and no sandbox: the student installs packages, downloads data and runs code
+  without asking. All agents run in "dontAsk" mode with their tools pre-approved, so they never wait
+  for a human; whatever Claude Code's built-in checks would still ask about (e.g. some writes outside
+  the project folder) is denied, and logged as "denied" in the run log. The supervisor and the
+  reviewer only have read tools, by design. Run it on a machine where that is acceptable.
 - Accounting: meetings/harness-log.jsonl records every turn's cost, tokens and wall time per role;
   summarise() totals them, and review/metrics.json holds the totals once the project is reviewed.
 - Billing: by default the agents use whatever Claude Code is logged in with (a Claude subscription) or
@@ -87,14 +86,7 @@ DEFAULT_MODELS = {  # per provider; override with --model (OpenRouter uses its o
 # One message from Claude Code can carry a whole tool result (e.g. a figure the agent reads); the SDK's
 # 1 MB default would end the phase with an error.
 MAX_MESSAGE_BYTES = 64 * 1024 * 1024
-# The repository owner's Claude Code permission policy (~/.claude/settings.json), applied explicitly to
-# every agent because setting_sources=[] skips that file.
-PERMISSIONS = {"blockReadsOutsideWorkingDirectories": True, "disableBypassPermissionsMode": "disable"}
-# System locations a shell command may name outside the project (interpreters, libraries, temp files).
-SYSTEM_PATHS = tuple(Path(p) for p in ("/usr", "/bin", "/sbin", "/opt", "/etc", "/dev", "/tmp", "/private/tmp",
-                                       "/var/folders", "/private/var/folders", "/Library", "/System"))
-FILE_TOOLS = {"Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep"}
-# With bypass mode off, the student runs in "dontAsk": these tools are allowed, anything else is denied.
+# The student's tools, pre-approved; in "dontAsk" mode anything else is denied rather than prompted.
 STUDENT_TOOLS = ["Bash", "Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep",
                  "WebSearch", "WebFetch", "TodoWrite"]
 READ_TOOLS = ["Read", "Glob", "Grep"]  # the supervisor's and the reviewer's only tools
@@ -189,7 +181,9 @@ def resolve_condition(project: Path, relationship: str | None, supervisor: str |
     if not (supervisor and student):
         sys.exit(f"Error: choose the relationship for this new project: --relationship {{{','.join(RELATIONSHIPS)}}}, "
                  f"or both --supervisor and --student.")
-    condition = {"relationship": relationship or "custom", "supervisor": supervisor, "student": student,
+    # Named after the relationship model only if the pair is exactly that model's.
+    label = next((name for name, pair in RELATIONSHIPS.items() if pair == (supervisor, student)), "custom")
+    condition = {"relationship": label, "supervisor": supervisor, "student": student,
                  "metrics": str(metrics.resolve()) if metrics else None, "seed": None}
     path.write_text(json.dumps(condition, indent=2) + "\n")
     return condition
@@ -305,24 +299,23 @@ class Agent:
     def options(self):
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
-        # Every agent works in the project folder, ignores local Claude Code config, runs under the
-        # permission policy above and has every tool call checked by the guard hook (see docstring).
+        # Every agent works in the project folder, ignores local Claude Code config, and runs unattended
+        # in "dontAsk" mode: its tools are pre-approved, and anything that would still need a human's
+        # approval is denied instead of waiting (see docstring).
         common = dict(cwd=str(self.project), setting_sources=[], model=self.model, effort=self.effort, env=self.env,
-                      settings=json.dumps({"permissions": PERMISSIONS}), max_buffer_size=MAX_MESSAGE_BYTES,
-                      hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[self.guard])]})
+                      permission_mode="dontAsk", max_buffer_size=MAX_MESSAGE_BYTES)
         if self.role == "student":
             # Student: Claude Code's normal coding-agent prompt plus all three public protocols, so it
             # understands the whole process (including how the supervisor works), and its own persona,
-            # but not the supervisor's. It runs unattended in "dontAsk" mode: STUDENT_TOOLS are
-            # pre-approved and anything that would need a human's approval is denied. The Agent tool is
-            # removed so it cannot simulate a supervisor.
+            # but not the supervisor's. The Agent tool is removed so it cannot simulate a supervisor, and
+            # the hide_private hook keeps the experiment's private files out of its tool calls.
             parts = [read("STUDENT.md"), read("MEETING.md"), read("SUPERVISOR.md")]
             parts.append((PERSONAS / "students" / f"{self.condition['student']}.md").read_text())
             return ClaudeAgentOptions(
                 system_prompt={"type": "preset", "preset": "claude_code", "append": "\n\n".join(parts)},
-                permission_mode="dontAsk",
                 allowed_tools=STUDENT_TOOLS,
                 disallowed_tools=["Agent", "Task"],
+                hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[self.hide_private])]},
                 **common,
             )
         if self.role == "supervisor":
@@ -336,55 +329,23 @@ class Agent:
             hidden = Path(metrics).read_text() if metrics else (
                 "# Hidden task metric\n\nNone was defined for this project: set task_metric.value to null.")
             parts = [read("REVIEWER.md"), "# The supervisor's private research values\n\n" + VALUES.read_text(), hidden]
-        # Read-only tools; "dontAsk" denies anything not in allowed_tools instead of waiting for a human.
+        # The supervisor and the reviewer only read: they judge the work, they don't do it.
         return ClaudeAgentOptions(system_prompt="\n\n".join(parts), tools=READ_TOOLS, allowed_tools=READ_TOOLS,
-                                  permission_mode="dontAsk", **common)
+                                  **common)
 
-    async def guard(self, hook_input: dict[str, Any], tool_use_id: str | None, context: Any) -> dict[str, Any]:
-        """PreToolUse hook for every agent: deny tool calls that leave the project folder, and log them.
-
-        - A student tool call whose arguments name a private file (the personas, the hidden metric, the
-          condition record) is denied (Read, Grep, Bash `cat`, ...).
-        - File tools (Read, Write, Edit, Glob, Grep, ...) may only use paths inside the project folder.
-        - A shell command is denied if it names a path outside the project folder (an absolute path,
-          ~, $HOME, or ../ that climbs out) other than the system locations in SYSTEM_PATHS.
-        These checks read the command text, so they are best-effort, not a sandbox: a program the
-        agent writes and then runs, or a path assembled at run time, is not seen.
+    async def hide_private(self, hook_input: dict[str, Any], tool_use_id: str | None, context: Any) -> dict[str, Any]:
+        """PreToolUse hook for the student: deny any tool call that names one of the experiment's private
+        files (the personas, the hidden metric, the condition record), and log it. Part of the
+        experiment's design, not a security boundary: it checks names, so a path the student never
+        spells out is not seen.
         """
         tool, args = hook_input["tool_name"], hook_input["tool_input"]
-        reason = None
-        if self.role == "student" and any(name in json.dumps(args) for name in PRIVATE_NAMES):
-            reason = "That file is private."
-        elif tool in FILE_TOOLS:
-            target = args.get("file_path") or args.get("notebook_path") or args.get("path") or "."
-            if not self.inside(Path(target).expanduser()):
-                reason = "You can only use files inside your project folder."
-        elif tool == "Bash":
-            outside = self.outside_paths(args.get("command", ""))
-            if outside:
-                reason = f"Stay inside your project folder (this command names {', '.join(outside[:3])})."
-        if reason:
-            self.log.event("blocked", role=self.role, tool=tool, reason=reason)
-            return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                                           "permissionDecisionReason": reason}}
-        return {}
-
-    def inside(self, path: Path, allowed: tuple[Path, ...] = ()) -> bool:
-        """True if path (relative paths are taken from the project folder) is in the project or `allowed`."""
-        path = (path if path.is_absolute() else self.project / path).resolve()
-        return any(path.is_relative_to(root) for root in (self.project, *allowed))
-
-    def outside_paths(self, command: str) -> list[str]:
-        """Paths a shell command names outside the project folder and SYSTEM_PATHS."""
-        home = str(Path.home())
-        found = []
-        for token in re.findall(r"[^\s'\"`;|&<>()=,]+", command):
-            path = re.sub(r"^(~|\$HOME|\$\{HOME\})(?=/|$)", home, token)
-            if not (re.match(r"/[\w.~-]", path) or path == home or ".." in Path(path).parts):
-                continue  # not a path (or a lone "/", which is usually division in inline code)
-            if not self.inside(Path(path), SYSTEM_PATHS):
-                found.append(token)
-        return found
+        if not any(name in json.dumps(args) for name in PRIVATE_NAMES):
+            return {}
+        reason = "That file is private."
+        self.log.event("blocked", role=self.role, tool=tool, reason=reason)
+        return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                       "permissionDecisionReason": reason}}
 
     async def start(self) -> None:
         from claude_agent_sdk import ClaudeSDKClient, ClaudeSDKError
@@ -431,6 +392,8 @@ class Agent:
                                output_tokens=tokens[1] - self.session_tokens[1],
                                seconds=round(time.monotonic() - started, 1), turns=msg.num_turns, error=msg.is_error)
                 self.session_cost, self.session_tokens = cost, tokens
+                for denial in msg.permission_denials or []:  # refused by Claude Code's built-in checks
+                    self.log.event("denied", role=self.role, detail=short(denial, 300))
         if failed or not result:
             raise AgentError(f"{self.role} turn {'failed' if failed else 'ended with no reply'}: {short(result, 300)}")
         return result

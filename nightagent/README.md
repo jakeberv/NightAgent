@@ -14,7 +14,7 @@ The NightAgent application: the protocols and personas that define a research st
 | [experiment.py](experiment.py) | Runs every relationship several times on one research question and reports the results |
 | [requirements.txt](requirements.txt) | Its one dependency, the Claude Agent SDK |
 
-`run.py` drives the **student and the supervisor as separate Claude Code sessions** through the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk), and runs the meetings between them. Each project is one folder, starting from a copy of a research question's `QUESTION.md`.
+`run.py` drives the **student, the supervisor and the reviewer as separate Claude Code sessions** through the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk), and runs the meetings between the first two. Each project is one folder, starting from a copy of a research question's `QUESTION.md`.
 
 ## Relationship models
 
@@ -42,16 +42,16 @@ The reply goes to `review/REVIEW.md`, the scores to `review/scores.json`, and th
 
 ## What the orchestrator guarantees
 
-- **Phases:** it decides the next phase from `meetings/` and runs it in a fresh session, so the project files are the agents' only memory between phases.
+- **Phases:** it decides the next phase from `meetings/` and `review/` and runs it in a fresh session, so the project files are the agents' only memory between phases.
 - **Separate agents:** the student and supervisor are separate sessions. The orchestrator relays each message verbatim and writes `meetings/MNN-transcript.md` itself, so the record of the meetings is neutral.
-- **Persona privacy:** each persona goes only into its own agent's instructions. Reads outside the project are blocked, and a hook also blocks any student tool call that names a private file (the personas, the hidden metric, the condition record).
+- **Persona privacy:** each persona goes only into its own agent's instructions, and a hook blocks any student tool call that names a private file (the personas, the hidden metric, the condition record).
 - **Blind condition:** the relationship is recorded beside the project folder (`.<project>.nightagent.json`), not in it, so no agent can read which condition it is in. It is fixed on a project's first run.
 - **Read-only supervisor and reviewer:** they have only Read, Grep and Glob.
-- **Contained agents:** both agents run under the repository owner's Claude Code permission policy, applied explicitly in `run.py` (`PERMISSIONS`): bypass-permissions mode is off and reads outside the project folder are blocked. Both run in `dontAsk` mode with a fixed tool list, so anything that would need approval is denied. A hook keeps file tools (Read, Write, Edit, Glob, Grep) inside the project, and refuses shell commands that name a path outside it other than system locations (`SYSTEM_PATHS`). The student can't use the Agent tool, so it can't simulate a supervisor.
-- **Isolation from local settings:** both sessions ignore `CLAUDE.md` files and Claude Code settings on the machine (`setting_sources=[]`).
+- **Unattended agents:** all agents run in `dontAsk` mode with their tools pre-approved, so they never wait for a human, and there are no extra restrictions or sandbox. Anything Claude Code's built-in checks would still ask about (e.g. some writes outside the project folder) is denied and logged. The student can't use the Agent tool, so it can't simulate a supervisor.
+- **Isolation from local settings:** all sessions ignore `CLAUDE.md` files and Claude Code settings on the machine (`setting_sources=[]`).
 - **Neutral sign-off:** the research ends only when the supervisor's own words in the transcript contain "Signed off" (or at the meeting limit).
 - **Errors stop the run:** if an agent's turn fails or produces no reply, the phase stops (nothing is relayed) and can be retried by running the command again.
-- **Run log:** `meetings/harness-log.jsonl` records phases, sessions, each turn's cost, tokens and wall time, blocked tool calls and failures.
+- **Run log:** `meetings/harness-log.jsonl` records phases, sessions, each turn's cost, tokens and wall time, tool calls refused by the private-file hook (`blocked`) or by Claude Code (`denied`), and failures.
 
 ## Setup
 
@@ -108,19 +108,17 @@ OPENROUTER_API_KEY=your-key-here
 ```
 
 ```bash
-nightagent/.venv/bin/python nightagent/run.py example-projects/mnist --provider openrouter
+nightagent/.venv/bin/python nightagent/experiment.py example-projects/mnist --provider openrouter
 ```
 
-This applies the settings from [OpenRouter's Claude Code guide](https://openrouter.ai/docs/guides/guides/claude-code-integration) to both agents only: `ANTHROPIC_BASE_URL=https://openrouter.ai/api`, the key in `ANTHROPIC_AUTH_TOKEN`, and an empty `ANTHROPIC_API_KEY`. Your normal Claude Code setup is not changed. The default model is `anthropic/claude-sonnet-5.5`, a pinned version; pass `--model` with an OpenRouter model id to choose another. `meetings/harness-log.jsonl` records which provider and model each run used.
+This applies the settings from [OpenRouter's Claude Code guide](https://openrouter.ai/docs/guides/guides/claude-code-integration) to the agents only: `ANTHROPIC_BASE_URL=https://openrouter.ai/api`, the key in `ANTHROPIC_AUTH_TOKEN`, and an empty `ANTHROPIC_API_KEY`. Your normal Claude Code setup is not changed. The default model is `anthropic/claude-sonnet-5.5`, a pinned version; pass `--model` with an OpenRouter model id to choose another. `meetings/harness-log.jsonl` records which provider and model each run used.
 
 Caveats:
-- **The key is visible to the agents' shell.** It is in the environment of both sessions, so a student command such as `env` would print it, and it would then appear in the session logs. Use a key with a spending limit.
+- **The key is visible to the agents' shell.** It is in the environment of the agents' sessions, so a student command such as `env` would print it, and it would then appear in the session logs. Use a key with a spending limit.
 - **Provider routing:** OpenRouter only guarantees Claude Code compatibility with Anthropic as the serving provider; its guide recommends making Anthropic the top-priority provider in your OpenRouter settings.
 - **Costs:** the cost figures in the run log come from Claude Code's own estimate, not OpenRouter's billing; check OpenRouter's activity page for actual spend.
 
-If a research phase stops without writing its brief, run the same command again: a fresh session picks up from the files.
-
-**The student runs unattended** inside the project folder, with network access: it installs packages, downloads data and runs code there without asking. There is no OS sandbox (Claude Code's sandbox refused the network hosts the student needs). The shell-command check reads the command text, so it is best-effort: a script the student writes and runs, or a path built at run time, can still reach outside the folder. Run it on a machine where that is acceptable.
+**The student runs unattended**, with network access and without restrictions: it installs packages, downloads data and runs code without asking. Nothing stops it reading or writing elsewhere on the machine; it is only told to stay in its project folder. Run it on a machine where that is acceptable.
 
 ## How a run works
 
@@ -149,4 +147,4 @@ review:
 
 ## Status
 
-Tested with `--dry-run` (the full loop to review, and an experiment of 2 relationships × 2 seeds) and unit tests of the tool guard. Earlier versions ran for real on MNIST and MAGIC; the relationship personas and the reviewer have not yet run with real agents.
+Tested with `--dry-run` (the full loop to review, and an experiment of 2 relationships × 2 seeds) and unit tests of the private-file hook. Earlier versions ran for real on MNIST and MAGIC; the relationship personas and the reviewer have not yet run with real agents.
