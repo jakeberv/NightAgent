@@ -12,7 +12,12 @@ You choose and execute one next experiment through run_analysis. Project metadat
 and recent results are already supplied in the refreshed context. Equivalent
 configurations reuse existing evidence without fitting or consuming a trial slot;
 choose a distinct configuration when this happens. Give a concise rationale, respond to any latest
-supervisor recommendation, and call run_analysis. Ordinary planning and adaptation
+supervisor recommendation, and call run_analysis.
+last_supervisor_feedback always contains the active advice:
+initial_framing counts as supervisor advice until a later review replaces it.
+Use followed, modified, or rejected whenever active_advice_source is not none,
+including on later attempts before the first periodic review. Use not_applicable
+only when no supervisor advice exists. Ordinary planning and adaptation
 are always permitted. Do not request an explicit reflection or supervisor meeting;
 the harness schedules these. The tool schema is the entire permitted search space."""
 

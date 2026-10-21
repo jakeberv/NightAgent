@@ -115,7 +115,10 @@ New runs freeze `supervisor_policy=supervision_v2`, `supervisor_strategy`
 selection. In supervised
 conditions, the supervisor frames the brief before the first researcher decision.
 The accepted framing stays in `initial_framing` throughout the run, while
-`last_supervisor_feedback` tracks the latest advice. The first researcher decision
+`last_supervisor_feedback` holds that framing until a later review replaces it.
+New runs freeze `context_policy=active_advice_v1` and expose `active_advice_source`;
+initial framing remains active advice on every attempt before the first review.
+The first researcher decision
 must state whether it follows, modifies, or rejects that advice, with a reason.
 
 Both strategies use identical kickoff instructions and the same framing contract:
@@ -190,6 +193,18 @@ The previous `fashion-pilot` directory remains bound to its earlier targets and
 must not be used with this updated definition. The partitions and model bounds
 are unchanged. For the five-repeat overnight recipe and its $75 sum of spending
 guards, see [the frozen overnight comparison](../docs/fashion-pilot.md#frozen-overnight-comparison).
+
+For coverage of both supervisor styles, all five schedules, and memory off/on,
+use the [comprehensive smoke recipe](../docs/comprehensive-smoke.md). Its four
+validation-only suites contain 20 runs with four attempts each and $40 in combined
+API guards; it includes a required event-level coverage audit before longer runs.
+
+For the smaller demo comparison, use the [targeted five-arm preflight](../docs/targeted-preflight.md)
+and `study/fashion-targeted-preflight-config.json`: researcher alone, frequent
+supervision, periodic supervision, periodic plus reflection, and periodic plus
+reflection and memory. Its `apprentice_interactions` mode fixes Night Science style,
+disables literature, and reports only the four adjacent contrasts, including the
+explicit memory contrast. Other frozen configuration differences remain separate.
 
 ```bash
 .venv/bin/python -m study suite \

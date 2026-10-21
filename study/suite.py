@@ -83,7 +83,8 @@ async def run_suite(config, data_dir, output, *, repeats, deadline, reserve_seco
     summaries = [None] * len(schedule)
     async def execute_entry(index, entry):
         run_config = config.for_run(entry["condition"], entry["repeat"],
-                                    supervisor_strategy=entry['supervisor_strategy'])
+                                    supervisor_strategy=entry['supervisor_strategy'],
+                                    lesson_memory=entry.get('lesson_memory'))
         run_dir = output / "runs" / entry["run_id"]
         if search_deadline - datetime.now(timezone.utc).timestamp() < config.allowance_seconds:
             # Keep planned runs visible in the all-runs denominator.

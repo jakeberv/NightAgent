@@ -8,6 +8,8 @@ import math
 import re
 from statistics import mean, stdev
 
+from .config import APPRENTICE_CONTRASTS, apprentice_arm
+
 
 def number(value):
     return float(value) if type(value) in (int, float) and math.isfinite(value) and value >= 0 else None
@@ -170,12 +172,16 @@ def config_stratum(row):
     config = row.get('config') or {}
     if config.get('comparison') == 'supervisor_strategies':
         excluded.add('supervisor_strategy')
+    if config.get('comparison') == 'apprentice_interactions':
+        excluded.add('lesson_memory')
     return {key: value for key, value in (row.get("config") or {}).items()
             if key not in excluded}
 
 
 def treatment_name(row):
     config = row.get('config') or {}
+    if config.get('comparison') == 'apprentice_interactions':
+        return apprentice_arm(config) or ('invalid_apprentice_arm:' + row['condition'])
     strategy = config.get('supervisor_strategy')
     if (config.get('comparison') == 'supervisor_strategies' and row['condition'] == 'frequent'
             and strategy in ('standard', 'night_science')):
@@ -186,8 +192,10 @@ def treatment_name(row):
 def assign_analysis_groups(runs):
     """Separate protocol and memory variants while preserving legacy summaries."""
     def variant(row):
+        if (row.get('config') or {}).get('comparison') == 'apprentice_interactions':
+            return json.dumps(config_stratum(row), sort_keys=True)
         return json.dumps({key: (row.get("config") or {}).get(key)
-                           for key in ("decision_protocol", "reasoning_policy", "supervisor_policy",
+                           for key in ("decision_protocol", "reasoning_policy", "context_policy", "supervisor_policy",
                                        "supervisor_strategy", "comparison", "lesson_memory", "memory_limit")}, sort_keys=True)
     variants = defaultdict(set)
     for row in runs:
@@ -221,6 +229,8 @@ def paired_comparisons(runs, warnings):
         invalid_arm = (config.get("comparison") == "supervisor_strategies"
                        and (config.get("supervisor_strategy") not in ("standard", "night_science")
                             or row["condition"] not in ("researcher_alone", "frequent")))
+        if config.get('comparison') == 'apprentice_interactions':
+            invalid_arm = apprentice_arm(config) is None
         if (not row.get("problem_hash") or not row.get("data_fingerprint") or not config
                 or invalid_arm
                 or type(seed) is not int or type(repeat) is not int
@@ -248,6 +258,9 @@ def paired_comparisons(runs, warnings):
                 warnings.append(f"Duplicate matched unit for {condition}, repeat {repeat}, seed {seed}; "
                                 "these runs are excluded from pairing.")
         for a, b in combinations(conditions, 2):
+            if (rows[0]['config'].get('comparison') == 'apprentice_interactions'
+                    and (a, b) not in APPRENTICE_CONTRASTS):
+                continue
             a_rows, b_rows = [r for r in rows if treatment_name(r) == a], [r for r in rows if treatment_name(r) == b]
             pairs = []
             for left in a_rows:

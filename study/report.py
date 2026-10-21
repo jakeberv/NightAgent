@@ -389,6 +389,8 @@ def build_report_data(root: Path) -> dict:
                 run_config = {**config, "condition": entry["condition"], "repeat": entry["repeat"]}
                 if 'supervisor_strategy' in entry:
                     run_config['supervisor_strategy'] = entry['supervisor_strategy']
+                if 'lesson_memory' in entry:
+                    run_config['lesson_memory'] = entry['lesson_memory']
                 if type(config.get("training_seed")) is int:
                     run_config["training_seed"] = config["training_seed"] + entry["repeat"]
                 summary = {**metadata, "run_id": entry["run_id"], "condition": entry["condition"],
@@ -647,8 +649,11 @@ def generate_report(root: Path) -> Path:
     sections.append(_plots(data, root) if runs else "<p>No run summaries found.</p>")
     sections.append(_efficiency_section(data, root))
     sections.append("<h2>Matched condition comparisons</h2><p>Pairs share the frozen problem, data, objective, "
-                    "allowance, training seed, repeat and every configuration setting except condition. "
-                    "Protocol and lesson-memory variants remain separate. Duplicate units are excluded. "
+                    "allowance, training seed, repeat and all settings except the declared treatment axes. "
+                    "Schedule comparisons vary condition; supervisor-style comparisons also vary style. "
+                    "The targeted apprentice comparison reports only its four adjacent contrasts, including "
+                    "reflection without versus with lesson memory. Other protocol and configuration differences "
+                    "remain separate. Duplicate units are excluded. "
                     "Differences are condition B minus condition A; a positive score difference favors B for maximization "
                     "and A for minimization. Unmatched runs and runs without valid models remain in the failure denominators.</p>")
     sections.append("<p>Exploratory 95% Student t intervals describe the mean within-pair difference, assuming independent "

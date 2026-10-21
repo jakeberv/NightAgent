@@ -229,7 +229,8 @@ async def _dispatch(args, progress):
             allowance_seconds=60, trial_cap=len(options) if options else 4, trial_timeout_seconds=15,
             lesson_memory=bool(getattr(args, "lesson_memory", False)))
         for arm in comparison_arms(base):
-            config = base.for_run(arm['condition'], 0, supervisor_strategy=arm['supervisor_strategy'])
+            config = base.for_run(arm['condition'], 0, supervisor_strategy=arm['supervisor_strategy'],
+                                  lesson_memory=arm.get('lesson_memory'))
             summaries.append(await run_one(config, data_dir, args.output / "runs" / arm['arm'],
                 FakeModel(options=options), literature=FakeLiterature(), problem=problem, progress=progress))
         atomic_json(args.output / "smoke.json", {"offline": True, "provenance": provenance(data_dir),
@@ -240,16 +241,12 @@ async def _dispatch(args, progress):
             raise RuntimeError("Offline smoke did not complete every condition")
     elif args.command in ("run", "suite"):
         config = load_config(args.config)
-        if getattr(args, 'comparison', None) is not None:
-            config = replace(config, comparison=args.comparison)
-        if getattr(args, 'supervisor_strategy', None) is not None:
-            config = replace(config, supervisor_strategy=args.supervisor_strategy)
-        if getattr(args, "lesson_memory", None) is not None:
-            config = replace(config, lesson_memory=args.lesson_memory)
-        if getattr(args, "max_cores", None) is not None:
-            config = replace(config, max_cores=args.max_cores)
-        if getattr(args, 'device', None) is not None:
-            config = replace(config, device=args.device)
+        overrides = {name: getattr(args, name) for name in
+                     ('comparison', 'supervisor_strategy', 'lesson_memory', 'max_cores', 'device')
+                     if getattr(args, name, None) is not None}
+        if args.command == 'run' and getattr(args, 'condition', None) is not None:
+            overrides['condition'] = args.condition
+        config = replace(config, **overrides)
         problem = preflight_problem(problem_path, args.data)
         from .controller import execution_config
         config = execution_config(config, problem)
@@ -264,7 +261,6 @@ async def _dispatch(args, progress):
         finally:
             await initial.aclose()
         if args.command == "run":
-            config = replace(config, condition=args.condition or config.condition)
             model = live_model(config)
             try:
                 summary = await run_one(config, args.data, args.output, model,
@@ -332,7 +328,7 @@ def main():
             p.add_argument("--condition", choices=CONDITIONS)
         else:
             p.add_argument('--comparison', choices=COMPARISONS,
-                           help='Five schedules or three matched supervisor strategies; defaults to config')
+                           help='Schedules, supervisor styles, or five targeted apprentice interactions; defaults to config')
             p.add_argument("--validation-only", action="store_true",
                            help="Pilot all strategies and generate a report without held-out test scoring")
             p.add_argument("--repeats", type=int, default=5)

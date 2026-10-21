@@ -92,7 +92,8 @@ def test_kickoff_precedes_first_experiment_only_in_supervised_conditions(tmp_pat
         assert framed[0]['contract']['evidence'] == []
         first = model.observed[1][1]
         assert first['initial_framing'] == framed[0]['contract']
-        assert first['last_supervisor_feedback'] is None  # Framing is sent once.
+        assert first['last_supervisor_feedback'] == framed[0]['contract']
+        assert first['active_advice_source'] == 'initial_framing'
         decision = next(e['contract'] for e in events if e['type'] == 'decision_contract' and e['valid'])
         assert decision['supervisor_response'] != 'not_applicable'
         assert summary['accounting']['calls'] == 2

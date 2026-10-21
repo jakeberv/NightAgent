@@ -229,8 +229,14 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
             **({"permitted_experiments": permitted_experiments} if role in ("supervisor", "reflection") else {}),
             **({"supervisor_strategy": 'standard' if framing else config.supervisor_strategy,
                 "supervisor_stage": 'framing' if framing else 'review'} if role == "supervisor" else {}),
-            "best": agent_result(summary["best"] or {}), "last_supervisor_feedback": compact_feedback(feedback) if feedback != initial_framing else None,
+            "best": agent_result(summary["best"] or {}), "last_supervisor_feedback": compact_feedback(feedback),
+            "active_advice_source": ('none' if feedback is None else
+                                     'initial_framing' if feedback == initial_framing else 'review'),
             "initial_framing": compact_feedback(initial_framing),
+            "evidence_metrics_by_trial": {str(row['trial_id']): sorted(
+                name for name, value in (row.get('metrics') or {}).items()
+                if type(value) in (int, float) and math.isfinite(value))
+                for row in history if row.get('status') == 'completed'},
             "last_explicit_reflection": compact_feedback(reflection), "trials_attempted": summary["trials"],
             "trial_cap": config.trial_cap, "remaining_trials": max(0, config.trial_cap - summary["trials"]),
             "remaining_seconds": max(0, remaining()), "accounting": accounting.snapshot(),
