@@ -33,7 +33,7 @@ This repository defines the agents and how they work. It does not store project 
   - [run.py](nightagent/run.py): the orchestrator. It runs the student and supervisor as separate Claude Code sessions, relays meetings between them and writes the transcripts.
   - [experiment.py](nightagent/experiment.py): runs every relationship model several times on one research question and reports the metrics per seed and per relationship.
   - [project-template/](nightagent/project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human, written in the supervisor's voice (the supervisor treats it as its own); the rest is the skeleton the agents work in (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`).
-- [example-projects/](example-projects/): research questions, each a `QUESTION.md` plus a `hidden-question-metrics.md` that only the reviewer sees. [mnist/](example-projects/mnist/): "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?" [magic/](example-projects/magic/): gamma vs hadron classification on the MAGIC telescope data, and why.
+- [example-projects/](example-projects/): research questions, each a `QUESTION.md` plus a `hidden-question-metrics.md` that only the reviewer sees. [mnist/](example-projects/mnist/): "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?" [magic/](example-projects/magic/): gamma vs hadron classification on the MAGIC telescope data, and why. [fashion-mnist/](example-projects/fashion-mnist/): the same question as MNIST on the harder Fashion-MNIST clothing images.
 
 ### Running a project
 

@@ -67,7 +67,12 @@ At the start of **every** session, read: `QUESTION.md`, `ACTIONS.md`, all of `me
 
 ### Limits
 
-- **Each experiment must run in at most 3 minutes wall-clock** on the local machine. Estimate runtime with a small pilot first, and redesign (smaller model, subset, fewer epochs) rather than exceed it. This is the only hard limit.
+- **Each experiment must run in at most 3 minutes wall-clock** on the local machine. This is the only hard limit. Ways to stay within it:
+  - Time a small pilot first and extrapolate, before committing to the full run.
+  - Scale the problem to the budget rather than exceed it: a smaller model, a subset of the data, fewer iterations.
+  - Use the hardware you have (e.g. a GPU if there is one), and avoid slow per-item loops where a vectorised operation will do.
+  - Load and prepare data once, and cache it, and any expensive intermediate result, to disk for later experiments to reuse.
+  - Split a large study into several experiments, each within the limit.
 - There is no limit on the number of experiments, the total compute, or the length of a research week.
 
 ## Night science principles, as behaviour
