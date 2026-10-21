@@ -199,6 +199,11 @@ use the [comprehensive smoke recipe](../docs/comprehensive-smoke.md). Its four
 validation-only suites contain 20 runs with four attempts each and $40 in combined
 API guards; it includes a required event-level coverage audit before longer runs.
 
+For the current three-repeat demo run, use the [five-arm overnight recipe](../docs/five-arm-overnight.md)
+and `study/fashion-five-arm-overnight-config.json`. Include `--audit` to verify
+interaction coverage and artifacts after reporting; `study audit --output ROOT`
+reruns that read-only check independently.
+
 For the smaller demo comparison, use the [targeted five-arm preflight](../docs/targeted-preflight.md)
 and `study/fashion-targeted-preflight-config.json`: researcher alone, frequent
 supervision, periodic supervision, periodic plus reflection, and periodic plus
