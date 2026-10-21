@@ -23,9 +23,9 @@ code review; the corrected real-suite report has 48/48 matching input digests.
 The study is suitable for the demo with its limitations visible. Three matched
 training seeds do not establish general strategy superiority. No arm reached
 90% validation accuracy, and no selected-best held-out score reached 88%.
-The reporting/feedback changes still require integration before they can be
-described as the behavior on main. This assessment supersedes the historical
-launch assessments below.
+The completed study remains evidence for its frozen source; the offline follow-up
+checks do not retroactively change its behavior. This assessment supersedes the
+historical launch assessments below.
 
 ## Historical contract preflight
 
