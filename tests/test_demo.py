@@ -27,6 +27,34 @@ def write(path, value):
     path.write_text(json.dumps(value) + '\n')
 
 
+def test_replay_chain_formats_structured_advice_and_retains_candidate():
+    from study.demo import _chain
+    from study.run_context import compact_lessons
+    first = {'model': 'logistic', 'preprocessing': 'standard', 'params': {'C': 1}}
+    candidate = {'model': 'logistic', 'preprocessing': 'standard', 'params': {'C': 2}}
+    lesson = {'id': 'comparison', 'status': 'inconclusive',
+              'summary': 'The comparison adds two observations.', 'scope': 'This validation split only.',
+              'evidence': [{'trial_id': i, 'metric': 'roc_auc', 'split': 'validation', 'value': .9}
+                           for i in (1, 2)]}
+    events = [
+        {'type': 'trial_finished', 'result': {'trial_id': 1, 'config': first, 'score': .9}},
+        {'type': 'review', 'after_trial': 1, 'contract': {'recommendation': candidate}},
+        {'type': 'reflection', 'after_trial': 1, 'contract': {'next_comparison': candidate}},
+        {'type': 'decision_contract', 'valid': True, 'executed': True, 'trial_id': 2,
+         'contract': {'baseline_trial_id': 1}},
+        {'type': 'trial_finished', 'result': {'trial_id': 2, 'config': candidate, 'score': .9}},
+        {'type': 'lesson_memory', 'elapsed_seconds': 10, 'lessons': [lesson]},
+        {'type': 'model_call_started', 'role': 'researcher', 'elapsed_seconds': 11,
+         'messages': [{}, {'content': json.dumps({'lessons': compact_lessons([lesson]),
+                                                 'trials_attempted': 2})}]},
+    ]
+    chain = _chain(events, 'events.jsonl')
+    for key in ('recommendation', 'reflection'):
+        assert isinstance(chain[key]['text'], str)
+        assert 'logistic' in chain[key]['text'] and 'C=2' in chain[key]['text']
+        assert chain[key]['config'] == candidate
+
+
 @pytest.fixture(scope='module')
 def recording(tmp_path_factory):
     """Tiny scripted records exercise replay plumbing, never model performance."""

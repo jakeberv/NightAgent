@@ -60,6 +60,18 @@ def settings(config):
             **config.get("params", {})}
 
 
+def experiment_summary(candidate):
+    """Render the recorded executable advice; historical prose stays readable."""
+    if not isinstance(candidate, dict):
+        return candidate
+    values = settings(candidate)
+    model = str(values.pop('model')).replace('_', ' ')
+    preprocessing = values.pop('preprocessing')
+    parameters = ', '.join(f'{name}={json.dumps(value, ensure_ascii=False)}'
+                           for name, value in sorted(values.items()))
+    return f'Test {model} with {preprocessing} preprocessing' + (f'; {parameters}.' if parameters else '.')
+
+
 def score_of(result):
     score = result.get("score", result.get("validation_auc"))
     return score if type(score) in (int, float) and math.isfinite(score) else None

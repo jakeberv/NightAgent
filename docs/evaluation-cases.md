@@ -25,7 +25,7 @@ includes all its parametrized children.
 | Case ID | Required behavior |
 | --- | --- |
 | `artifact-data-isolation` | Reproducible, disjoint splits; a verified real artifact produced without test data; worker input and environment isolation. |
-| `proposal-repair-and-citations` | Invalid evidence repaired within the existing budget before training; model-supplied measurements rejected; recorded validation citations attached to accepted contracts. |
+| `proposal-repair-and-citations` | Invalid evidence, out-of-bounds actions, seed edits and completed recommendations repaired within existing budgets; fulfilled advice identified from history; factual parameter changes and validation citations derived by the harness. |
 | `feedback-schedule` | Expected review/reflection cadence, including failed trials, continued search after target attainment, and no terminal review. |
 | `memory-isolation-and-history` | Memory-enabled researchers, including solo researchers, retain and receive run-local lessons across history truncation and recovery; the explicit memory-off control has no register or lesson updates; independent repeats reset memory. |
 | `budget-and-deadline` | Cost/trial limits and insufficient remaining time prevent additional work. |

@@ -23,7 +23,7 @@ def review():
         'assessment': 'No completed trial yet distinguishes these explanations.',
         'unresolved_question': 'Does reducing C improve validation performance with other settings fixed?',
         'cross_field_connection': 'Statistical shrinkage suggests a regularization test; this analogy is unverified.',
-        'recommendation': 'Establish a logistic baseline, then reduce only C using the same preprocessing.',
+        'recommendation': {'model': 'logistic', 'preprocessing': 'standard', 'params': {'C': .5}},
         'expected_outcome': 'A higher validation score with lower C would support further regularization tests.',
         'falsifying_outcome': 'An equal or lower score would weaken that prediction on this split.',
         'resource_check': 'Use one bounded fit at a time and reserve time for the next API call.',

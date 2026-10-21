@@ -99,10 +99,11 @@ Langfuse data export, migrate frameworks, or infer a license from public visibil
 
 ## Workshop-informed protocol update
 
-The `structured_v1` runtime implements evidence references as trial/metric/split/value
+The `structured_v2` runtime implements evidence references as trial/metric/split/value
 checks rather than merely checking whether a number occurs in a trace (Tutorial 1).
-It records repetitive calls and resolved-configuration equivalence without silently
-skipping experiments. Scientific constructors remain the source of defaults and
+Advice and execution share a bounded configuration schema. Completed equivalent
+proposals reuse their recorded observation without another fit. Scientific
+constructors remain the source of defaults and
 aliases (Tutorial 3). Bounded, revisable lesson memory is enabled by default and
 remains confined to a single run (Tutorial 2). Four current arms retain lessons;
 one matched periodic-reflection control explicitly disables them. This is

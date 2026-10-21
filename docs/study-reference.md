@@ -134,15 +134,19 @@ New runs freeze these policies:
 
 | Policy | Contract |
 | --- | --- |
-| `structured_v1` | Role-specific decision JSON and validation citations |
+| `structured_v2` | Shared executable experiment configurations and validation citations |
 | `supervision_v2` | Shared framing and strategy-specific reviews |
-| `active_advice_v1` | Framing remains active advice until a later review |
+| `active_advice_v1` | Latest advice persists; completion is derived from recorded experiments |
 | `grounded_v3` | Measured factual summaries; interpretations retained separately |
 | `observed_v1` | Deadline admission using observed call/fit durations |
 
 `run_analysis` requires an `intent`: hypothesis, completed baseline trial ID (or
-null), proposed change, expected informative outcome, response to supervisor
+null), expected informative outcome, response to supervisor
 advice and reason, short complete-sentence summary, and validation evidence.
+The agent submits the actual `model`, `preprocessing` and `params` once, outside
+the intent. It does not supply a separate `change` claim: the harness derives
+the recorded change from the effective configuration and selected baseline,
+including resolved defaults and equivalent parameter aliases.
 Evidence requests contain only `trial_id` and `metric`; supplying `value` or
 `split` is rejected. The harness attaches the exact recorded validation value and
 split. Stored accepted contracts retain all four fields. Citation validation
@@ -158,6 +162,11 @@ is a separate `framing` event. Invalid framing or exhausted repairs stop before
 training. `initial_framing` persists; `last_supervisor_feedback` holds it until
 review replaces it. Context identifies `active_advice_source`, and the first
 researcher decision must follow, modify or reject the advice with a reason.
+The latest advice can already have been executed: context supplies
+`recommendation_completed_trial_ids` and `reflection_completed_trial_ids`,
+derived from the existing completed-configuration registry. These are historical
+suggestions to learn from, not pending instructions to repeat. No separate
+recommendation lifecycle is stored.
 
 Later standard reviews require assessment, unresolved question, recommendation,
 expected outcome, summary and evidence. They allow creativity without an explicit
@@ -172,10 +181,19 @@ Night Science checklist. Night Science adds:
 | Check evidence | Assessment tied to completed measurements and limitations |
 | Respect limits | `resource_check` covering time/trials, fit timeout, CPU/device and interaction overhead |
 
-Fields allow at most 500 characters; alternatives allow 240 each. Both styles
+Supervisor `recommendation` and reflection `next_comparison` use the same
+`model`/`preprocessing`/`params` configuration schema as execution. The same
+bounded constructors and equivalence check reject invalid or already-completed
+suggestions before they enter feedback. The run's `training_seed` is fixed;
+changing a seed or repeating identical settings is not a permitted new
+comparison. Failed fits may still be retried with a scientific justification.
+The researcher retains the choice to follow, modify or reject advice; validation
+never silently substitutes a different experiment.
+
+Prose fields allow at most 500 characters; alternatives allow 240 each. Both styles
 require a valid citation once completed trials exist; beforehand, empty evidence
-is valid. Schema checks cannot establish alternatives' quality, analogy usefulness
-or advice feasibility.
+is valid. Bounds and novelty are checked, while alternatives' quality, analogy
+usefulness, predicted outcomes and scientific value remain unverified.
 
 Invalid responses return actionable errors within existing turn/review budgets.
 Review/reflection repairs disable tools and report up to six concise field errors

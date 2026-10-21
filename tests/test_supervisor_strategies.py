@@ -17,7 +17,7 @@ def standard_review():
     return {'summary': 'Compare the next bounded setting with the baseline.',
             'assessment': 'The baseline provides one validation observation.',
             'unresolved_question': 'Would changing model capacity improve the validation score?',
-            'recommendation': 'Compare one permitted capacity setting with the baseline.',
+            'recommendation': {'model': 'logistic', 'preprocessing': 'standard', 'params': {'C': .5}},
             'expected_outcome': 'A higher score would favor that setting on this split.',
             'evidence': [{'trial_id': 1, 'metric': 'roc_auc', 'split': 'validation', 'value': .9}]}
 

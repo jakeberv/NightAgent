@@ -37,6 +37,8 @@ def prepared_fingerprint(data_dir):
 
 def execution_config(config, problem):
     """Resolve the neural backend before model calls; explicit MPS never falls back."""
+    if config.decision_protocol != 'structured_v2':
+        raise ValueError('New execution requires decision_protocol=structured_v2; old saved reports remain readable.')
     if problem and any(name.startswith('torch_') for name in problem.search_space['models']):
         from .torch_models import resolve_device
         return replace(config, device=resolve_device(config.device))
@@ -105,7 +107,7 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                                             capacity=state.capacity(role, framing, phase_completed=True))
         errors = validate_contract(contract, role, history, has_feedback=state.feedback is not None,
             memory=config.lesson_memory, supervisor_strategy=config.supervisor_strategy, framing=framing,
-            require_lesson_update=require_lesson_update)
+            require_lesson_update=require_lesson_update, analysis_schema=permitted_experiments)
         if errors:
             journal.emit("failure", error="Runner-generated contract failed validation", details=errors)
             raise StopRun("invalid_grounded_contract")
@@ -116,8 +118,10 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
     async def phase(role, *, framing=False):
         require_lesson_update = lesson_update_required(role, memory=config.lesson_memory,
             history=history, lessons=memory.snapshot())
-        protocol = {'supervisor_strategy': config.supervisor_strategy, 'framing': framing}
-        instructions = prompts.instructions_for(role, problem, **protocol)
+        protocol = {'supervisor_strategy': config.supervisor_strategy, 'framing': framing,
+                    'analysis_schema': permitted_experiments}
+        instructions = prompts.instructions_for(role, problem,
+            supervisor_strategy=config.supervisor_strategy, framing=framing)
         from .reasoning import instructions as contract_instructions
         instructions += contract_instructions(role, memory=config.lesson_memory,
             require_lesson_update=require_lesson_update, **protocol)
@@ -157,6 +161,13 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                         errors = validate_contract(contract, role, history,
                             has_feedback=state.feedback is not None, memory=config.lesson_memory, **protocol)
                         if not errors:
+                            from .diagnostics import experiment_diagnostic
+                            candidate = contract['recommendation' if role == 'supervisor' else 'next_comparison']
+                            diagnostic = experiment_diagnostic(candidate, problem=problem, project=project,
+                                seed=config.training_seed, history=history)
+                            if diagnostic['equivalent_trial_ids']:
+                                raise ValueError('Choose an untried configuration; this candidate already completed as trial(s) '
+                                                 + str(diagnostic['equivalent_trial_ids']) + '.')
                             contract = ground_accepted(contract, role, framing=framing)
                     except (ValueError, TypeError) as error:
                         errors = [str(error)]
@@ -206,6 +217,14 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                                      repetitions=seen_calls[call_key], arguments=args)
                     if name == "run_analysis":
                         intent = resolve_contract_evidence(args.pop("intent", None), history)
+                        from .diagnostics import experiment_diagnostic, configuration_change
+                        diagnostic = experiment_diagnostic(args, problem=problem, project=project,
+                                                           seed=config.training_seed, history=history)
+                        baseline = next((row for row in history
+                            if row.get('trial_id') == intent.get('baseline_trial_id')
+                            and row.get('status') == 'completed'), None)
+                        intent['change'] = configuration_change(diagnostic, baseline,
+                            problem=problem, project=project, seed=config.training_seed)
                         errors = validate_contract(intent, "researcher", history,
                             has_feedback=state.feedback is not None, memory=config.lesson_memory,
                             require_lesson_update=require_lesson_update)
@@ -216,9 +235,6 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                                          contract=intent, valid=False, errors=errors)
                             contract_recorded = True
                             raise ValueError("Correct the decision contract: " + " ".join(errors))
-                        from .diagnostics import experiment_diagnostic
-                        diagnostic = experiment_diagnostic(args, problem=problem, project=project,
-                                                           seed=config.training_seed, history=history)
                         equivalent = diagnostic['equivalent_trial_ids']
                         required = required_start_seconds(config, role='trial', history=history,
                             call_durations=state.call_durations, model=args.get('model'))

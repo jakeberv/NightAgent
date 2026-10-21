@@ -9,6 +9,12 @@ and an abandoned final review. Its original audit remains unchanged. Current
 status and remaining validation. A new paid comparison needs a fresh operational
 preflight, cost measurement and budget decision; this recipe does not launch it.
 
+The later 10:59 full study was stopped with incomplete evidence after planning
+failures. The [simplified action-contract check](shared-contract-preflight.md)
+completed three targeted attempts with verified accounting and artifacts; one
+duplicate proposal recovered immediately. Its zero-duplicate target remains a
+failure, and no replacement full study has been launched.
+
 ## Frozen protocol
 
 Five arms: `researcher_alone`, `frequent`, `periodic`, and

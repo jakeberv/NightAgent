@@ -102,6 +102,21 @@ def test_focus_keeps_recorded_guidance_during_next_researcher_call(kind, role, f
     assert expected not in render_focus(state)
 
 
+@pytest.mark.parametrize('kind,field', [('review', 'recommendation'), ('reflection', 'next_comparison')])
+def test_focus_renders_structured_candidate_as_readable_guidance(kind, field):
+    state = structured_focus()
+    state.update({'type': kind, 'run_id': 'magic-demo', 'after_trial': 2,
+                  'feedback': 'Compare a shallower forest.', 'reflection': 'Compare a shallower forest.',
+                  'contract': {'summary': 'Compare a shallower forest.',
+                               field: {'model': 'random_forest', 'preprocessing': 'none',
+                                       'params': {'max_depth': 8}}}})
+    rendered = render_focus(state, height=32)
+    assert 'Suggested next test:' in rendered
+    assert 'random forest' in rendered and 'max_depth=8' in rendered
+    assert 'none preprocessing' in rendered
+    assert "{'model':" not in rendered
+
+
 def test_focus_preserves_whole_explanation_before_cpu_on_small_screen():
     rendered = render_focus(structured_focus(), width=55, height=20)
     prose = " ".join(line.strip("│ ") for line in rendered.splitlines())

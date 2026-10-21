@@ -309,7 +309,7 @@ def test_cli_enables_run_local_memory_and_freezes_treatment(tmp_path, monkeypatc
     main()
     summary = json.loads((output / 'summary.json').read_text())
     assert summary['config']['lesson_memory'] is True
-    assert summary['config']['decision_protocol'] == 'structured_v1'
+    assert summary['config']['decision_protocol'] == 'structured_v2'
     assert summary['lessons']
     assert (output / 'lessons.json').exists()
     assert not (output / 'test-results.json').exists()

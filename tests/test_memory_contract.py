@@ -47,7 +47,8 @@ class OmittingMemoryModel:
             if role == 'supervisor':
                 contract.update(assessment='Recorded trials provide observations for comparison.',
                     unresolved_question='Would another configuration improve validation performance?',
-                    recommendation='Compare another permitted model configuration.',
+                    recommendation={'model': 'logistic', 'preprocessing': 'standard',
+                                    'params': {'C': context['trials_attempted'] + 1}},
                     expected_outcome='The next trial will add a validation observation.')
                 contract['motivation'] = 'Use the remaining budget to compare model configurations.'
                 if context['supervisor_stage'] == 'framing':
@@ -62,7 +63,8 @@ class OmittingMemoryModel:
             else:
                 contract.update(what_changed='The latest trial added a validation observation.',
                     uncertainty='One split does not establish broader generalization.',
-                    next_comparison='Compare another permitted model configuration.')
+                    next_comparison={'model': 'logistic', 'preprocessing': 'standard',
+                                     'params': {'C': context['trials_attempted'] + 1}})
             message = {'role': 'assistant', 'content': json.dumps(contract)}
         return {'message': message, 'usage': {'prompt_tokens': 10, 'completion_tokens': 10, 'cost': .01}}
 

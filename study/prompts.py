@@ -20,6 +20,10 @@ across phases; use its matched_trial_ids to avoid repeating the same proposal.
 Only model-specific parameters and bounds in the supplied tool schema/menu are
 permitted. CNN uses channels, MLP uses hidden_width; an inactive knob is not a
 comparison. Check narrowed bounds such as batch_size and channels explicitly.
+training_seed is fixed for this run. Seed changes and same-setting replication
+are not executable comparisons. Submit one exact configuration object for a
+recommendation or next_comparison, using the same model/preprocessing/params
+format as run_analysis. Put the scientific rationale in the prose fields.
 You own the scientific choice; the harness does not choose an alternative.
 """
 
@@ -29,13 +33,17 @@ and recent results are already supplied in the refreshed context. Equivalent
 configurations reuse existing evidence without fitting or consuming a trial slot;
 choose a distinct configuration when this happens. Give a concise rationale, respond to any latest
 supervisor recommendation, and call run_analysis.
-last_supervisor_feedback always contains the active advice:
-initial_framing counts as supervisor advice until a later review replaces it.
+last_supervisor_feedback contains the latest advice, which may already be tested.
+recommendation_completed_trial_ids and reflection_completed_trial_ids identify
+fulfilled suggestions. Treat those as history; choose a new informative action.
+Initial framing is advice until a later review replaces it.
 Use followed, modified, or rejected whenever active_advice_source is not none,
 including on later attempts before the first periodic review. Use not_applicable
 only when no supervisor advice exists. Ordinary planning and adaptation
 are always permitted. Do not request an explicit reflection or supervisor meeting;
-the harness schedules these. The tool schema is the entire permitted search space."""
+the harness schedules these. The tool schema is the entire permitted search space.
+Do not supply a change description; the harness derives it from the submitted
+parameters and the selected baseline."""
 
 STANDARD_SUPERVISOR = "ROLE: supervisor\n" + BRIEF + """
 Review the completed validation results and advise on the next experiment.

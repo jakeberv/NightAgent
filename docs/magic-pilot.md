@@ -308,9 +308,11 @@ experiments; it does not establish a reliable ranking of strategies.
 
 ## Workshop-informed decision protocol
 
-New pilots use `structured_v1` automatically: the researcher supplies a hypothesis,
+New pilots use `structured_v2` automatically: the researcher supplies a hypothesis,
 comparison baseline, expected outcome, response to advice and a concise complete
-sentence for the dashboard. Validation citations are checked locally. Invalid
+sentence for the dashboard. Validation citations are checked locally.
+Advice uses the same bounded configuration format as execution, and the harness
+derives parameter changes from the actual configuration. Invalid
 responses consume the existing correction/time budgets and may stop the run with
 a nonzero exit; model interpretations are not treated as independently proven.
 
