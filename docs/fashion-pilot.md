@@ -3,9 +3,12 @@
 This pilot predicts ten clothing categories from 28 × 28 grayscale images.
 The primary metric is **accuracy**; macro-F1 and macro one-vs-rest ROC-AUC are
 secondary checks. The active profile freezes accuracy targets at **0.85, 0.88 and
-0.90**. The 0.85 target was reached by all three strategies in the latest short
-pilot; 0.88 and 0.90 are exploratory and are not guaranteed attainable within
-the fixed search bounds. Earlier 0.80/0.85 pilots retain their own frozen definitions.
+0.90**. The 0.85 target was reached by all three strategies in an earlier
+20 October three-strategy pilot under the former memory policy. The later
+[five-arm preflight](targeted-preflight.md#historical-live-results--2026-10-20)
+also used the former policy. Neither validates the revised memory-default study.
+Targets 0.88 and 0.90 are exploratory and are not guaranteed attainable within
+the fixed search bounds. Earlier 0.80/0.85 pilots retain their own definitions.
 
 ## Prepare the fixed source
 

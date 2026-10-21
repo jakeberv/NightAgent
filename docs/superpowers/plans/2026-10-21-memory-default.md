@@ -1,5 +1,8 @@
 # Memory-default five-arm correction
 
+> Dated engineering record. For current scope, instructions and review status,
+> use the [documentation guide](../../../docs/README.md). Later decisions may supersede this plan.
+
 > **For agentic workers:** Apply the approved bounded design using parallel component work, meaningful regression tests and one independent final review.
 
 **Goal:** Restore lesson memory as a standard apprentice capability while retaining one explicit experimental control without memory.

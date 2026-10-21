@@ -1,62 +1,38 @@
 # NightAgent
 
-NightAgent studies how a research apprentice adapts bounded experiments using measured results, supervision, reflection, and run-local lessons. The repository contains two applications with different execution and evaluation rules.
+**An AI research apprentice that experiments, receives feedback, and keeps evidence-linked lessons.**
 
-## Controlled experimental study
+NightAgent explores how an apprentice can become a better research partner. A human sets the question and limits; the apprentice chooses experiments, measures results, and decides what to try next. A supervisor can challenge its reasoning and suggest alternatives. Inspired by [Night Science](https://night-science.org/), the aim is to make exploration and changes of direction visible and testable.
 
-The current demo is the [five-arm Fashion-MNIST comparison](docs/five-arm-overnight.md), run with `python -m study`. Researcher alone, frequent supervision, periodic supervision, and periodic supervision plus reflection all use run-local lesson memory. A fifth arm, `periodic_reflection_no_memory`, matches the fourth with memory disabled. The first three contrasts hold memory on; the memory contrast reports on minus off. All supervised arms use Night Science reviews; literature is disabled. The launch recipe freezes three matched repeats, 600 seconds per run, the prepared data and targets, resource sharing, and an offline acceptance audit.
+## What you can see
 
-The [study runner](study/README.md) uses OpenRouter and fixed scientific tools. Agents choose bounded classification/regression experiments; the harness controls splits, timeouts, artifact verification, accounting, selection and held-out evaluation. Reviews and lessons cite recorded validation measurements. A supervisor's interpretation is not ground truth. Lessons start empty in every run; transfer between independent runs is not established.
+Our workshop demonstration asks the apprentice to compare classifiers for **Fashion-MNIST**, a dataset of clothing images. You can follow a recommendation through the next experiment, its measured outcome, and the lesson retained for later decisions. A comparison report brings together accuracy, time, cost, and the interaction record.
 
-- [Current launch and acceptance criteria](docs/five-arm-overnight.md)
-- [Workshop specification](SPEC.md) · [Current protocol and milestones](docs/workshop-protocol.md)
-- [Named evaluation cases](docs/evaluation-cases.md) · [Demo script](DEMO.md)
-- [Measured fixed classifier reference](docs/fixed-reference.md)
-- [All configuration presets and their status](docs/configurations.md)
-- [Targeted five-arm preflight and evidence](docs/targeted-preflight.md)
-- [Memory defaults and the explicit no-memory control](docs/memory-default.md)
-- [Problem profiles, datasets, objectives and search spaces](docs/problem-definitions.md)
-- [Fashion-MNIST GPU calibration and earlier pilot recipes](docs/fashion-pilot.md)
-- [Offline verification and limitations](docs/study-verification.md) · [CI dependency checks](docs/ci.md)
+The study compares five ways of working:
 
-From the repository root, verify the workflow without model calls or data downloads:
+| Approach | What changes |
+|---|---|
+| Researcher alone | Works without supervisor feedback |
+| Frequent supervision | Receives feedback after each experiment |
+| Periodic supervision | Receives feedback after every three experiments |
+| Periodic supervision and reflection | Also reflects after each experiment |
+| The same approach without lesson memory | Tests the contribution of retaining lessons |
 
-```bash
-python3.12 -m venv .venv
-.venv/bin/pip install -r requirements-study.lock
-.venv/bin/python -m pytest -q
-.venv/bin/python -m study smoke --comparison apprentice_interactions \
-  --output study-runs/offline-five-arm-smoke
-```
+The first four approaches keep lessons within each run. Every independent run starts fresh. Data, available experiments, and time allowances stay fixed so we can inspect the value and cost of these interactions. Retained lessons are context memory; the language model's weights do not change.
 
-The smoke command uses synthetic data and scripted decisions with real local classifier fits. Its results demonstrate operation, not language-model strategy performance. Neural CPU/MPS installation is separate; see [CI](docs/ci.md) and [GPU setup](docs/fashion-pilot.md).
+## Start here
 
-The runner also supports the earlier five-schedule literature comparison and a three-arm supervisor-style comparison. Their settings and budgets differ from the current demo; consult the [preset index](docs/configurations.md) before launching one.
+- **Watch the demo:** [presentation walkthrough](DEMO.md) and [saved real interaction replay](docs/evidence/fashion-demo/demo.md).
+- **Try it locally:** [getting started](docs/getting-started.md) provides an offline example with no API key or data download.
+- **Understand the project:** [goals and scope](docs/project-goals.md), [one-page workshop spec](SPEC.md), and [milestone checklist](docs/workshop-milestones.md).
+- **Run or develop the study:** use the [documentation guide](docs/README.md) for setup, experiment methods, configuration, and launch instructions.
 
-## Conversational Claude SDK prototype
+## Where we are
 
-The separate [conversational prototype](nightagent/README.md), launched with `nightagent/run.py`, relays meetings between a student and supervisor in separate Claude Code sessions. Plain-language protocols guide open-ended research, project files hold memory, and a private supervisor persona shapes feedback. Each invocation performs the next meeting or research phase; `--all` continues until supervisor sign-off. It does not implement the controlled study's frozen tools, equal time allowances, or held-out comparison.
+As of 21 October 2026, the runner, fixed classifier reference, automated acceptance cases, and a saved real interaction replay are available. The revised memory-default comparison has passed offline validation and is [under review](https://github.com/jakeberv/NightAgent/pull/14). A new bounded live pilot and the repeated overnight comparison are pending. The saved replay uses the earlier memory policy and demonstrates the mechanism; it does not establish that supervision or memory improves performance. See [readiness and evidence](docs/workshop-readiness.md) for the current limits.
 
-```bash
-python3 -m venv nightagent/.venv
-nightagent/.venv/bin/pip install -r nightagent/requirements.txt
-nightagent/.venv/bin/python nightagent/run.py example-projects/mnist
-```
-
-Read the [prototype setup, permissions and provider notes](nightagent/README.md) before a live run. Its [student](nightagent/STUDENT.md), [meeting](nightagent/MEETING.md), and [supervisor](nightagent/SUPERVISOR.md) protocols describe that application's behavior. The [project template](nightagent/project-template/) and [example questions](example-projects/) are starting points; generated project work is ignored by Git.
-
-## Design history and status
-
-The [workshop specification](SPEC.md), [current protocol](docs/workshop-protocol.md), and [shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z) describe the current Fashion-MNIST study. Earlier proposals remain in [design notes](NOTES.md) and historical shared tabs. Implemented profiles also cover MAGIC, multiclass CSV, MNIST and regression.
-
-As of 21 October 2026, MAGIC live pilots, Fashion-MNIST MPS calibration, an earlier five-arm live preflight and the fixed non-agent Fashion reference have run. That preflight used the former memory policy and is [historical evidence](docs/targeted-preflight.md#historical-live-results--2026-10-20). Its [portable real replay](docs/evidence/fashion-demo/demo.md) remains available as a mechanism demonstration. The revised memory-default protocol needs a new bounded paid pilot before launch; the repeated five-arm overnight comparison remains pending. Passing offline checks or a short preflight does not establish strategy superiority or learning across independent runs.
-
-The project draws on [Night Science](https://night-science.org/) principles: explore alternatives, improve questions, connect across fields, and return to measured evidence. The study makes review behavior and advice uptake observable; these are evaluation targets, not claims of scientific understanding.
+This repository also contains a separate [conversational research prototype](nightagent/README.md) built with the Claude Agent SDK. It supports open-ended student–supervisor meetings and project files; the controlled workshop study described above provides the fixed experiments and comparative evaluation.
 
 ## Team 5
 
-- Josef Osumeje — josumeje@umich.edu
-- Ben Moseley — b.moseley@imperial.ac.uk
-- Jake Berv — jacob.berv@gmail.com
-- Guido Herrera-R — guidohero@hotmail.com
-- Weiwei Chen — chenww535@gmail.com
+Josef Osumeje · Ben Moseley · Jake Berv · Guido Herrera-R · Weiwei Chen

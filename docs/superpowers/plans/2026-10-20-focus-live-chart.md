@@ -1,5 +1,8 @@
 # Focus and live progress chart implementation plan
 
+> Dated engineering record. For current scope, instructions and review status,
+> use the [documentation guide](../../../docs/README.md). Later decisions may supersede this plan.
+
 > **For agentic workers:** Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Make measured experiment progress the main visual in the default Focus view, with stable strategy selection and no added API usage.

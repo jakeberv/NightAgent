@@ -1,5 +1,8 @@
 # Configurable problem definitions
 
+> Dated engineering record. For current scope, instructions and review status,
+> use the [documentation guide](../../../docs/README.md). Later decisions may supersede this plan.
+
 User approved the proposed problem-definition/task-adapter architecture and requested a checkpoint commit first. Checkpoint: 39f8fd6. User additionally requests MNIST if scientifically valid; include it as multiclass classification with accuracy, preserving its official test partition.
 
 Goal: select a problem, dataset, targets, permitted experiments and validation protocol without modifying orchestration. Keep OpenRouter, the five schedules, wall-time control, recording and post-run evaluation reusable. New task families require reviewed Python adapters; a YAML file never supplies executable code. No paid calls or overnight comparison in implementation.

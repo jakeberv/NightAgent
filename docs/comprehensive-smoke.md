@@ -1,4 +1,10 @@
-# Comprehensive strategy smoke
+# Comprehensive strategy smoke — historical coverage plan
+
+> This 20 October record covers an earlier style/memory/literature sweep. Its
+> observations and proposed fixes describe that revision, not current launch
+> blockers. Use the [targeted preflight](targeted-preflight.md),
+> [five-arm overnight recipe](five-arm-overnight.md) and
+> [current readiness](workshop-readiness.md) for the revised study.
 
 Prepared 2026-10-20. This checks live workflow coverage on the frozen Fashion-MNIST
 problem; it is not a study of strategy superiority. The paid smoke is not launched

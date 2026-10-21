@@ -41,6 +41,28 @@ implementation behavior, not model strategy or memory benefit. No paid inference
 held-out Fashion scoring or overnight launch occurred. Fresh read-only credit
 and host checks remain separate from engineering acceptance.
 
+## Documentation review
+
+The [documentation guide](README.md) separates the public overview, first local
+run, operator reference, scientific protocol, milestone checklist and dated
+history. [Project goals](project-goals.md) explain the original apprentice
+ambition and the narrower workshop test. The
+[milestone checklist](workshop-milestones.md) maps the supplied requirements to
+artifacts and identifies the remaining tool-count acceptance, ownership,
+submission, presentation and paid-cost/funding gaps.
+
+The documentation pass changed no runtime code. Its first-run command completed
+all five arms with 20 real CPU fits on synthetic data and zero paid calls; offline
+report rebuilding also passed. The updated spec and shared current tabs were
+read back against the local text, historical tabs were preserved, and the
+421-word Markdown spec was visually verified on one PDF page. Link, heading and
+whitespace checks passed. The prior 947-test regression result above remains the
+code verification; it was not rerun for this documentation pass.
+
+The latest [Copilot review on PR 14](https://github.com/jakeberv/NightAgent/pull/14#pullrequestreview-5595106330)
+reported no open issues and called for human review of the scientific treatment
+mapping and launch protocol. The PR remains open.
+
 ## Retained historical evidence
 
 - The [fixed reference](fixed-reference.md) measured **81.03% validation accuracy

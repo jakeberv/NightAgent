@@ -4,6 +4,8 @@ Updated 21 October 2026. This document and [the one-page specification](../SPEC.
 describe the implemented workshop experiment. The [launch recipe](five-arm-overnight.md)
 and frozen JSON/profile supply executable settings. Earlier MAGIC/MNIST AUC and
 literature comparisons are development history, not additional arms in this study.
+See [project goals](project-goals.md) for the apprentice vision and
+[workshop milestones](workshop-milestones.md) for requirement coverage and gaps.
 
 The memory-default implementation is under PR review. Main retains the previous
 policy until this revision is merged; do not launch the revised study before
@@ -119,8 +121,7 @@ remain subject to team confirmation.
 
 ## Workshop milestones
 
-Specification: Monday 19 October, 17:00. Working baseline: Tuesday 20 October,
-17:00. Evaluation package: Wednesday 21 October, 11:00. Demo script: Wednesday
-21 October, 13:00. Presentations: Wednesday 21 October, 16:30. Times are Toronto.
-The spec, reference, named evaluation and replay make those deliverables concrete;
-the repeated paid comparison remains a separate launch decision.
+See [the milestone checklist](workshop-milestones.md) for the official deadlines,
+deliverables, evidence and remaining submission or ownership gaps. Available
+artifacts do not prove submission or organizer acceptance. The repeated paid
+comparison remains a separate launch decision.

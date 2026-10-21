@@ -1,5 +1,8 @@
 # Workshop deliverables implementation plan
 
+> Dated engineering record. For current scope, instructions and review status,
+> use the [documentation guide](../../../docs/README.md). Later decisions may supersede this plan.
+
 > **For agentic workers:** Use superpowers:subagent-driven-development or superpowers:executing-plans. User approved implementation and parallel agents; integrate once and obtain an independent final review.
 
 **Goal:** Make the current experiment, engineering evaluation, measured reference and recorded demo reviewable before authorizing the overnight run.
