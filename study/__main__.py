@@ -201,9 +201,11 @@ async def _dispatch(args, progress):
     elif args.command == "report":
         from .report import generate_report
         begin = time.monotonic()
-        path = generate_report(args.output)
-        previous = json.loads((args.output / "postrun.json").read_text()) if (args.output / "postrun.json").exists() else {}
-        atomic_json(args.output / "postrun.json", previous | {"reporting_seconds": time.monotonic() - begin})
+        destination = getattr(args, 'report_dir', None)
+        path = generate_report(args.output, destination=destination)
+        if destination is None:
+            previous = json.loads((args.output / "postrun.json").read_text()) if (args.output / "postrun.json").exists() else {}
+            atomic_json(args.output / "postrun.json", previous | {"reporting_seconds": time.monotonic() - begin})
         print(path)
     elif args.command == "reference":
         preflight_problem(problem_path, args.data)
@@ -362,6 +364,9 @@ def main():
     for command in ("smoke", "evaluate", "report", "recover", "audit"):
         p = sub.add_parser(command)
         p.add_argument("--output", type=Path, required=True)
+        if command == "report":
+            p.add_argument('--report-dir', type=Path,
+                           help='Write regenerated report artifacts here without modifying source evidence')
         if command == "evaluate":
             p.add_argument("--data", type=Path, required=True)
         if command == "smoke":

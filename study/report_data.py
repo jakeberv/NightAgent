@@ -10,6 +10,7 @@ from typing import Any
 
 from .report_analysis import (assign_analysis_groups, paired_comparisons,
                               recommendation_uptake, role_metrics, literature_coverage)
+from .report_efficiency import resource_trajectories, research_efficiency
 from .report_loading import RunArtifacts, load_report, selections, trials_from_events
 
 TOKEN_FIELDS = ("input_tokens", "output_tokens", "cached_tokens", "reasoning_tokens")
@@ -63,6 +64,15 @@ def _score(item: dict, metric: str) -> float | None:
     except ValueError:
         return None
     return score
+
+
+def _valid_score(trial, metric, allowance):
+    """One observed result's eligible score, shared by outcomes and trajectories."""
+    elapsed = _number(trial.get('elapsed_seconds'))
+    if (trial.get('status') != 'completed' or elapsed is None or elapsed < 0
+            or allowance is None or elapsed > allowance):
+        return None
+    return _score(trial, metric)
 
 
 def _budget(value):
@@ -121,11 +131,8 @@ def aggregate_run(artifacts: RunArtifacts, warnings: list[str]) -> dict:
     selected_results = selections(summary)
     allowance = _number(summary.get("allowance_seconds"))
     trials = trials_from_events(events, selected_results)
-    valid = [{**trial, "score": _score(trial, metric)} for trial in trials
-             if trial.get("status") == "completed" and _score(trial, metric) is not None
-             and _number(trial.get("elapsed_seconds")) is not None
-             and trial["elapsed_seconds"] >= 0
-             and allowance is not None and trial["elapsed_seconds"] <= allowance]
+    valid = [{**trial, "score": score} for trial in trials
+             if (score := _valid_score(trial, metric, allowance)) is not None]
     valid.sort(key=lambda trial: trial["elapsed_seconds"])
     best = (max if maximize else min)(valid, key=lambda trial: trial["score"], default=None)
     curve = []
@@ -248,6 +255,7 @@ def aggregate_run(artifacts: RunArtifacts, warnings: list[str]) -> dict:
                 'test_score': None, 'test_status': 'not evaluated'})
             row[name + "_test_auc"] = result["test_score"]
             row[name + "_test_status"] = result["test_status"]
+    row["resource_trajectories"] = resource_trajectories(artifacts, lambda trial: _valid_score(trial, metric, allowance), row)
     return row
 
 
@@ -306,7 +314,9 @@ def build_report_data(root: Path) -> dict:
         if len(thresholds) > 1:
             warnings.append(f"{name} thresholds differ or are missing between runs; compare with care.")
     first = runs[0] if runs else metadata
-    return {"runs": runs, "conditions": conditions, "paired_comparisons": comparisons,
+    return {"research_efficiency": research_efficiency(runs, objective),
+            "provenance": artifacts.provenance,
+            "runs": runs, "conditions": conditions, "paired_comparisons": comparisons,
             "warnings": warnings, "objective": objective,
             "problem_hash": first.get("problem_hash"), "problem": first.get("problem"),
             "data_fingerprint": first.get("data_fingerprint"),

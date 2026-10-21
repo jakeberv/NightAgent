@@ -155,12 +155,18 @@ def _render_report(data: dict, root: Path) -> Path:
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
     runs = data["runs"]
+    os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "nightagent-matplotlib"))
+    for name, value in [("research-efficiency", data['research_efficiency']),
+                        ("resource-trajectories", {r['run_id']: r['resource_trajectories'] for r in runs}),
+                        ("report-provenance", data.get('provenance', {}))]:
+        (root / (name + '.json')).write_text(json.dumps(value, indent=2, ensure_ascii=False), encoding='utf-8')
+    (root / 'report-summary.txt').write_text('\n'.join(data['research_efficiency']['summary']) + '\n', encoding='utf-8')
     (root / "paired-comparisons.json").write_text(
         json.dumps(data["paired_comparisons"], indent=2, ensure_ascii=False), encoding="utf-8")
     (root / "strategy-efficiency.json").write_text(json.dumps(
         {name: aggregate['targets'] for name, aggregate in data['conditions'].items()}, indent=2), encoding='utf-8')
     fields = [key for row in runs for key in row if key not in
-              ("best_curve", "postrun_accounting", "event_counts", "trace")]
+              ("best_curve", "resource_trajectories", "postrun_accounting", "event_counts", "trace")]
     fields = list(dict.fromkeys(fields)) or ["run_id", "condition", "best_score"]
     with (root / "summary.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
@@ -171,7 +177,10 @@ def _render_report(data: dict, root: Path) -> Path:
     objective = data["objective"]
     metric = {"roc_auc": "ROC-AUC", "roc_auc_ovr_macro": "ROC-AUC (macro one-vs-rest)"}.get(objective["metric"], objective["metric"])
     target_names = list(dict.fromkeys(name for row in runs for name in row["targets"]))
-    sections = ["<h1>Overnight study: validation performance at the deadline</h1>",
+    from .report_efficiency_rendering import efficiency_sections
+    sections = efficiency_sections(data, root, _table)
+    sections += ["<details><summary>Supporting evidence: declared outcomes, targets, operations, and audit detail</summary>",
+                "<h2>Declared outcome: validation performance at the deadline</h2>",
                 f"<p>Primary outcome: best completed validation {html.escape(metric)} "
                 f"({html.escape(objective['direction'])}) within each run's scheduled allowance. "
                 "Every scheduled run is listed, including failures and runs with no valid model. "
@@ -333,14 +342,15 @@ def _render_report(data: dict, root: Path) -> Path:
                         + html.escape(json.dumps(row["trace"], indent=2, ensure_ascii=False)) + "</pre></details>")
     if data["warnings"]:
         sections.append("<h2>Data quality notes</h2><ul>" + "".join(f"<li>{html.escape(w)}</li>" for w in data["warnings"]) + "</ul>")
+    sections.append("</details>")
     document = ('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
-                '<title>Overnight study report</title><style>body{font:15px system-ui,sans-serif;max-width:1200px;margin:2rem auto;padding:0 1rem;color:#172033}'
+                '<title>Research efficiency report</title><style>body{font:15px system-ui,sans-serif;max-width:1200px;margin:2rem auto;padding:0 1rem;color:#172033}'
                 'table{border-collapse:collapse;display:block;overflow-x:auto;margin:1rem 0;width:100%}th,td{padding:.55rem;border:1px solid #cbd5e1;text-align:left}'
                 'th{background:#f1f5f9}img{max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere}p{line-height:1.6}'
                 '.overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin:1.5rem 0}'
                 '.card{background:#f1f5f9;border:1px solid #cbd5e1;border-top:4px solid #2563eb;border-radius:8px;padding:1rem}'
                 '.card span{display:block;font-size:.85rem;color:#475569}.card strong{display:block;font-size:1.8rem;margin-top:.5rem}'
-                'figure{margin:1.5rem 0}figcaption{color:#475569;font-size:.85rem}a{color:#1d4ed8}</style>'
+                'details{margin:1.2rem 0}summary{cursor:pointer;font-weight:600}figure{margin:1.5rem 0}figcaption{color:#475569;font-size:.85rem}a{color:#1d4ed8}</style>'
                 '<body>' + "\n".join(sections) + '</body></html>')
     output = root / "report.html"
     output.write_text(document, encoding="utf-8")

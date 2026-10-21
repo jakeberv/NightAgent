@@ -172,3 +172,66 @@ def paired_plot(data, root):
     return export_figure(figure, root, "paired",
         "Paired validation differences use complete score pairs; n shows scored pairs over all matched pairs. "
         "Intervals require at least two pairs; configuration numbers refer to the comparison tables.")
+
+
+def efficiency_plot(data, cohort, root, *, individual=False):
+    """Common-support group means, or full observed individual prefixes."""
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.ticker import MaxNLocator
+    from .report_efficiency import AXES
+    from .report_analysis import treatment_name
+
+    figure = Figure(figsize=(13, 4.8), layout='constrained')
+    FigureCanvasAgg(figure)
+    axes = figure.subplots(1, 3, sharey=True)
+    palette = ['#2563eb', '#d97706', '#059669', '#9333ea', '#dc2626', '#0891b2']
+    colors = {g: palette[i % len(palette)] for i, g in enumerate(cohort['groups'])}
+    for ax, (axis, label) in zip(axes, AXES.items()):
+        facts = cohort['axes'][axis]
+        if individual:
+            seen = set()
+            for row in data['runs']:
+                if row['run_id'] not in facts['run_ids']:
+                    continue
+                curve = row['resource_trajectories'][axis]
+                if not curve['points']:
+                    continue
+                group = treatment_name(row)
+                points = curve['points']
+                x = [p['budget'] for p in points] + [curve['end']]
+                y = [p['quality'] for p in points] + [points[-1]['quality']]
+                ax.step(x, y, where='post', alpha=.5, linewidth=1,
+                        color=colors[group], label=group.replace('_', ' ') if group not in seen else None)
+                ax.plot(x[-1], y[-1], 'x' if curve['reason'] else '.', color=colors[group])
+                seen.add(group)
+        elif facts['status'] == 'available':
+            for group, values in facts['groups'].items():
+                points = values['curve']
+                ax.step([p['budget'] for p in points], [p['quality'] for p in points], where='post',
+                        label=f"{group.replace('_', ' ')} (n={values['n']})", color=colors[group])
+                ax.plot(points[-1]['budget'], points[-1]['quality'], '.', color=colors[group])
+            padding = (facts['budget'] - facts['start']) * .02
+            ax.set_xlim(facts['start'] - padding, facts['budget'] + padding)
+        else:
+            ax.text(.5, .5, 'No shared scored\nbudget interval', ha='center', va='center', transform=ax.transAxes)
+        ax.set(title=label, xlabel=label, ylabel=f"Validation {data['objective']['metric']}" if ax is axes[0] else '')
+        ax.grid(alpha=.15)
+        ax.spines[['top', 'right']].set_visible(False)
+        if axis == 'experiments':
+            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        else:
+            ax.ticklabel_format(axis='x', style='plain', useOffset=False)
+    handles, labels = [], []
+    for ax in axes:
+        for h, label in zip(*ax.get_legend_handles_labels()):
+            if label not in labels:
+                handles.append(h)
+                labels.append(label)
+    if handles:
+        figure.legend(handles, labels, loc='outside lower center', ncols=2, fontsize=8, frameon=False)
+    suffix = '-individual' if individual else ''
+    caption = ('Individual observed trajectories; × marks limited resource evidence. Lines stop at observed budgets.' if individual else
+               'Mean best observed quality at equal cumulative budgets. Every plotted mean includes all cohort runs; '
+               'panels use different resources and shared ranges. ' + data['objective']['direction'] + ' the validation metric.')
+    return export_figure(figure, root, f"efficiency-{cohort['id']}{suffix}", caption)

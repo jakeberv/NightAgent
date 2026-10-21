@@ -221,29 +221,37 @@ def delta_summary(values):
     return {"n": n, "mean_delta": average, "sd_delta": sd, "ci95": interval}
 
 
+def comparison_identity(row):
+    """Shared frozen-identity gate for paired outcomes and resource cohorts."""
+    config = row.get("config") or {}
+    seed, repeat = config.get("training_seed"), row.get("repeat")
+    invalid_arm = (config.get("comparison") == "supervisor_strategies"
+                   and (config.get("supervisor_strategy") not in ("standard", "night_science")
+                        or row["condition"] not in ("researcher_alone", "frequent")))
+    if config.get('comparison') == 'apprentice_interactions':
+        invalid_arm = apprentice_arm(config) is None
+    if (not row.get("problem_hash") or not row.get("data_fingerprint") or not config
+            or invalid_arm
+            or type(seed) is not int or type(repeat) is not int
+            or config.get("repeat", repeat) != repeat
+            or config.get("condition", row["condition"]) != row["condition"]
+            or row.get("allowance_seconds") is None):
+        return None
+    return {"config": config_stratum(row), "problem_hash": row["problem_hash"],
+                      "problem": row.get("problem"), "data_fingerprint": row["data_fingerprint"],
+                      "objective": row["objective"], "allowance_seconds": row["allowance_seconds"],
+                      "target_definitions": row.get("target_definitions")}
+
+
 def paired_comparisons(runs, warnings):
     groups = defaultdict(list)
     excluded = []
     for row in runs:
-        config = row.get("config") or {}
-        seed, repeat = config.get("training_seed"), row.get("repeat")
-        invalid_arm = (config.get("comparison") == "supervisor_strategies"
-                       and (config.get("supervisor_strategy") not in ("standard", "night_science")
-                            or row["condition"] not in ("researcher_alone", "frequent")))
-        if config.get('comparison') == 'apprentice_interactions':
-            invalid_arm = apprentice_arm(config) is None
-        if (not row.get("problem_hash") or not row.get("data_fingerprint") or not config
-                or invalid_arm
-                or type(seed) is not int or type(repeat) is not int
-                or config.get("repeat", repeat) != repeat
-                or config.get("condition", row["condition"]) != row["condition"]
-                or row.get("allowance_seconds") is None):
+        identity = comparison_identity(row)
+        if identity is None:
             excluded.append(row["run_id"])
             continue
-        key = json.dumps({"config": config_stratum(row), "problem_hash": row["problem_hash"],
-                          "problem": row.get("problem"), "data_fingerprint": row["data_fingerprint"],
-                          "objective": row["objective"], "allowance_seconds": row["allowance_seconds"],
-                          "target_definitions": row.get("target_definitions")}, sort_keys=True)
+        key = json.dumps(identity, sort_keys=True)
         groups[key].append(row)
     if excluded:
         warnings.append("Matched comparisons exclude runs with unknown or inconsistent frozen identity, seed, repeat, "
