@@ -12,7 +12,8 @@ The NightAgent application: the protocols and personas that define a research st
 | [project-template/](project-template/) | The files every project starts with; `QUESTION.md` is the one the human fills in |
 | [run.py](run.py) | The orchestrator: one project, one relationship |
 | [experiment.py](experiment.py) | Runs every relationship several times on one research question and reports the results |
-| [requirements.txt](requirements.txt) | Its one dependency, the Claude Agent SDK |
+| [monitor.py](monitor.py) | Live terminal dashboard of running projects: phase, latest action, cost, experiments |
+| [requirements.txt](requirements.txt) | Dependencies: the Claude Agent SDK, and Textual for the monitor |
 
 `run.py` drives the **student, the supervisor and the reviewer as separate Claude Code sessions** through the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk), and runs the meetings between the first two. Each project is one folder, starting from a copy of a research question's `QUESTION.md`.
 
@@ -80,6 +81,14 @@ nightagent/.venv/bin/python nightagent/experiment.py example-projects/magic --se
 This creates `runs/magic-<date>/` with one run folder per relationship and seed (`r01`…`r16`, opaque names), runs each to the end with `run.py --all`, and writes `results.md` (every seed, then mean ± std per relationship) and `results.csv`. Each run's console output goes to `logs/rNN.log`. Run the same command again to resume stopped runs, or add `--report` on the experiment folder to rebuild only the report. `--relationships` picks a subset, `--name` names the experiment, and any other option (`--provider`, `--model`, `--effort`, `--max-meetings`, `--dry-run`) is passed to `run.py`. A "seed" is an independent repeat; the agents' sampling can't be seeded.
 
 Budget: with the earlier defaults (Opus, high effort, a week of work per research phase), a research week cost $0.30–9.50 and a meeting about $0.50–0.90; the defaults are now Sonnet, medium effort and 2–3 key experimental actions per research week, which should cost much less, but measure it on one seed before running 16. Try `--dry-run`, then one seed of each relationship, first. With a Claude subscription, `--jobs` above 1 reaches the usage limits sooner.
+
+### Watching runs live
+
+```bash
+nightagent/.venv/bin/python nightagent/monitor.py runs/magic-<date>
+```
+
+A terminal dashboard with one row per run: its relationship, state (running, quiet for 15+ minutes, paused between phases, failed, done), phase and how long it has been in it, meetings, experiments, cost so far, and the agents' latest action. Select a run with the arrow keys to follow its console log, or press 2–4 for its `ACTIONS.md`, experiments and latest minutes. With no folder it shows everything under `runs/`; a single `run.py` project folder works too. It only reads files, so start and stop it whenever you like.
 
 ### One project
 
