@@ -7,9 +7,12 @@ literature comparisons are development history, not additional arms in this stud
 See [project goals](project-goals.md) for the apprentice vision and
 [workshop milestones](workshop-milestones.md) for requirement coverage and gaps.
 
-The memory-default implementation is under PR review. Main retains the previous
-policy until this revision is merged; do not launch the revised study before
-review and a new bounded live pilot.
+The memory-default implementation was merged into main in
+[PR 14](https://github.com/jakeberv/NightAgent/pull/14) at `3b4a385`. Before the
+repeated overnight comparison, resolve the researcher-alone memory gap found by
+the [revised paid preflight](revised-preflight-results.md), verify it with an
+accepted bounded live run, refresh the cost estimate, and verify current key
+allowance, account funding and the host. The overnight comparison is **NO-GO**.
 
 ## Research question and tutorial components
 
@@ -107,8 +110,16 @@ historical mechanism evidence, not validation of the revised memory-default
 protocol. The [portable replay](evidence/fashion-demo/demo.md) remains a fallback.
 Its memory arm reached 85% before its first lesson; that crossing is not evidence
 of memory benefit. Retain historical-source and repaired-contract warnings.
-New offline rehearsal can verify implementation, while new paid prompt usage and
-spending require a bounded pilot before the revised overnight launch.
+The revised [bounded preflight](targeted-preflight.md) allows seven validation
+fits in each of the five arms, with one seed, 300 seconds and a $2 API guard per
+arm; it performs no held-out scoring. The [21 October paid run](revised-preflight-results.md)
+completed all 35 fits and verified artifacts, with 65 real model calls,
+429,259 tokens and $1.665021 cost. Its audit reported two errors from the
+researcher-alone arm's missing lesson creation/delivery and resulting missing
+final register, with no warnings. All seven solo decisions omitted optional
+`lesson_updates`; the other four arms passed coverage checks. Offline checks
+did not expose this live behavior. This is failed acceptance evidence, and the
+provisional cost projection must be measured again after a correction.
 
 Require successful launcher exit, complete accounting, verified artifacts,
 fifteen completed runs, three pairs per contrast, required interaction/memory

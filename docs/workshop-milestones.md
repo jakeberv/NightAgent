@@ -7,9 +7,11 @@ This is a team checklist for workshop delivery. The [project goals](project-goal
 explain the broader research ambition; the [protocol](workshop-protocol.md)
 defines this experiment.
 
-The revised memory-default code is under review in
-[PR 14](https://github.com/jakeberv/NightAgent/pull/14). Main retains the earlier
-policy. Available artifacts and recorded checks do not establish organizer
+The revised memory-default code was merged into main in
+[PR 14](https://github.com/jakeberv/NightAgent/pull/14) at `3b4a385`.
+The [revised paid preflight](revised-preflight-results.md) completed but failed
+researcher-alone memory coverage; the overnight comparison remains **NO-GO**.
+Available artifacts and recorded checks do not establish organizer
 acceptance or completion by a deadline.
 
 ## Milestones
@@ -27,8 +29,8 @@ requirements actually available, rather than assuming additional submission rule
 | --- | --- | --- | --- |
 | I — Mon 19, 11:30 | First GitHub push. | [Team repository](https://github.com/jakeberv/NightAgent) and versioned source. | Repository exists. This review does not establish the time or acceptance of the original submission. |
 | II — Mon 19, 17:00 | Root `SPEC.md`, one page/about 400 words, covering task, agent decisions, tools/data, baseline, evaluation, demo, risks/limits/roles. | [SPEC.md](../SPEC.md), [protocol](workshop-protocol.md), [goals](project-goals.md). | The revised concise spec covers all seven sections, including an input/output example, historical fallback, main risk and token limit. Tool count, spend and ownership need the checks below. |
-| III — Tue 20, 17:00 | Simplest baseline that runs end to end and can be compared with the agent. Data access must already work. | [Measured fixed classifier](fixed-reference.md), [portable reference receipt](evidence/fashion-fixed-reference.json), [study commands](../study/README.md), historical real-agent replay and current offline rehearsals. | A fixed non-agent baseline has run on the frozen Fashion partitions: 81.03% accuracy, 4.74 seconds, zero model calls. Its receipt is dated Wed 21; it does not prove Tuesday completion. Researcher alone is the matched adaptive baseline; its revised live run remains pending. |
-| IV — Wed 21, 11:00 | Evaluation script; 5–20 cases with known answers or pass/fail checks; declared metric, repeat count and comparison. Estimate total cost and check remaining key allowance before this milestone. | [Eight named cases](evaluation-cases.md), [runner](../study/workshop_eval.py), [case mapping](../study/evaluation_cases.json), [current acceptance receipt](evidence/memory-default-acceptance.json). | Recorded result: 8/8 cases, 52 underlying checks. The scientific comparison has not run under the revised policy. Its current paid-cost estimate and funding check remain open. |
+| III — Tue 20, 17:00 | Simplest baseline that runs end to end and can be compared with the agent. Data access must already work. | [Measured fixed classifier](fixed-reference.md), [portable reference receipt](evidence/fashion-fixed-reference.json), [study commands](../study/README.md), [revised paid preflight](revised-preflight-results.md) and offline rehearsals. | A fixed non-agent baseline has run on the frozen Fashion partitions: 81.03% accuracy, 4.74 seconds, zero model calls. Its receipt is dated Wed 21; it does not prove Tuesday completion. Researcher alone completed seven revised live fits, but its required lesson creation and delivery failed audit. |
+| IV — Wed 21, 11:00 | Evaluation script; 5–20 cases with known answers or pass/fail checks; declared metric, repeat count and comparison. Estimate total cost and check remaining key allowance before this milestone. | [Eight named cases](evaluation-cases.md), [runner](../study/workshop_eval.py), [case mapping](../study/evaluation_cases.json), [current acceptance receipt](evidence/memory-default-acceptance.json), [revised paid preflight](revised-preflight-results.md). | Recorded engineering result: 8/8 cases, 52 underlying checks. The revised paid preflight completed 35 fits for $1.665021 but failed researcher-alone memory coverage. A provisional overnight estimate and key-allowance check now exist; remeasure after the correction and verify account funding. The repeated scientific comparison has not run. |
 | V — Wed 21, 13:00 | Demo script describing one example and what the audience should see. | [DEMO.md](../DEMO.md), [saved presenter replay](evidence/fashion-demo/demo.md), [portable evidence](evidence/fashion-demo/demo.json). | A three-minute historical real-model replay is available, with source/citation pointers and limitations. A revised live demo requires new accepted evidence; the saved replay is the fallback. |
 | Team presentations — Wed 21, 16:30 | Team presentation; format is unspecified in the available brief. | Specification, reference, engineering receipts and replay supply source material. | Final presentation materials and presenter assignments are not recorded in this repository. Prepare them and rehearse the fallback before presenting. |
 
@@ -48,7 +50,7 @@ or submission timing; the team should confirm their status with the organizers.
 | Accessible data and simplest baseline | Real Fashion fits and the verified fixed reference establish local access. Link the reproduction command and expected reference output. Keep the fixed reference separate from the equal-allowance researcher-alone baseline. |
 | 5–20 checkable cases, metric, repeats and comparison | Eight named engineering cases meet the requested case-count range. Each reports pass/fail. Run the package once for engineering acceptance; the scientific design separately has five arms × three matched repeats, with validation accuracy primary and cost/runtime plus secondary metrics reported. |
 | Demo and fallback | Covered: the spec explicitly names the historical saved replay as fallback. `DEMO.md` labels its former memory policy and traces a scoped lesson into a later context without claiming benefit. |
-| Risks, limits, expected spend and roles | Covered: main risk of unsupported conclusions, fit/attempt/resource limits, 2,048 output tokens per call and $75 nominal guards. Expected paid spend remains pending a new pilot. Component owners remain unconfirmed; record agreed owners for harness/memory, tools/data and evaluation/demo. |
+| Risks, limits, expected spend and roles | Covered: main risk of unsupported conclusions, fit/attempt/resource limits, 2,048 output tokens per call and $75 nominal guards. The revised paid preflight supplies a provisional cost projection; remeasure after fixing researcher-alone memory coverage. Account funding remains unverified. Component owners remain unconfirmed; record agreed owners for harness/memory, tools/data and evaluation/demo. |
 
 ## Two tutorial components, without unnecessary scope
 
@@ -68,10 +70,14 @@ is a separate future experiment.
 The [readiness ledger](workshop-readiness.md) and
 [verification receipt](evidence/memory-default-verification.json) are the
 canonical record of regression checks, CPU rehearsals and real MPS fits. Their
-scripted decisions establish engineering behavior. The saved real preflight
+scripted decisions establish engineering behavior. The historical saved preflight
 uses the former memory policy; its spending projection is obsolete for the
-revised prompts. A new live pilot, overnight comparison and Fashion held-out
-scoring remain pending.
+revised prompts. The [revised paid preflight](revised-preflight-results.md)
+completed 35 successful fits and verified artifacts, but failed with two audit
+errors from the researcher-alone memory gap and no audit warnings. Its measured
+cost supports a provisional projection, which must be refreshed after the gap is
+fixed. Key allowance was checked; underlying account funding is unverified.
+The overnight comparison and Fashion held-out scoring remain pending.
 
 Before paid evaluation, apply the organizer's cost rule: measured cost per run ×
 cases × repeats. The offline engineering package uses no paid calls. For the
@@ -88,8 +94,9 @@ they are not a spend forecast or a billing ceiling.
 
 1. Review the concise spec against the gaps above, confirm component owners and
    organizer/tracker status, and prepare the presentation from verified evidence.
-2. Finish review of the revised implementation. Before any paid launch, run a
-   new bounded live pilot, refresh the estimate, and verify funding and the host.
+2. Fix and verify researcher-alone lesson creation and delivery. Obtain an
+   accepted bounded live preflight and refresh the overnight estimate after the
+   correction; verify funding and the host before the repeated paid comparison.
 3. If the team proceeds, run the frozen 15-run comparison, freeze selections,
    score held-out artifacts once, and require complete accounting and a passing
    independent audit. Report all three matched pairs and uncertainty.

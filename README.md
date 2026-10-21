@@ -18,7 +18,7 @@ The study compares five ways of working:
 | Periodic supervision and reflection | Also reflects after each experiment |
 | The same approach without lesson memory | Tests the contribution of retaining lessons |
 
-The first four approaches keep lessons within each run. Every independent run starts fresh. Data, available experiments, and time allowances stay fixed so we can inspect the value and cost of these interactions. Retained lessons are context memory; the language model's weights do not change.
+The protocol enables lesson memory in the first four approaches. Every independent run starts fresh. Data, available experiments, and time allowances stay fixed so we can inspect the value and cost of these interactions. Retained lessons are context memory; the language model's weights do not change.
 
 ## Start here
 
@@ -29,7 +29,7 @@ The first four approaches keep lessons within each run. Every independent run st
 
 ## Where we are
 
-As of 21 October 2026, the runner, fixed classifier reference, automated acceptance cases, and a saved real interaction replay are available. The revised memory-default comparison has passed offline validation and is [under review](https://github.com/jakeberv/NightAgent/pull/14). A new bounded live pilot and the repeated overnight comparison are pending. The saved replay uses the earlier memory policy and demonstrates the mechanism; it does not establish that supervision or memory improves performance. See [readiness and evidence](docs/workshop-readiness.md) for the current limits.
+As of 21 October 2026, the memory-default implementation is [merged](https://github.com/jakeberv/NightAgent/pull/14). A [real preflight](docs/revised-preflight-results.md) completed 35 experiments for $1.67, but the researcher working alone retained no lessons. The overnight comparison is **on hold** until that memory gap is fixed and checked, costs are measured again, and account funding is confirmed. The saved replay demonstrates the earlier workflow; it does not establish that supervision or memory improves performance. See [readiness and evidence](docs/workshop-readiness.md) for details.
 
 This repository also contains a separate [conversational research prototype](nightagent/README.md) built with the Claude Agent SDK. It supports open-ended student–supervisor meetings and project files; the controlled workshop study described above provides the fixed experiments and comparative evaluation.
 

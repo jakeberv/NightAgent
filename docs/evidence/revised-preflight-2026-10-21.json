@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-21T01:26:20.016534-04:00",
+  "scope": "Real paid, validation-only revised memory-default preflight; failed memory acceptance. No paid rerun or overnight launch.",
+  "source": "study-runs/fashion-targeted-preflight-20261021-011538",
+  "runtime_base_commit": "3b4a3858340020d655a830aab87b0ad97eef71b3",
+  "model": "anthropic/claude-sonnet-4.5",
+  "provider": "anthropic",
+  "problem_hash": "fade8c9ef8167a2c0a047e1d6d022dccb4122dc8b7937bfaeaa521dab3287984",
+  "data_fingerprint": "b97c237e8bf7014eccbdb25db6a48999ab5b01c19f22640021736bb3a098a104",
+  "configuration": {
+    "comparison": "apprentice_interactions",
+    "repeats": 1,
+    "seed": 42,
+    "allowance_seconds": 300,
+    "trial_cap": 7,
+    "dollar_cap_per_run": 2,
+    "validation_only": true
+  },
+  "evidence": {
+    "suite_manifest_sha256": "a606601ea26737b7ad77ec649e8455c234080d7000e56cc623401c3baf7705de",
+    "original_audit_sha256": "a0e956398362cd8ddf50e048c5b0291f2c6de65a53ba028b186c8a0efcf221f0",
+    "paired_comparisons_sha256": "3d6da86d9649609511c7f1765da5465ba70ff36e21ddb0048cb8971bf6475a98",
+    "source_file_count": 49,
+    "source_matches_current_at_audit": true
+  },
+  "launcher_exit_code": 2,
+  "audit": {
+    "status": "fail",
+    "passed": false,
+    "errors": [
+      {
+        "scope": "r00-researcher_alone",
+        "code": "memory",
+        "message": "Memory arm must save a lesson and deliver it to a later researcher call"
+      },
+      {
+        "scope": "r00-researcher_alone",
+        "code": "memory",
+        "message": "Saved lesson register and summary must match the final journal register"
+      }
+    ],
+    "warnings": [],
+    "totals": {
+      "runs": 5,
+      "fits": 35,
+      "artifacts_verified": 35,
+      "calls": 65,
+      "cost": 1.6650209999999999
+    }
+  },
+  "arms": [
+    {
+      "arm": "researcher_alone",
+      "lesson_memory_enabled": true,
+      "successful_fits": 7,
+      "calls": 7,
+      "cost_usd": 0.15950399999999998,
+      "input_tokens": 38233,
+      "output_tokens": 2987,
+      "cost_complete": true,
+      "tokens_complete": true,
+      "elapsed_seconds": 87.58682966697961,
+      "best_validation_accuracy": 0.852,
+      "best_artifact_sha256": "6f5f7cc2c1c6d121edf7f0026262f5c0a9e6e09c9c6d29eadc2421ae944183dd",
+      "stop_reason": "trial_cap",
+      "reviews": 0,
+      "reflections": 0,
+      "lesson_update_events": 0,
+      "later_researcher_contexts_with_lessons": 0,
+      "reused_proposals": 0,
+      "invalid_contract_attempts": 0,
+      "journal_sha256": "772d34cf46894b276c1ad5d0b1fd0c558d298042d06117d322c90864d3b45b6d",
+      "lesson_context_field_present": true,
+      "empty_initial_lesson_register": true
+    },
+    {
+      "arm": "frequent",
+      "lesson_memory_enabled": true,
+      "successful_fits": 7,
+      "calls": 14,
+      "cost_usd": 0.398727,
+      "input_tokens": 88004,
+      "output_tokens": 8981,
+      "cost_complete": true,
+      "tokens_complete": true,
+      "elapsed_seconds": 210.69755983282812,
+      "best_validation_accuracy": 0.8483333333333334,
+      "best_artifact_sha256": "4c0a8e8c19198b6ca6551d0d6e383ad255e94a76cf693a3e67bb64f5a3b0a46f",
+      "stop_reason": "trial_cap",
+      "reviews": 6,
+      "reflections": 0,
+      "lesson_update_events": 4,
+      "later_researcher_contexts_with_lessons": 4,
+      "reused_proposals": 0,
+      "invalid_contract_attempts": 0,
+      "journal_sha256": "14cb4ec87912b4d128aa013d7b4c6d0421f51bfcd186605147825043ff9b3d66",
+      "lesson_context_field_present": true,
+      "empty_initial_lesson_register": true
+    },
+    {
+      "arm": "periodic",
+      "lesson_memory_enabled": true,
+      "successful_fits": 7,
+      "calls": 12,
+      "cost_usd": 0.315105,
+      "input_tokens": 76315,
+      "output_tokens": 5744,
+      "cost_complete": true,
+      "tokens_complete": true,
+      "elapsed_seconds": 154.68784749996848,
+      "best_validation_accuracy": 0.854,
+      "best_artifact_sha256": "57d2b05378516e05c38fd1148b6597ac701627649e50a9abd54c6fa2e47711c1",
+      "stop_reason": "trial_cap",
+      "reviews": 2,
+      "reflections": 0,
+      "lesson_update_events": 2,
+      "later_researcher_contexts_with_lessons": 6,
+      "reused_proposals": 2,
+      "invalid_contract_attempts": 0,
+      "journal_sha256": "fc8c6307b7c95667c1882c5c534b6cd1a5125e1433b7510a8d03ec763398fca8",
+      "lesson_context_field_present": true,
+      "empty_initial_lesson_register": true
+    },
+    {
+      "arm": "periodic_reflection",
+      "lesson_memory_enabled": true,
+      "successful_fits": 7,
+      "calls": 16,
+      "cost_usd": 0.41855699999999996,
+      "input_tokens": 102649,
+      "output_tokens": 7374,
+      "cost_complete": true,
+      "tokens_complete": true,
+      "elapsed_seconds": 182.84171091695316,
+      "best_validation_accuracy": 0.87,
+      "best_artifact_sha256": "3fcbe726054b445569ac5f4e36cffb3dd220f0beb04736f8a7e1df9f38a5feed",
+      "stop_reason": "trial_cap",
+      "reviews": 2,
+      "reflections": 6,
+      "lesson_update_events": 7,
+      "later_researcher_contexts_with_lessons": 5,
+      "reused_proposals": 0,
+      "invalid_contract_attempts": 0,
+      "journal_sha256": "4a2ed392591ec1b8c4c9cd4b1b186bc9796234d02a927422d84b11e81148821f",
+      "lesson_context_field_present": true,
+      "empty_initial_lesson_register": true
+    },
+    {
+      "arm": "periodic_reflection_no_memory",
+      "lesson_memory_enabled": false,
+      "successful_fits": 7,
+      "calls": 16,
+      "cost_usd": 0.373128,
+      "input_tokens": 92621,
+      "output_tokens": 6351,
+      "cost_complete": true,
+      "tokens_complete": true,
+      "elapsed_seconds": 167.48793366597965,
+      "best_validation_accuracy": 0.864,
+      "best_artifact_sha256": "f6692f198c17637ef7abd6281f45cf20ac9d683ef834a9b10dcc5c9e60b3425b",
+      "stop_reason": "trial_cap",
+      "reviews": 2,
+      "reflections": 6,
+      "lesson_update_events": 0,
+      "later_researcher_contexts_with_lessons": 0,
+      "reused_proposals": 0,
+      "invalid_contract_attempts": 0,
+      "journal_sha256": "c025e45db627b6389a484fbd94e5e9a62509b818bc3bb0f1736c232ff91253d1",
+      "lesson_context_field_present": false,
+      "empty_initial_lesson_register": true
+    }
+  ],
+  "total_tokens": 429259,
+  "postrun": {
+    "evaluate": "skipped_validation_only",
+    "report": "completed"
+  },
+  "elapsed_from_first_run_start_to_completion_seconds": 441.756261,
+  "contrasts": [
+    {
+      "condition_a": "researcher_alone",
+      "condition_b": "frequent",
+      "matched_pairs": 1
+    },
+    {
+      "condition_a": "frequent",
+      "condition_b": "periodic",
+      "matched_pairs": 1
+    },
+    {
+      "condition_a": "periodic",
+      "condition_b": "periodic_reflection",
+      "matched_pairs": 1
+    },
+    {
+      "condition_a": "periodic_reflection_no_memory",
+      "condition_b": "periodic_reflection",
+      "matched_pairs": 1
+    }
+  ],
+  "overnight_projection": {
+    "method": "3 repeats * sum(600 seconds * observed per-arm cost / observed per-arm elapsed seconds)",
+    "point_estimate_usd": 18.48152632508411,
+    "planning_margin_fraction": 0.3,
+    "with_planning_margin_usd": 24.025984222609345,
+    "limitation": "Single short failed-acceptance pilot; linear time scaling and 30% margin are planning assumptions, not a confidence interval or billing ceiling. Remeasure after memory fix."
+  },
+  "funding": {
+    "key_allowance_checked_before_and_after": true,
+    "charged_difference_reconciles_to_model_calls": true,
+    "underlying_account_balance_verified": false,
+    "account_api_http_status": 403,
+    "browser_state": "signed_out",
+    "private_receipts": "Kept outside version control under study-runs/preflight-readiness-20261021-011458"
+  },
+  "launch_ready": false,
+  "blockers": [
+    "Researcher-alone emitted no lesson_updates, so memory write and later-delivery coverage failed.",
+    "Underlying account funding is unverified.",
+    "Any memory-writing policy fix needs offline validation and a fresh accepted paid preflight."
+  ]
+}

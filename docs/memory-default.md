@@ -36,7 +36,9 @@ The earlier paid preflight used memory only in its final
 `periodic_reflection_memory` arm. Its [recorded real replay](evidence/fashion-demo/demo.md)
 is retained as historical mechanism evidence and cannot validate this revised
 comparison. Its approximately $18.12 overnight projection is historical only:
-the new memory prompts can change usage in four arms. A new bounded paid pilot
-must establish a current planning estimate before paid launch. Offline scripted
-rehearsal tests operation and memory delivery; it does not measure model strategy
-or establish a memory benefit.
+the new memory prompts can change usage in four arms. The
+[revised paid preflight](revised-preflight-results.md) now records actual usage
+and a provisional projection, but failed solo-memory coverage: optional updates
+were omitted throughout the run. Align the writing contract with acceptance and
+remeasure after a passing live check. Offline scripted scores do not establish
+strategy benefit or eliminate that blocker.

@@ -38,8 +38,10 @@ labels distinguish scripted or unverified records from real provider evidence.
 
 A new offline suite with scripted decisions and real synthetic-data CPU fits can
 verify this pipeline. Present it as engineering rehearsal, not language-model
-strategy evidence. This revision does not include a new paid-model preflight;
-held-out Fashion scoring and the overnight run remain pending.
+strategy evidence. The [revised paid preflight](docs/revised-preflight-results.md)
+completed but failed solo-memory acceptance; strict demo export must reject that
+suite. Use the historical fallback below. Held-out Fashion scoring and the
+overnight run remain pending.
 
 ## Historical real replay available from a fresh clone
 
@@ -72,7 +74,8 @@ Retain the historical-source and repaired-contract warnings. This is one matched
 repeat and a mechanism demonstration. A delivered lesson shows what entered a
 later context; it does not prove that the lesson caused an action or improved
 performance. The approximately $18.12 projection once derived from this preflight
-is historical only; current memory prompt usage needs a new bounded paid pilot.
+is historical only. The revised preflight supplies a provisional estimate, but
+its memory-coverage failure must be corrected and revalidated before launch.
 
 If services or compute fail during the workshop, show the saved real replay and
 identify it as historical. Do not recreate missing real artifacts or substitute

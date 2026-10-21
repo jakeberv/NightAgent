@@ -76,10 +76,13 @@ file. GPU and network access must be available to the process.
 
 This preflight checks execution and interaction coverage. A single repeat does
 not establish strategy superiority or causal benefits of advice or memory.
-No revised-protocol paid preflight is recorded here. Fresh offline rehearsal uses
-scripted decisions and real synthetic-data CPU fits without provider calls; its
-scores are engineering evidence. Before paid overnight launch, use a new bounded
-pilot to measure current memory prompt usage and refresh the spending estimate.
+The [21 October revised paid preflight](revised-preflight-results.md) completed
+35 fits and 65 calls for $1.665021, but failed researcher-alone memory coverage.
+The audit reported two errors from the absent lesson register/delivery and zero
+warnings. Overnight is **NO-GO** until the writing contract is corrected, tested
+and accepted in a fresh bounded preflight, with funding verified. The portable
+receipt preserves this failed result; do not weaken acceptance or relabel it.
+Offline scripted scores remain engineering evidence.
 
 ## Historical fixes and offline verification — 2026-10-20
 

@@ -4,8 +4,10 @@ This is the current demo comparison. It uses
 [`fashion-five-arm-overnight-config.json`](../study/fashion-five-arm-overnight-config.json),
 not the older three-arm `fashion-overnight-config.json` or the seven-attempt
 preflight. The [saved live preflight](targeted-preflight.md#historical-live-results--2026-10-20)
-used the former memory policy and is historical evidence. A new bounded paid
-pilot is required before launching this revised protocol.
+used the former memory policy and is historical evidence. The
+[revised 21 October paid preflight](revised-preflight-results.md) failed solo
+lesson-memory coverage. **Do not launch overnight** until the writing contract
+is corrected and a fresh bounded preflight passes, with funding verified.
 
 ## Frozen protocol
 
@@ -33,10 +35,11 @@ empty in each independent run and never transfer across repeats.
 
 ## Launch on the tested Mac
 
-First complete the revised [targeted preflight](targeted-preflight.md), refresh
-the usage estimate and verify funding. The previous approximately $18.12
-projection was based on the former memory policy and is historical only; memory
-in four main arms changes prompt usage. It is not a current planning estimate.
+Resolve the [documented preflight blocker](revised-preflight-results.md), run a
+fresh accepted [targeted preflight](targeted-preflight.md), refresh the usage
+estimate and verify funding. The failed run projects $18.48 for the scientific
+matrix, or $24.03 with a 30% planning reserve; both remain provisional until the
+memory-contract correction is revalidated. The earlier $18.12 estimate is historical.
 
 From the repository root, use the existing virtual environment and credential
 file. This command starts paid model calls. It retains a console log and exit

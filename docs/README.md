@@ -14,6 +14,7 @@ development history have distinct homes.
 | [Demo script](../DEMO.md) | Presentation sequence and honest fallback using saved real evidence |
 | [Readiness](workshop-readiness.md) | Dated verification results, known limits and prerequisites for a paid launch |
 | [Evaluation cases](evaluation-cases.md) | Eight named engineering acceptance cases and how to run them |
+| [Revised paid preflight result](revised-preflight-results.md) | Real-model measurements, failed memory coverage, diagnosis and launch decision |
 | [Fixed reference](fixed-reference.md) | Non-agent classifier result and reproducible receipt |
 
 ## Run the controlled study

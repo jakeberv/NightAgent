@@ -1,16 +1,20 @@
 # Workshop readiness — 21 October 2026
 
+**Overnight: NO-GO.** The revised paid preflight failed researcher-alone lesson
+coverage, and underlying account funding remains unverified. See
+[the full preflight result](revised-preflight-results.md).
+
 The current [specification](../SPEC.md), [protocol](workshop-protocol.md) and
 [launch recipe](five-arm-overnight.md) use the revised memory-default design.
-`researcher_alone`, `frequent`, `periodic` and `periodic_reflection` use lesson
-memory; `periodic_reflection_no_memory` is the matched memory-off control.
+`researcher_alone`, `frequent`, `periodic` and `periodic_reflection` have lesson
+memory enabled; `periodic_reflection_no_memory` is the matched memory-off control.
 The first three contrasts hold memory on; the fourth reports memory-on minus
 memory-off. Each independent repeat starts empty.
 
 ## Current verification
 
-The revision is ready for PR review and is deliberately **not merged**. Main
-retains the earlier memory policy until review and integration.
+PR 14 was merged into `main` on 21 October 2026 at `3b4a385`. The current
+checkout includes the reviewed memory-default implementation and documentation.
 
 - Full regression: **947 passed in 154.23 seconds** on the combined change.
 - [Eight engineering cases](evaluation-cases.md): **8/8 passed, 52 underlying
@@ -36,10 +40,33 @@ retains the earlier memory policy until review and integration.
   about double-counted preprocessing metadata is also fixed with full-config
   contract/lesson regressions. Re-review found no important remaining issues.
 
-All decisions in these new runs are scripted fixtures. These checks establish
-implementation behavior, not model strategy or memory benefit. No paid inference,
-held-out Fashion scoring or overnight launch occurred. Fresh read-only credit
-and host checks remain separate from engineering acceptance.
+All decisions in the offline runs above are scripted fixtures. These checks
+establish implementation behavior, not model strategy or memory benefit. They
+made no paid calls and did not score held-out Fashion data or launch overnight.
+The revised paid preflight and launch assessment are recorded separately below.
+
+## Revised paid preflight
+
+The 21 October [real-provider preflight](revised-preflight-results.md) completed
+all **35 fits**, verified all artifacts, and made **65 calls / 429,259 tokens**
+for **$1.665021**. All runs stopped at the seven-fit cap; reporting completed and
+held-out scoring was skipped. The original audit matched all 49 current runtime
+source files and returned **FAIL: two memory errors, zero warnings**.
+
+Researcher alone saved no lesson and delivered none later. Its optional
+`lesson_updates` field was omitted in every response. The three supervised
+memory-on arms wrote/delivered lessons; the control wrote none and omitted the
+lesson context field. This exposes a request-contract/acceptance mismatch, not
+lost writes. The missing final register is a consequence of the same absence.
+The [portable failed receipt](evidence/revised-preflight-2026-10-21.json) preserves
+the outcome. Do not mark this suite accepted or generate an accepted demo from it.
+
+Before another paid run, define and test an explicit first eligible observation
+note through the existing lesson-update contract, with bounded repair and no
+forced scientific insight. Then review the change and obtain fresh live
+acceptance. No runtime change or automatic paid rerun was made in this pass.
+The 947-test offline result above proves its recorded coverage; its scripted
+fixtures did not expose the live omission path.
 
 ## Documentation review
 
@@ -61,7 +88,7 @@ code verification; it was not rerun for this documentation pass.
 
 The latest [Copilot review on PR 14](https://github.com/jakeberv/NightAgent/pull/14#pullrequestreview-5595106330)
 reported no open issues and called for human review of the scientific treatment
-mapping and launch protocol. The PR remains open.
+mapping and launch protocol. The user completed review and merged the PR.
 
 ## Retained historical evidence
 
@@ -82,24 +109,32 @@ mapping and launch protocol. The PR remains open.
 
 ## Paid launch assessment
 
-A new bounded paid pilot is required before the
-[two-hour overnight recipe](five-arm-overnight.md). The approximately **$18.12**
-projection previously extrapolated from seven-attempt preflight costs and times
-is historical only. Enabling memory in four main arms changes prompt usage;
-that projection is no longer a reliable planning estimate. Preserve the
-600-second allowances, Fashion data/targets, fit limits and resource policy.
-The fifteen $5 guards sum to $75 and permit an in-flight overrun; they are not a
-billing ceiling.
+The current failed preflight gives a **provisional $18.48** API-cost projection
+for fifteen 600-second runs, or **$24.03 with a 30% planning reserve**. The
+[method and limitations](revised-preflight-results.md#cost-funding-and-host-checks)
+are explicit: linear scaling from one short pilot and a planning reserve are not
+a confidence interval or a billing ceiling. Remeasure after the memory-contract
+correction. The earlier $18.12 projection remains historical. Preserve the
+frozen data, targets, 600-second allowances and resource policy. Fifteen $5 guards
+sum to $75 and allow an in-flight overrun.
 
-Recheck current key allowance, account funding, AC power and available storage
-immediately before paid work. The read-only key check was refreshed at 00:41 Toronto on 21 October; numeric
-receipts remain ignored locally under study-runs/memory-default-readiness-20261021.
-The account balance remains unverified. Key allowance does not establish underlying account
-funding; the earlier account-balance request returned 403. Keep credentials and
-raw key metadata out of documents and Git.
+Key allowance was checked before the run and again at 01:25 Toronto on
+21 October. Its charged difference matches the complete call accounting.
+It covers the provisional buffered estimate. Numeric account/key receipts remain
+ignored under `study-runs/preflight-readiness-20261021-011458`.
+**Underlying funding remains unverified:** the account-credit request returned
+403 for the inference key and the browser was signed out. Successful pilot
+billing is not proof of enough funding for the larger matrix. No credits were
+purchased or limits changed.
+
+AC power, 100% battery, approximately 1.8 TiB free space and available MPS were
+confirmed before the run. Recheck key allowance, underlying account funding and
+the host immediately before launch. Keep credentials and raw account metadata
+out of documents and Git.
 
 The overnight suite has **not launched** and Fashion-MNIST held-out data remains
-unscored. After launch, require complete accounting, verified artifacts, frozen
-held-out selection and independent audit acceptance before comparative claims.
-Three matched repeats support a workshop pilot; delivery of lessons does not
-establish a memory benefit or learning between runs.
+unscored. Launch requires a corrected, reviewed memory contract, passing bounded
+live acceptance and verified funding. After launch, require complete accounting,
+verified artifacts, frozen held-out selection and independent audit acceptance.
+Three matched repeats support a workshop pilot; lesson delivery alone does not
+establish benefit or learning between runs.
