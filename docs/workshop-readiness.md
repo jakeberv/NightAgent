@@ -73,9 +73,23 @@ acceptance gate or replace the original audit to make an accepted export.
 
 First verify the reliability correction offline and finish review/CI integration.
 Before a new long run, use a brief paid operational preflight with a freshly
-checked key allowance and effective budget. No paid rerun was requested or launched in this correction pass. A refreshed
-allowance check covers a small operational preflight, but cannot fund another
-full matrix at the observed $22.44 lower-bound cost.
+checked key allowance and effective budget. No paid rerun was requested or
+launched in this correction pass. A fresh allowance check at **10:05 Toronto on
+21 October** confirmed key-level capacity for the small preflight and the full
+matrix's $75 nominal combined guards; the earlier shortage assessment is
+superseded. Account-wide balance remains unavailable through the inference key.
+This is a funding check, not a live reliability result or a launch.
+
+The proposed operational preflight targets the changed paths without repeating
+the full matrix: **researcher alone to 14 fits**, crossing the 12-trial history
+window; **frequent supervision to seven fits**; and the
+**memory-off reflection control to seven fits**. Use seed 42, up to 300 seconds
+and a $1 API guard per run ($3 nominal total, with possible in-flight overrun),
+validation only. Check complete billing, artifact integrity, required feedback
+and memory behavior, old-configuration visibility, proposal reuse and actual
+token cost. These three arms check operation; they are not a matched strategy
+comparison. Offline injected failures already cover timeout reconciliation and
+terminal repair boundaries; do not spend tokens deliberately forcing failures.
 
 The seed-42 frequent and memory-off attempts lack full historical coverage. A
 partial rerun could only fill those historical gaps if the treatment and runtime

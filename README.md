@@ -36,7 +36,7 @@ with a $5 guard per run ($75 combined; an in-flight call can exceed a guard).
 They finish with held-out evaluation, a comparison report and an acceptance audit.
 Check funding and run the [operational preflight](docs/workshop-readiness.md#what-requires-new-validation)
 before another full comparison. The previous Fashion run cost at least $22.44;
-current key allowance does not cover a repeat at that cost.
+remeasure costs under the corrected context before projecting another run.
 
 **Fashion-MNIST, matching the overnight design.** First [prepare the data and
 install the neural dependencies](docs/fashion-pilot.md). This uses Apple MPS;
