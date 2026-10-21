@@ -187,6 +187,9 @@ Machine-local evidence: `study-runs/fashion-calibration-final-20261020/calibrati
 
 ## Frozen overnight comparison
 
+This is the earlier three-arm supervisor-style protocol. For the current demo,
+use the [five-arm overnight comparison](five-arm-overnight.md).
+
 Use `study/fashion-overnight-config.json` with the same active problem and prepared
 partitions as the five-minute preflight. The only differences from
 `study/fashion-five-minute-config.json` are the per-run allowance (900 seconds),

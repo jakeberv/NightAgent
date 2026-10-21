@@ -121,7 +121,7 @@ Keep validation and repair enabled; do not weaken the limit or spend tonight
 expanding scope to force perfect model formatting.
 
 Recommendation: freeze this tested implementation for the proposed three-repeat,
-ten-minute five-arm run. This preflight establishes execution coverage, not
+ten-minute [five-arm overnight run](five-arm-overnight.md). This preflight establishes execution coverage, not
 strategy superiority. Some model hypotheses remain speculative and experiments
 change multiple settings; the reports mark interpretations unverified and
 comparisons confounded where applicable. Treat those as trace material, not

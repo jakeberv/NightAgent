@@ -19,6 +19,8 @@ cover MAGIC binary AUC, multiclass CSV, MNIST multiclass AUC, and regression.
 See its README for setup, the MAGIC feasibility pilot, and the overnight CLI.
 The [Fashion-MNIST GPU pilot](docs/fashion-pilot.md) adds small local MLP/CNN
 models and reports strategy cost/token efficiency at fixed accuracy targets.
+The current demo launch is the [five-arm overnight comparison](docs/five-arm-overnight.md),
+with three matched repeats and an automatic offline acceptance audit.
 The conversational prototype below remains available separately.
 
 ## What we are building

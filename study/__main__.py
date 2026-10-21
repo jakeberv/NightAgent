@@ -187,6 +187,10 @@ async def _dispatch(args, progress):
             seed = args.seed if args.seed is not None else 42
             manifest = prepare_dataset(args.output, csv_path=args.csv, synthetic=args.synthetic, seed=seed)
         print(f"Prepared {manifest['dataset']} in {args.output}; fingerprint {manifest['data_fingerprint']}")
+    elif args.command == "audit":
+        from .audit import write_audit
+        if not write_audit(args.output)['passed']:
+            raise RuntimeError('Audit failed; see audit-summary.json')
     elif args.command == "recover":
         summary = recover_run(args.output)
         print(f"Frozen {args.output}: {summary['stop_reason']}")
@@ -247,6 +251,8 @@ async def _dispatch(args, progress):
         if args.command == 'run' and getattr(args, 'condition', None) is not None:
             overrides['condition'] = args.condition
         config = replace(config, **overrides)
+        if getattr(args, 'audit', False) and config.comparison != 'apprentice_interactions':
+            raise ValueError('--audit requires comparison=apprentice_interactions')
         problem = preflight_problem(problem_path, args.data)
         from .controller import execution_config
         config = execution_config(config, problem)
@@ -276,12 +282,20 @@ async def _dispatch(args, progress):
             require_successful_runs([summary])
         else:
             deadline = datetime.fromisoformat(args.deadline)
-            summaries = await run_suite(config, args.data, args.output, repeats=args.repeats, deadline=deadline,
-                reserve_seconds=args.reserve_seconds, order_seed=args.order_seed, model_factory=live_model,
-                provider_metadata=provider_metadata, problem=problem, progress=progress,
-                validation_only=getattr(args, 'validation_only', False))
-            await finish_before_deadline(args.data, args.output, deadline,
-                validation_only=getattr(args, 'validation_only', False))
+            audit_result = None
+            try:
+                summaries = await run_suite(config, args.data, args.output, repeats=args.repeats, deadline=deadline,
+                    reserve_seconds=args.reserve_seconds, order_seed=args.order_seed, model_factory=live_model,
+                    provider_metadata=provider_metadata, problem=problem, progress=progress,
+                    validation_only=getattr(args, 'validation_only', False))
+                await finish_before_deadline(args.data, args.output, deadline,
+                    validation_only=getattr(args, 'validation_only', False))
+            finally:
+                if getattr(args, 'audit', False) and (args.output/'suite.json').exists():
+                    from .audit import write_audit
+                    audit_result = write_audit(args.output)
+            if audit_result is not None and not audit_result['passed']:
+                raise RuntimeError('Audit failed; see audit-summary.json')
             require_successful_runs(summaries)
 
 
@@ -331,6 +345,8 @@ def main():
                            help='Schedules, supervisor styles, or five targeted apprentice interactions; defaults to config')
             p.add_argument("--validation-only", action="store_true",
                            help="Pilot all strategies and generate a report without held-out test scoring")
+            p.add_argument('--audit', action='store_true',
+                           help='Audit five-arm interaction coverage and saved artifacts after the suite')
             p.add_argument("--repeats", type=int, default=5)
             p.add_argument("--deadline", required=True, help="Hard study deadline with timezone, e.g. 2026-10-21T08:00:00-04:00")
             p.add_argument("--reserve-seconds", type=float, default=3600)
@@ -341,7 +357,7 @@ def main():
     reference.add_argument("--seed", type=int, default=42)
     reference.add_argument("--timeout", type=float, default=60)
     reference.add_argument("--problem", type=Path)
-    for command in ("smoke", "evaluate", "report", "recover"):
+    for command in ("smoke", "evaluate", "report", "recover", "audit"):
         p = sub.add_parser(command)
         p.add_argument("--output", type=Path, required=True)
         if command == "evaluate":
