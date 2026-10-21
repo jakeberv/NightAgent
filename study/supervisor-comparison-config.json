@@ -16,7 +16,7 @@
   "literature_calls_per_review": 3,
   "literature_timeout_seconds": 15,
   "allow_unknown_cost": false,
-  "decision_protocol": "structured_v1",
+  "decision_protocol": "structured_v2",
   "lesson_memory": true,
   "memory_limit": 6,
   "comparison": "supervisor_strategies"

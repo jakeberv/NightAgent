@@ -28,6 +28,44 @@ def bounded_options(adapter, limit=4):
     return options
 
 
+def scripted_candidate(context):
+    """Choose a deterministic, bounded offline fixture; never used by live agents."""
+    from .science import ANALYSIS_SCHEMA
+    schema = context.get('permitted_experiments') or ANALYSIS_SCHEMA
+    model = schema['properties']['model']['enum'][0]
+    parameters = next(branch['then']['properties']['params']['properties']
+        for branch in schema['allOf']
+        if branch['if']['properties']['model']['const'] == model
+        and 'params' in branch['then']['properties'])
+    registry = context.get('completed_configurations', {})
+    numeric = [(name, spec) for name, spec in parameters.items()
+               if spec.get('type') in ('number', 'integer')]
+    preprocessing = ('none' if model.startswith('torch_') else
+                     schema['properties']['preprocessing']['enum'][0])
+    candidate = {'model': model, 'preprocessing': preprocessing, 'params': {}}
+    completed = [entry for entry in registry.get('entries', []) if entry['model'] == model]
+    if not numeric:
+        if completed:
+            raise ValueError('The bounded offline candidate fixture is exhausted.')
+        return candidate
+    name, spec = next((item for item in numeric if item[1]['type'] == 'number'), numeric[0])
+    used = {(registry.get('parameter_bases', {}).get(model, {}) | entry['params']).get(name)
+            for entry in completed}
+    choices = spec.get('enum')
+    if choices is None:
+        low, high = spec['minimum'], spec['maximum']
+        index = context.get('trials_attempted', 0) + 1
+        choices = [(low + (high - low) * step / (step + 1) if spec['type'] == 'number'
+                    else low + step % (high - low + 1))
+                   for step in range(index, index + len(used) + 2)]
+    value = next((choice for choice in choices if choice not in used), None)
+    if value is None:
+        raise ValueError('The bounded offline candidate fixture is exhausted.')
+    candidate['params'][name] = value
+    return candidate
+
+
+
 def scripted_contract(role, context):
     """Observable, explicitly scripted reasoning for the offline demonstration."""
     metric = context.get("objective", {}).get("metric", "roc_auc")
@@ -44,7 +82,6 @@ def scripted_contract(role, context):
         has_feedback = context.get("last_supervisor_feedback") is not None or context.get("initial_framing") is not None
         common.update(hypothesis="A different model capacity may improve validation performance.",
             baseline_trial_id=latest["trial_id"] if evidence else None,
-            change="Run the next classifier in the fixed offline demonstration sequence.",
             expected_outcome="The validation score will describe the next classifier's performance.",
             supervisor_response="modified" if has_feedback else "not_applicable",
             response_reason="The offline sequence is fixed and does not adapt to advice." if has_feedback
@@ -53,7 +90,7 @@ def scripted_contract(role, context):
         common.update(assessment=("The recorded trials provide validation observations for comparison." if evidence else
                         "No completed trials yet distinguish these hypotheses."),
             unresolved_question="Would another model capacity improve validation performance?",
-            recommendation="Compare another bounded model configuration.",
+            recommendation=scripted_candidate(context),
             expected_outcome="Improved validation performance would support testing that capacity further on this split.")
         if context.get('supervisor_stage') == 'framing':
             common.update(motivation="Compare model capacity to guide the use of this run's limited budget.",
@@ -68,7 +105,7 @@ def scripted_contract(role, context):
     else:
         common.update(what_changed="The latest trial added a validation observation.",
             uncertainty="A single observation does not establish generalization beyond this split.",
-            next_comparison="Compare the next configuration in the fixed offline sequence.")
+            next_comparison=scripted_candidate(context))
     if "lessons" in context and evidence:
         common["lesson_updates"] = [{"id": "latest_observation", "status": "inconclusive",
             "summary": "The latest trial provides an observation that still needs independent replication.",
@@ -86,14 +123,18 @@ class FakeModel:
         calls = []
         context = json.loads(messages[1]["content"]) if len(messages) > 1 else {}
         contract = scripted_contract(role.removeprefix("ROLE: "), context)
+        options = self.options or [
+            {"model": "logistic", "preprocessing": "standard", "params": {"C": 1}},
+            {"model": "random_forest", "preprocessing": "none", "params": {"n_estimators": 30}},
+            {"model": "histogram_gradient_boosting", "preprocessing": "none", "params": {"max_iter": 40}},
+            {"model": "histogram_gradient_boosting", "preprocessing": "standard", "params": {"max_iter": 80}},
+        ]
+        if role != 'ROLE: researcher':
+            field = 'recommendation' if role == 'ROLE: supervisor' else 'next_comparison'
+            if self.trials < len(options):
+                contract[field] = deepcopy(options[self.trials])
         content = json.dumps(contract)
         if role == "ROLE: researcher":
-            options = self.options or [
-                {"model": "logistic", "preprocessing": "standard", "params": {"C": 1}},
-                {"model": "random_forest", "preprocessing": "none", "params": {"n_estimators": 30}},
-                {"model": "histogram_gradient_boosting", "preprocessing": "none", "params": {"max_iter": 40}},
-                {"model": "histogram_gradient_boosting", "preprocessing": "standard", "params": {"max_iter": 80}},
-            ]
             config = {**options[self.trials % len(options)], "intent": contract}
             self.trials += 1
             calls = [{"id": f"fake-{self.trials}", "type": "function",

@@ -45,7 +45,7 @@ class StructuredModel:
 
 def test_bad_evidence_repairs_within_existing_budget_before_training(tmp_path):
     model = StructuredModel(invalid_first=True, memory=True)
-    result = asyncio.run(run_one(StudyConfig(decision_protocol='structured_v1', trial_cap=2),
+    result = asyncio.run(run_one(StudyConfig(decision_protocol='structured_v2', trial_cap=2),
         tmp_path, tmp_path / 'run', model, trial_runner=trial, project={'feature_names': ['a'] * 10}))
     assert result['trials'] == 2 and model.calls == 3
     events = [json.loads(line) for line in (tmp_path / 'run/events.jsonl').read_text().splitlines()]
@@ -57,7 +57,7 @@ def test_bad_evidence_repairs_within_existing_budget_before_training(tmp_path):
 
 def test_memory_is_run_local_survives_history_window_and_recovers(tmp_path):
     model = StructuredModel(memory=True)
-    config = StudyConfig(decision_protocol='structured_v1', trial_cap=16)
+    config = StudyConfig(decision_protocol='structured_v2', trial_cap=16)
     result = asyncio.run(run_one(config, tmp_path, tmp_path / 'run', model, trial_runner=trial, project={}))
     assert model.contexts[0]['lessons'] == []
     assert result['trials'] == 16
@@ -70,7 +70,7 @@ def test_memory_is_run_local_survives_history_window_and_recovers(tmp_path):
     events_path.write_text(''.join(json.dumps(event) + '\n' for event in events if event['type'] != 'run_stopped'))
     assert recover_run(tmp_path / 'run')['lessons'] == result['lessons']
     other = StructuredModel()
-    asyncio.run(run_one(StudyConfig(trial_cap=1, decision_protocol='structured_v1'), tmp_path,
+    asyncio.run(run_one(StudyConfig(trial_cap=1, decision_protocol='structured_v2'), tmp_path,
         tmp_path / 'other', other, trial_runner=trial, project={}))
     assert other.contexts[0]['lessons'] == []
 
@@ -95,7 +95,7 @@ def test_invalid_review_is_not_accepted_as_feedback(tmp_path):
                 return {'message': {'role': 'assistant', 'content': 'An unsupported fragment'},
                         'usage': {'prompt_tokens': 2, 'completion_tokens': 2, 'cost': 0}}
             return await super().complete(messages, tools, timeout=timeout)
-    result = asyncio.run(run_one(StudyConfig(condition='frequent', decision_protocol='structured_v1',
+    result = asyncio.run(run_one(StudyConfig(condition='frequent', decision_protocol='structured_v2',
         review_tool_calls=1, trial_cap=2), tmp_path, tmp_path / 'run', Reviewer(), trial_runner=trial, project={}))
     assert result['stop_reason'] == 'invalid_contract'
     assert result['trials'] == 1

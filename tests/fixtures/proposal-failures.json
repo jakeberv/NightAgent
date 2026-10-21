@@ -1,0 +1,93 @@
+{
+  "source_suite": "fashion-five-arm-20261021-105952",
+  "note": "Compact executable failures extracted from journals; values are source observations, not synthetic benchmark results.",
+  "cases": {
+    "out_of_bounds": {
+      "source": {
+        "run": "r01-periodic",
+        "event_line": 137,
+        "event_type": "review",
+        "after_trial": 9
+      },
+      "observed_advice": "Increase n_estimators from 100 to 150.",
+      "candidate": {
+        "model": "random_forest",
+        "preprocessing": "standard",
+        "params": {
+          "n_estimators": 150,
+          "max_depth": 20,
+          "min_samples_leaf": 1,
+          "max_features": "sqrt"
+        }
+      },
+      "bounded_maximum": 100
+    },
+    "unsupported_seed": {
+      "source": {
+        "run": "r00-frequent",
+        "event_line": 183,
+        "event_type": "experiment_reused",
+        "matched_trial_ids": [
+          8
+        ]
+      },
+      "observed_change": "Changed seed from 42 to 43 while keeping all hyperparameters identical to trial 8.",
+      "candidate": {
+        "model": "torch_cnn",
+        "preprocessing": "none",
+        "params": {
+          "epochs": 5,
+          "batch_size": 128,
+          "learning_rate": 0.004,
+          "weight_decay": 0.001,
+          "channels": 16
+        },
+        "seed": 43
+      }
+    },
+    "completed_candidate": {
+      "source": {
+        "run": "r00-periodic_reflection_no_memory",
+        "event_line": 400,
+        "event_type": "experiment_reused",
+        "matched_trial_ids": [
+          5
+        ]
+      },
+      "observed_change": "Increased MLP hidden_width from 128 default to 128 with epochs=5, batch_size=256, learning_rate=0.001, weight_decay=0.01.",
+      "candidate": {
+        "model": "torch_mlp",
+        "preprocessing": "none",
+        "params": {
+          "epochs": 5,
+          "batch_size": 256,
+          "learning_rate": 0.001,
+          "weight_decay": 0.01,
+          "hidden_width": 128
+        }
+      }
+    },
+    "narrative_payload_mismatch": {
+      "source": {
+        "run": "r01-periodic",
+        "event_line": 62,
+        "event_type": "experiment_reused",
+        "matched_trial_ids": [
+          4
+        ]
+      },
+      "observed_change": "Modifying CNN hyperparameters to test alternative configurations beyond the 5-epoch setting already evaluated in trial 4.",
+      "candidate": {
+        "model": "torch_cnn",
+        "preprocessing": "none",
+        "params": {
+          "channels": 16,
+          "learning_rate": 0.001,
+          "batch_size": 256,
+          "epochs": 5,
+          "weight_decay": 0.01
+        }
+      }
+    }
+  }
+}

@@ -188,6 +188,13 @@ def build_context(state, *, project, permitted_experiments, memory, role=None, f
                   reuse_feedback=None):
     """Render current budgets and observations; retain all-trial citation visibility."""
     config, summary, history = state.config, state.summary, state.history
+    from .diagnostics import experiment_diagnostic
+    def completed_advice(contract, field):
+        candidate = (contract or {}).get(field)
+        if not isinstance(candidate, dict):
+            return []
+        return experiment_diagnostic(candidate, problem=state.problem, project=project,
+            seed=config.training_seed, history=history)['equivalent_trial_ids']
     return json.dumps({
         'project': agent_project(project),
         'recent_trials': [compact_result(row) for row in history[-config.history_trials:]],
@@ -199,6 +206,9 @@ def build_context(state, *, project, permitted_experiments, memory, role=None, f
             'supervisor_stage': 'framing' if framing else 'review'} if role == 'supervisor' else {}),
         'best': compact_result(summary['best'] or {}),
         'last_supervisor_feedback': compact_feedback(state.feedback),
+        'recommendation_completed_trial_ids': completed_advice(state.feedback, 'recommendation'),
+        'reflection_completed_trial_ids': completed_advice(state.reflection, 'next_comparison'),
+        'training_seed': config.training_seed,
         'active_advice_source': ('none' if state.feedback is None else
                                 'initial_framing' if state.feedback == state.initial_framing else 'review'),
         'initial_framing': compact_feedback(state.initial_framing),

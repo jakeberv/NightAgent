@@ -324,7 +324,7 @@ def test_grounded_preprocessing_scope_counts_independent_settings_with_full_diag
         'summary': 'The cited trials recorded validation measurements.',
         'what_changed': 'The preprocessing choice changed between the trials.',
         'uncertainty': 'A validation comparison alone does not establish causality.',
-        'next_comparison': 'Repeat the comparison with a different model setting.',
+        'next_comparison': {'model': 'logistic', 'preprocessing': 'standard', 'params': {'C': .5}},
         'evidence': evidence,
         'lesson_updates': [{'id': 'scaling', 'status': 'supported',
             'summary': 'The preprocessing settings were compared.',

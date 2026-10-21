@@ -1,5 +1,21 @@
 # Workshop readiness — 21 October 2026
 
+## Latest operational assessment
+
+The [shared-action contract preflight](shared-contract-preflight.md) completed
+24 fits across the seed-43 periodic and two reflection attempts, with complete
+accounting and zero independent run-audit errors or warnings. All 22 accepted
+suggestions were executable and novel when accepted. One duplicate researcher
+proposal recovered immediately without another fit, so the strict zero-duplicate
+target remains **FAIL**. The original verifier and interrupted study are preserved.
+
+The correction supports considering a new bounded full study after integration,
+with recovered proposal errors recorded as outcomes. It does not establish
+duplicate-free behavior, a full five-arm acceptance or strategy superiority.
+Use one frozen source for all 15 attempts, a fresh two-hour window and refreshed
+host/budget checks; no replacement full run has been launched. This assessment
+supersedes the historical validation queue below.
+
 **Original overnight acceptance: FAIL.** The
 [15-attempt overnight comparison](overnight-results.md) produced **349 verified
 fits**, but two timeout stops and an unrepaired final supervisor note caused

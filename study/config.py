@@ -59,7 +59,7 @@ class StudyConfig:
     allow_unknown_cost: bool = False
     max_cores: int | None = None
     device: str = 'auto'
-    decision_protocol: str = "structured_v1"
+    decision_protocol: str = "structured_v2"
     reasoning_policy: str = "grounded_v3"
     context_policy: str = "active_advice_v1"
     supervisor_policy: str = "supervision_v2"
@@ -85,8 +85,8 @@ class StudyConfig:
             raise ValueError('device must be auto, cpu, or mps')
         if self.reasoning_policy != "grounded_v3":
             raise ValueError("reasoning_policy must be grounded_v3")
-        if self.decision_protocol != "structured_v1":
-            raise ValueError("decision_protocol must be structured_v1")
+        if self.decision_protocol not in ("structured_v1", "structured_v2"):
+            raise ValueError("decision_protocol must be structured_v2 (structured_v1 is readable historical metadata)")
         if type(self.lesson_memory) is not bool:
             raise ValueError("lesson_memory must be boolean")
         if type(self.memory_limit) is not int or not 1 <= self.memory_limit <= 12:

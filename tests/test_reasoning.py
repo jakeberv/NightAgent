@@ -10,7 +10,7 @@ HISTORY = [{"trial_id": 1, "status": "completed", "validation_auc": .9,
 
 def decision():
     return {"hypothesis": "Stronger regularization may improve validation performance.",
-            "baseline_trial_id": 1, "change": "Reduce C while retaining the preprocessing.",
+            "baseline_trial_id": 1,
             "expected_outcome": "A higher validation score would support stronger regularization.",
             "supervisor_response": "not_applicable", "response_reason": "No supervisor has reviewed this run.",
             "summary": "The researcher is testing stronger regularization against trial 1.",
@@ -19,6 +19,7 @@ def decision():
 
 def recorded_decision():
     contract = decision()
+    contract['change'] = 'Compared with trial 1: C changed from 1 to 0.5.'
     contract['evidence'] = [{'trial_id': 1, 'metric': 'roc_auc', 'split': 'validation', 'value': .9}]
     return contract
 
@@ -52,6 +53,7 @@ def test_reference_only_citations_resolve_exact_values_without_mutating_input():
     assert contract == original
     assert resolved['evidence'] == [{'trial_id': 1, 'metric': 'roc_auc', 'split': 'validation', 'value': .9}]
     assert resolved['lesson_updates'][0]['evidence'] == resolved['evidence']
+    resolved['change'] = 'Compared with trial 1: C changed from 1 to 0.5.'
     assert module.validate_contract(resolved, 'researcher', HISTORY, memory=True) == []
     assert module.validate_contract(contract, 'researcher', HISTORY, memory=True)
 
@@ -177,28 +179,28 @@ def test_memory_is_bounded_revisable_and_does_not_accept_ungrounded_lessons():
 
 def test_structured_tool_schema_keeps_anthropic_compatible_root():
     from study.config import StudyConfig
-    config = StudyConfig(decision_protocol="structured_v1")
+    config = StudyConfig(decision_protocol="structured_v2")
     from study.provider import completion_tools
     schema = completion_tools(model_tools.tools_for("researcher", config))[0]["function"]["parameters"]
     assert schema["type"] == "object"
     assert not {"oneOf", "allOf", "anyOf"} & schema.keys()
     assert "intent" in schema["required"]
     assert "lesson_updates" in schema["properties"]["intent"]["properties"]
-    config = StudyConfig(decision_protocol="structured_v1", lesson_memory=False)
+    config = StudyConfig(decision_protocol="structured_v2", lesson_memory=False)
     schema = model_tools.tools_for("researcher", config)[0]["function"]["parameters"]
     assert "lesson_updates" not in schema["properties"]["intent"]["properties"]
 
 
 def test_structured_contract_is_default_and_legacy_runtime_is_rejected():
     from study.config import StudyConfig
-    assert StudyConfig().decision_protocol == "structured_v1"
+    assert StudyConfig().decision_protocol == "structured_v2"
     assert StudyConfig(lesson_memory=True).lesson_memory
     with pytest.raises(ValueError, match="structured"):
         StudyConfig(decision_protocol="legacy")
 
 
 def test_length_repairs_report_all_limits_without_echoing_long_responses():
-    contract = decision()
+    contract = recorded_decision()
     contract.update(summary="Long summary " * 50 + ".", hypothesis="Long hypothesis " * 50 + ".")
     errors = reasoning().validate_contract(contract, "researcher", HISTORY)
     assert any("summary" in error and "240" in error for error in errors)

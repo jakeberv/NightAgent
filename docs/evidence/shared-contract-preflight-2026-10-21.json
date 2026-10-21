@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "checked_at_utc": "2026-10-21T16:08:44.349483+00:00",
+  "status": "completed_with_one_recovered_agent_error",
+  "operational_integrity": "PASS",
+  "strict_zero_duplicate_acceptance": "FAIL",
+  "strict_checks": 380,
+  "strict_failed_checks": [
+    "periodic no duplicate researcher proposals observed"
+  ],
+  "audit_errors": [],
+  "audit_warnings": [],
+  "scope": "Three independent seed43 validation-only operational attempts; not full five-arm acceptance or a scientific efficacy comparison.",
+  "full_run_launched": false,
+  "heldout_scored": false,
+  "totals": {
+    "fits": 24,
+    "calls": 47,
+    "known_cost_usd": 1.393431,
+    "input_tokens": 343957,
+    "output_tokens": 24104,
+    "mps_neural_fits": 21,
+    "classical_cpu_fits": 3,
+    "duplicate_proposals": 1,
+    "contract_rejections": 0,
+    "failed_model_calls": 0,
+    "unknown_cost_calls": 0,
+    "verified_artifacts": 24
+  },
+  "engineering": {
+    "full_pytest_passed": 1120,
+    "additional_pilot_config_checks": 4,
+    "named_cases": 8,
+    "named_checks": 62,
+    "independent_code_review": "No remaining material blocker after configuration-pin fixes."
+  },
+  "independent_run_review": {
+    "audit_errors": 0,
+    "audit_warnings": 0,
+    "accepted_advice_valid_and_novel": 22,
+    "memory_on_save_events_per_arm": 8,
+    "memory_on_contexts_with_lessons_per_arm": 12,
+    "memory_off_save_events": 0,
+    "memory_off_lessons_key_absent": true,
+    "seed": 43
+  },
+  "recovered_proposal": {
+    "classification": "Bounded researcher planning error handled by existing framework safeguards, not missing registry/status/validator data flow.",
+    "run": "r01-periodic",
+    "researcher_request_line": 103,
+    "researcher_response_line": 104,
+    "canonical_contract_line": 106,
+    "reuse_line": 107,
+    "recovery_response_line": 109,
+    "recovery_contract_line": 111,
+    "review9_line": 137,
+    "description": "Researcher acknowledged fulfilled trial7 advice, then requested channels16 while claiming an increase to the maximum, which is already16. Canonical contract recorded no effective change and executed:false. Reuse prevented another fit. Next call changed channels16 to12 and progressed through review9 and fit10.",
+    "duplicate_call_cost_usd": 0.03744,
+    "duplicate_call_seconds": 14.1845,
+    "strict_zero_duplicate_verdict": "FAIL",
+    "independent_review": "No new framework layer or extra paid rerun solely to chase a zero count is recommended."
+  },
+  "recommendation": "Ready to consider a bounded full study after reviewing these results, with occasional recovered proposal errors recorded as outcomes. Do not claim duplicate-free behavior, strategy superiority, or a full five-arm pass. No further paid rerun solely to obtain zero proposals is recommended.",
+  "runs": [
+    {
+      "arm": "periodic",
+      "fits": 10,
+      "calls": 15,
+      "reuses": 1,
+      "contract_rejections": 0,
+      "best_validation_accuracy": 0.876,
+      "elapsed_seconds": 217.753787209047,
+      "neural_fits": 10,
+      "cost_usd": 0.485286
+    },
+    {
+      "arm": "periodic_reflection",
+      "fits": 7,
+      "calls": 16,
+      "reuses": 0,
+      "contract_rejections": 0,
+      "best_validation_accuracy": 0.871,
+      "elapsed_seconds": 187.01852908404544,
+      "neural_fits": 4,
+      "cost_usd": 0.477777
+    },
+    {
+      "arm": "periodic_reflection_no_memory",
+      "fits": 7,
+      "calls": 16,
+      "reuses": 0,
+      "contract_rejections": 0,
+      "best_validation_accuracy": 0.8806666666666667,
+      "elapsed_seconds": 169.55866987491027,
+      "neural_fits": 7,
+      "cost_usd": 0.430368
+    }
+  ]
+}

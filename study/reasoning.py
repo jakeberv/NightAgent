@@ -42,7 +42,7 @@ def lesson_update_required(role, *, memory, history, lessons):
 
 
 def contract_schema(role, memory=False, *, supervisor_strategy='night_science', framing=False,
-                    require_lesson_update=False):
+                    require_lesson_update=False, analysis_schema=None):
     """Schema for canonical contracts stored in logs, feedback and memory."""
     properties = {"summary": prose(240), "evidence": deepcopy(EVIDENCE)}
     if role == "researcher":
@@ -56,14 +56,15 @@ def contract_schema(role, memory=False, *, supervisor_strategy='night_science', 
                 "type": "array", "minItems": 2, "maxItems": 3, "uniqueItems": True,
                 "items": prose(240)})
         properties.update(assessment=prose(), unresolved_question=prose(),
-                          recommendation=prose(), expected_outcome=prose())
+                          recommendation=experiment_schema(analysis_schema), expected_outcome=prose())
         if framing:
             properties.update(motivation=prose(), hypothesis=prose())
         elif supervisor_strategy == 'night_science':
             properties.update(cross_field_connection=prose(),
                 falsifying_outcome=prose(), resource_check=prose())
     elif role == "reflection":
-        properties.update(what_changed=prose(), uncertainty=prose(), next_comparison=prose())
+        properties.update(what_changed=prose(), uncertainty=prose(),
+                          next_comparison=experiment_schema(analysis_schema))
     else:
         raise ValueError(f"Unknown contract role: {role}")
     required = list(properties)
@@ -78,10 +79,13 @@ def contract_schema(role, memory=False, *, supervisor_strategy='night_science', 
 
 
 def request_contract_schema(role, memory=False, *, supervisor_strategy='night_science', framing=False,
-                            require_lesson_update=False):
+                            require_lesson_update=False, analysis_schema=None):
     """Model input contains references; measurements and interpretation labels are harness-owned."""
     schema = contract_schema(role, memory, supervisor_strategy=supervisor_strategy, framing=framing,
-                             require_lesson_update=require_lesson_update)
+                             require_lesson_update=require_lesson_update, analysis_schema=analysis_schema)
+    if role == 'researcher':
+        del schema['properties']['change']
+        schema['required'].remove('change')
     schema['properties']['evidence'] = deepcopy(EVIDENCE_REFERENCES)
     for field in ('interpretation_status', 'comparison_scope'):
         del schema['properties'][field]
@@ -90,6 +94,15 @@ def request_contract_schema(role, memory=False, *, supervisor_strategy='night_sc
         lesson['properties']['evidence'] = {**deepcopy(EVIDENCE_REFERENCES), 'minItems': 1}
         del lesson['properties']['interpretation']
     return schema
+
+
+def experiment_schema(analysis_schema=None):
+    """Advice uses the execution configuration, without an intent or seed knob."""
+    return deepcopy(analysis_schema) if analysis_schema is not None else {
+        'type': 'object', 'additionalProperties': False,
+        'required': ['model', 'preprocessing', 'params'], 'properties': {
+            'model': {'type': 'string'}, 'preprocessing': {'enum': ['none', 'standard']},
+            'params': {'type': 'object'}}}
 
 
 def recorded_measurement(citation, records):
@@ -168,10 +181,11 @@ def schema_errors(value, schema, label):
 
 
 def validate_contract(contract, role, history, *, has_feedback=False, memory=False,
-                      supervisor_strategy='night_science', framing=False, require_lesson_update=False):
+                      supervisor_strategy='night_science', framing=False, require_lesson_update=False,
+                      analysis_schema=None):
     errors = schema_errors(contract, contract_schema(role, memory,
         supervisor_strategy=supervisor_strategy, framing=framing,
-        require_lesson_update=require_lesson_update), f"{role} contract")
+        require_lesson_update=require_lesson_update, analysis_schema=analysis_schema), f"{role} contract")
     if errors:
         return errors
     errors = evidence_errors(contract["evidence"], history)
@@ -469,9 +483,9 @@ class LessonMemory:
 
 
 def instructions(role, *, memory=False, supervisor_strategy='night_science', framing=False,
-                 require_lesson_update=False):
+                 require_lesson_update=False, analysis_schema=None):
     schema = request_contract_schema(role, memory, supervisor_strategy=supervisor_strategy, framing=framing,
-                                     require_lesson_update=require_lesson_update)
+                                     require_lesson_update=require_lesson_update, analysis_schema=analysis_schema)
     prefix = ("Place the decision contract in run_analysis.intent. " if role == "researcher" else
               "When finished with tools, return only one JSON object matching this contract. ")
     return "\n" + prefix + """Use short complete sentences, not fragments or Markdown lists.
@@ -504,8 +518,9 @@ changing other parameters at the same time does not isolate their effect.
 Use fit_diagnostics when present: max_iter is a ceiling, not the number of iterations
 actually trained. Early stopping before that ceiling does not establish underfitting.
 The context supplies target_status with measured reached/pending states and gaps.
-Use this state; never describe a reached target as still ahead. Keep target status
-out of experiment recommendations; specify the action in a separate sentence.
+Use this state; never describe a reached target as still ahead. Keep target
+commentary in prose fields; encode the action only in the recommendation or
+next_comparison configuration object.
 capacity_estimate is a runner calculation including scheduled API calls, reviews,
 reflections and observed local trial/queue durations. Do not estimate trial capacity
 from fit time alone or equate mean_model_call_seconds with local training time.

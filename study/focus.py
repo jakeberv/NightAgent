@@ -5,7 +5,7 @@ from rich.console import Console, Group
 from rich.panel import Panel
 from rich.text import Text
 
-from .lab import complete_sentences, sentence_summary
+from .lab import complete_sentences, sentence_summary, experiment_summary as advice_summary
 
 
 MODEL_NAMES = {"histogram_gradient_boosting": "gradient boosting", "random_forest": "random forest",
@@ -91,7 +91,7 @@ def narrative(state):
                   ("Open question", "unresolved_question")) if guidance["role"] == "supervisor" else (
                       ("Observed", "what_changed"), ("Suggested next test", "next_comparison"),
                       ("Uncertainty", "uncertainty"))
-        rows = [(label, contract.get(key), 1 if index < 2 else 2)
+        rows = [(label, advice_summary(contract.get(key)), 1 if index < 2 else 2)
                 for index, (label, key) in enumerate(fields) if contract.get(key)]
         if contract.get("comparison_scope"):
             rows.append(("Comparison limits", contract["comparison_scope"], 1))

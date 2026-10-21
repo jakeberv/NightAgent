@@ -21,11 +21,16 @@
     {
       "id": "proposal-repair-and-citations",
       "name": "Bad proposal repair and grounded evidence citations",
-      "check": "Unknown evidence is rejected before fitting and repaired within the existing budget; supplied measurements require repair even if correct; accepted contracts cite recorded validation measurements.",
+      "check": "Invalid bounded actions, seed edits, completed recommendations and unknown evidence are rejected and repaired within existing budgets; fulfilled advice is annotated from history, and executable parameter changes and cited measurements are generated from recorded evidence.",
       "pytest_nodes": [
         "tests/test_reasoning_controller.py::test_bad_evidence_repairs_within_existing_budget_before_training",
         "tests/test_reasoning_controller.py::test_model_supplied_review_measurement_requires_repair_even_when_correct",
-        "tests/test_reasoning_controller.py::test_default_offline_model_exercises_all_contract_roles_and_optional_memory"
+        "tests/test_reasoning_controller.py::test_default_offline_model_exercises_all_contract_roles_and_optional_memory",
+        "tests/test_proposal_trace_replay.py::test_real_advisor_failures_are_repaired_before_becoming_active",
+        "tests/test_proposal_trace_replay.py::test_fulfilled_periodic_advice_is_annotated_from_completed_registry",
+        "tests/test_proposal_trace_replay.py::test_source_narrative_payload_mismatch_is_removed_from_request_contract",
+        "tests/test_configuration_change.py::test_change_uses_resolved_defaults_and_actual_parameter_delta",
+        "tests/test_configuration_change.py::test_unchanged_effective_configuration_cannot_claim_a_parameter_change"
       ]
     },
     {

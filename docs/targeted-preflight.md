@@ -1,5 +1,10 @@
 # Targeted five-arm preflight
 
+The latest [shared-action contract check](shared-contract-preflight.md) completed
+24 fits across three targeted arms with clean run audits. Its strict
+zero-duplicate target failed on one immediately recovered proposal. It validates
+the revised execution contract, not a complete five-arm scientific comparison.
+
 The revised demo comparison makes lesson memory a standard apprentice capability.
 It holds memory on for the supervision, cadence and reflection comparisons and
 adds one explicit memory-off control. All supervised arms use Night Science and
@@ -35,6 +40,11 @@ framing remains in `initial_framing`; `active_advice_source` identifies the acti
 source. Researcher-alone has no advice. Validation still rejects `not_applicable`
 when advice exists. Numeric evidence citations expose allowed metric names per
 completed trial; `fit_diagnostics` is diagnostic context, not a numeric metric.
+With `structured_v2`, advice is an executable configuration validated against
+the same bounds and completed-trial registry as researcher actions. Context marks
+already-tested suggestions; their continued presence does not request repetition.
+Parameter changes are generated from actual settings, and the training seed stays
+fixed throughout each run.
 
 Reports show only the four declared contrasts above. The last is directed from
 `periodic_reflection_no_memory` to `periodic_reflection`, so reported differences

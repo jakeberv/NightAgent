@@ -14,6 +14,7 @@ from .audit import audit_suite
 from .records import load_events
 from .report_data import build_report_data
 from .run_context import compact_lessons
+from .lab import experiment_summary
 
 
 def _digest(path):
@@ -48,6 +49,10 @@ def _chain(events, journal):
     fits = {e['result']['trial_id']: (i, e) for i, e in enumerate(events) if e['type'] == 'trial_finished'}
     def source(index):
         return {'path': journal, 'line': index + 1, 'type': events[index]['type']}
+    def advice_record(event, field, index):
+        candidate = event['contract'][field]
+        return {'text': experiment_summary(candidate), 'after_trial': event['after_trial'],
+                'source': source(index), **({'config': candidate} if isinstance(candidate, dict) else {})}
     for index, event in enumerate(events):
         contract = event.get('contract', {})
         baseline_id, trial_id = contract.get('baseline_trial_id'), event.get('trial_id')
@@ -85,10 +90,8 @@ def _chain(events, journal):
                         continue
                     advice, reflection = events[advice_index], events[reflection_index]
                     return {'selection_rule': 'First chronological executed comparison whose baseline and result are cited together in a later lesson delivered to a researcher.',
-                        'recommendation': {'text': advice['contract']['recommendation'],
-                                           'after_trial': advice['after_trial'], 'source': source(advice_index)},
-                        'reflection': {'text': reflection['contract']['next_comparison'],
-                                       'after_trial': reflection['after_trial'], 'source': source(reflection_index)},
+                        'recommendation': advice_record(advice, 'recommendation', advice_index),
+                        'reflection': advice_record(reflection, 'next_comparison', reflection_index),
                         'decision': {**contract, 'source': source(index)},
                         'baseline': {**_measurement(baseline), 'source': source(baseline_index)},
                         'changes': changes,

@@ -1,4 +1,4 @@
-"""Pure, advisory experiment descriptions; never fit, reuse, or suppress trials."""
+"""Canonical experiment configurations, equivalence and factual change descriptions."""
 from __future__ import annotations
 
 import hashlib
@@ -94,7 +94,8 @@ def experiment_diagnostic(config, *, problem, project, seed, history):
 
     Stored metadata must be internally consistent and match all provenance.
     A legacy row without metadata can be compared only with an explicit seed.
-    The return value is advisory: callers still execute every valid request.
+    The controller uses these matches to reject completed advice and reuse
+    completed observations instead of fitting an equivalent researcher request.
     """
     current = describe_experiment(config, problem=problem, project=project, seed=seed)
     equivalent = []
@@ -126,3 +127,25 @@ def experiment_diagnostic(config, *, problem, project, seed, history):
         warning = (f'This experiment has the same effective configuration, preprocessing, seed, and validation provenance as completed trial(s) {ids}; '
                    'the runner reuses that observation without fitting or consuming a trial slot.')
     return current | {'equivalent_trial_ids': equivalent, 'warning': warning}
+
+
+def configuration_change(current, baseline, *, problem, project, seed):
+    """Describe the executable delta using the same constructors as deduplication."""
+    if baseline is None:
+        return 'Independent experiment; no baseline was selected.'
+    previous = describe_experiment(baseline['config'], problem=problem, project=project,
+                                   seed=baseline.get('seed', seed))['effective_config']
+    def fields(effective):
+        return {**{k: effective[k] for k in ('model', 'preprocessing')},
+                **{'params.' + k: v for k, v in effective['params'].items()}}
+    before, after = fields(previous), fields(current['effective_config'])
+    differences = [f'{key}: {json.dumps(before.get(key))} -> {json.dumps(after.get(key))}'
+                   for key in sorted(before.keys() | after.keys()) if before.get(key) != after.get(key)]
+    if not differences:
+        return f"No effective configuration change from trial {baseline['trial_id']}."
+    result = f"Compared with trial {baseline['trial_id']}: "
+    for difference in differences:
+        if len(result + difference) > 420:
+            return result.rstrip('; ') + '; additional differences are recorded in the configurations.'
+        result += difference + '; '
+    return result.rstrip('; ') + '.'
