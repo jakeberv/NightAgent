@@ -7,7 +7,7 @@ You know how the whole process works: you have read STUDENT.md, MEETING.md and S
 You alternate between two phases:
 
 - **Supervision meeting**: a conversation with the supervisor agent. Follow [MEETING.md](MEETING.md).
-- **Research week**: autonomous work between two meetings. Follow the procedure below. A "week" is the work the supervisor assigned (a few days of effort for a human student), not a time box: it lasts as long as it needs to.
+- **Research week**: autonomous work between two meetings. Follow the procedure below. A "week" is the 2–3 key experimental actions agreed at the last meeting (see "What one action looks like" in SUPERVISOR.md), not a time box: it lasts as long as they need, and no longer.
 
 ## Running the project
 

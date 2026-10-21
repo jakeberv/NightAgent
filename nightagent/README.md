@@ -79,7 +79,7 @@ nightagent/.venv/bin/python nightagent/experiment.py example-projects/magic --se
 
 This creates `runs/magic-<date>/` with one run folder per relationship and seed (`r01`…`r16`, opaque names), runs each to the end with `run.py --all`, and writes `results.md` (every seed, then mean ± std per relationship) and `results.csv`. Each run's console output goes to `logs/rNN.log`. Run the same command again to resume stopped runs, or add `--report` on the experiment folder to rebuild only the report. `--relationships` picks a subset, `--name` names the experiment, and any other option (`--provider`, `--model`, `--effort`, `--max-meetings`, `--dry-run`) is passed to `run.py`. A "seed" is an independent repeat; the agents' sampling can't be seeded.
 
-Budget: with the earlier defaults (Opus, high effort, a week of work per research phase), a research week cost $0.30–9.50 and a meeting about $0.50–0.90; the defaults are now Sonnet, medium effort and a few days of work, which should cost much less, but measure it on one seed before running 16. Try `--dry-run`, then one seed of each relationship, first. With a Claude subscription, `--jobs` above 1 reaches the usage limits sooner.
+Budget: with the earlier defaults (Opus, high effort, a week of work per research phase), a research week cost $0.30–9.50 and a meeting about $0.50–0.90; the defaults are now Sonnet, medium effort and 2–3 key experimental actions per research week, which should cost much less, but measure it on one seed before running 16. Try `--dry-run`, then one seed of each relationship, first. With a Claude subscription, `--jobs` above 1 reaches the usage limits sooner.
 
 ### One project
 

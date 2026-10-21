@@ -26,7 +26,7 @@ Written just before each meeting. At most ~1 page:
 3. **Clarify and propose.** Batch your questions rather than asking them one at a time:
    - ask about everything unresolved (skip this if nothing is), and keep clarifying until the actions are clear;
    - propose candidate lessons about what the supervisor values ("Should I remember that you care about X?");
-   - restate the proposed actions for the next research week, each with a done-criterion, and ask for agreement.
+   - restate the proposed actions for the next research week (2–3 key experimental actions), each with a done-criterion, and ask for agreement.
 4. **Agree.** If the supervisor amends anything, restate the final version and ask for "Agreed". Only agreed actions go into `ACTIONS.md`; anything left unresolved goes to `memory/pending.md`.
 5. **Record.**
    - `meetings/MNN-transcript.md` is written by the orchestrator, verbatim. Do not write or edit it.
@@ -39,7 +39,7 @@ There are no results yet. Instead of presenting:
 
 - restate the question in your own words and **reframe** it: what could "answer" mean, which sub-questions matter, what counts as success;
 - ask about constraints: compute, time, data, what the supervisor already believes, what they would find surprising or valuable;
-- propose a first week: a baseline plus a small amount of exploration.
+- propose a first week of 2–3 key experimental actions: for example, setting up and checking the data, and a baseline.
 
 Then continue from step 2. Append agreed clarifications to `QUESTION.md` under "Clarifications".
 

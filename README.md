@@ -26,8 +26,8 @@ This repository defines the agents and how they work. It does not store project 
 
 - [nightagent/](nightagent/): the NightAgent application: the agents' protocols and the orchestrator that runs them. See its [README](nightagent/README.md).
   - [STUDENT.md](nightagent/STUDENT.md): how the student works: phases, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
-  - [MEETING.md](nightagent/MEETING.md): the meeting protocol: brief → present → feedback → clarification → agreed actions (a few days of student effort) → minutes and memory. Ends with a final meeting where the supervisor reviews the report.
-  - [SUPERVISOR.md](nightagent/SUPERVISOR.md): the rules every supervisor follows: agrees a few days of work, confirms actions and lessons, reviews the final report, signs off. Both agents read it, so the student understands the whole process.
+  - [MEETING.md](nightagent/MEETING.md): the meeting protocol: brief → present → feedback → clarification → agreed actions (2–3 key experiments per research week) → minutes and memory. Ends with a final meeting where the supervisor reviews the report.
+  - [SUPERVISOR.md](nightagent/SUPERVISOR.md): the rules every supervisor follows: agrees 2–3 key experimental actions per research week, confirms actions and lessons, reviews the final report, signs off. Both agents read it, so the student understands the whole process.
   - [REVIEWER.md](nightagent/REVIEWER.md): the independent reviewer that assesses a finished project: the hidden task metric, the science, the quality of the interaction, and observations.
   - [personas/](nightagent/personas/): the private personas: the supervisor's research values (the same for every supervisor; the student has to learn them through meetings), four supervision styles and four student personalities, which make up four relationship models (hands-off, pastoral, directive, collaborative).
   - [run.py](nightagent/run.py): the orchestrator. It runs the student and supervisor as separate Claude Code sessions, relays meetings between them and writes the transcripts.
@@ -73,7 +73,7 @@ MEETING Mnn (fresh student session ↔ fresh supervisor session, relayed verbati
   supervisor: believes it wrote QUESTION.md and holds the student to it;
               reads brief + earlier minutes; spot-checks evidence in the project folder;
               gives feedback shaped by its private persona;
-              sets a few days of human-student effort
+              agrees 2–3 key experimental actions
   repeat until clear:
     student:    batched clarification questions + candidate lessons
                 ("should I remember you value X?") + restated actions
