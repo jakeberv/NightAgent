@@ -1,7 +1,12 @@
 {
   "schema_version": 1,
   "purpose": "Named offline engineering acceptance cases; these are not scientific repetitions or evidence of strategy efficacy.",
-  "scientific_comparison": {"datasets": 1, "arms": 5, "repeats": 3, "runs": 15},
+  "scientific_comparison": {
+    "datasets": 1,
+    "arms": 5,
+    "repeats": 3,
+    "runs": 15
+  },
   "cases": [
     {
       "id": "artifact-data-isolation",
@@ -35,10 +40,11 @@
     {
       "id": "memory-isolation-and-history",
       "name": "Run-local memory and bounded history",
-      "check": "Lessons survive the recent-history window and recovery while staying within the run; older completed evidence remains available to each role.",
+      "check": "Default-on lessons are written by the solo researcher, survive the twelve-trial history window and recovery, reset between runs, and are absent with an explicit opt-out; older evidence remains accessible across roles.",
       "pytest_nodes": [
         "tests/test_reasoning_controller.py::test_memory_is_run_local_survives_history_window_and_recovers",
-        "tests/test_run_execution.py::test_context_preserves_old_evidence_outside_recent_window_and_role_fields"
+        "tests/test_run_execution.py::test_context_preserves_old_evidence_outside_recent_window_and_role_fields",
+        "tests/test_reasoning_controller.py::test_explicit_memory_opt_out_omits_register_and_updates"
       ]
     },
     {

@@ -3,21 +3,27 @@
 This is the current demo comparison. It uses
 [`fashion-five-arm-overnight-config.json`](../study/fashion-five-arm-overnight-config.json),
 not the older three-arm `fashion-overnight-config.json` or the seven-attempt
-preflight. See [the live preflight review](targeted-preflight.md) for evidence.
+preflight. The [saved live preflight](targeted-preflight.md#historical-live-results--2026-10-20)
+used the former memory policy and is historical evidence. A new bounded paid
+pilot is required before launching this revised protocol.
 
 ## Frozen protocol
 
-Five arms: researcher alone; Night Science frequent supervision; periodic
-supervision; periodic plus reflection; periodic plus reflection and lesson memory.
-Literature is disabled. Only the final arm has a lesson register; every arm still
-receives recent experiment history. Lessons start empty in each run and never
-transfer across runs.
+Five arms: `researcher_alone`, `frequent`, `periodic`, and
+`periodic_reflection` all use lesson memory; `periodic_reflection_no_memory`
+matches the fourth arm with memory disabled. All supervised arms use Night
+Science and initial framing. Literature is disabled. Every arm receives recent
+experiment history. The first four retain lessons beyond the 12-trial history
+window; the explicit control has no register or lesson updates. Lessons start
+empty in each independent run and never transfer across repeats.
 
-- Three matched repeats, seeds 42–44: 15 runs, four declared adjacent contrasts.
+- Three matched repeats, seeds 42–44: 15 runs. Supervision, cadence and reflection
+  contrasts hold memory on; the fourth contrast is `periodic_reflection` minus
+  `periodic_reflection_no_memory` (memory-on minus memory-off).
 - 600 seconds per run; trial safety cap 1000; $5 API guard per run, $75 combined
   guards. A final in-flight call can exceed a guard; this is not a billing ceiling.
 - Same model/provider, Fashion-MNIST data, bounded models and 85%/88%/90% targets
-  as the preflight. Do not regenerate partitions or tune targets between arms.
+  as the historical preflight. Do not regenerate partitions or tune targets between arms.
 - Four shared CPU cores, two concurrent runs, one MPS fit at a time. Queue time
   counts against each run's allowance; this measures the shared-machine policy.
 - At most eight ten-minute search waves (about 80 minutes), a 20-minute postrun
@@ -26,6 +32,11 @@ transfer across runs.
   for final confirmation; do not use them to tune another search.
 
 ## Launch on the tested Mac
+
+First complete the revised [targeted preflight](targeted-preflight.md), refresh
+the usage estimate and verify funding. The previous approximately $18.12
+projection was based on the former memory policy and is historical only; memory
+in four main arms changes prompt usage. It is not a current planning estimate.
 
 From the repository root, use the existing virtual environment and credential
 file. This command starts paid model calls. It retains a console log and exit
@@ -75,8 +86,9 @@ attempts in every arm to cover reviews after attempts three and six.
 - **Pass (exit 0):** all declared runs/configurations/seeds and identities match;
   calls/cost/tokens reconcile; fits and selected artifacts verify, with best and
   first-target selections reconstructed from raw fits and usage; accepted
-  contracts, review/reflection order and delivery, and active advice are present; memory is isolated and
-  supplied to a later researcher; five report groups and four fully matched
+  contracts, review/reflection order and delivery, and active advice are present;
+  all four memory-enabled arms save lessons and supply them to later researchers,
+  while the explicit control has no memory; five report groups and four fully matched
   contrasts agree with saved reports; declared postrun work is complete.
 - **Warning (exit 0):** coverage passed, but a contract needed a successful repair,
   a recorded model call failed with complete accounting and the run recovered,

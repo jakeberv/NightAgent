@@ -201,8 +201,8 @@ def _render_report(data: dict, root: Path) -> Path:
     sections.append("<h2>Matched condition comparisons</h2><p>Pairs share the frozen problem, data, objective, "
                     "allowance, training seed, repeat and all settings except the declared treatment axes. "
                     "Schedule comparisons vary condition; supervisor-style comparisons also vary style. "
-                    "The targeted apprentice comparison reports only its four adjacent contrasts, including "
-                    "reflection without versus with lesson memory. Other protocol and configuration differences "
+                    "The targeted apprentice comparison reports three successive contrasts among memory-enabled arms "
+                    "and the matched reflection arm with memory minus its control without memory. Other protocol and configuration differences "
                     "remain separate. Duplicate units are excluded. "
                     "Differences are condition B minus condition A; a positive score difference favors B for maximization "
                     "and A for minimization. Unmatched runs and runs without valid models remain in the failure denominators.</p>")

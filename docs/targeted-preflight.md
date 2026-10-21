@@ -1,15 +1,18 @@
 # Targeted five-arm preflight
 
-The demo comparison holds Night Science supervision fixed and varies one
-interaction feature at a time. Literature is disabled in every arm.
+The revised demo comparison makes lesson memory a standard apprentice capability.
+It holds memory on for the supervision, cadence and reflection comparisons and
+adds one explicit memory-off control. All supervised arms use Night Science and
+initial framing. Literature is disabled in every arm. The historical paid results
+below used the former memory policy and do not validate this revised design.
 
 | Arm ID | Treatment | Declared contrast |
 |---|---|---|
-| `researcher_alone` | Researcher alone, memory off | Baseline |
-| `frequent` | Review after every attempt, memory off | Supervision versus baseline |
-| `periodic` | Review after every three attempts, memory off | Periodic versus frequent review |
-| `periodic_reflection` | Periodic review plus explicit reflection, memory off | Added reflection |
-| `periodic_reflection_memory` | Periodic review plus reflection and lesson memory | Added memory |
+| `researcher_alone` | Researcher alone, memory on | Adaptive baseline |
+| `frequent` | Review after every attempt, memory on | Frequent minus researcher alone |
+| `periodic` | Review after every three attempts, memory on | Periodic minus frequent |
+| `periodic_reflection` | Periodic review plus explicit reflection, memory on | Periodic reflection minus periodic |
+| `periodic_reflection_no_memory` | Same periodic review and reflection, memory off | Memory-on fourth arm minus this control |
 
 `comparison=apprentice_interactions` freezes these exact arms and their memory
 settings. The suite manifest records each arm's unique identity, memory setting,
@@ -18,21 +21,23 @@ MPS fits remain serialized. There is one repeat with seed 42 in this preflight.
 The existing Fashion-MNIST partitions, search bounds, provider/model and accuracy
 targets (85%, 88%, 90%) remain fixed.
 
-The new context policy, `active_advice_v1`, keeps initial framing in
+The context policy, `active_advice_v1`, keeps initial framing in
 `last_supervisor_feedback` until a subsequent review replaces it. Historical
 framing remains in `initial_framing`; `active_advice_source` identifies the active
 source. Researcher-alone has no advice. Validation still rejects `not_applicable`
 when advice exists. Numeric evidence citations expose allowed metric names per
 completed trial; `fit_diagnostics` is diagnostic context, not a numeric metric.
 
-Reports show only the four adjacent contrasts above. The last contrast explicitly
-permits the memory difference; other frozen settings, data identity and matched
+Reports show only the four declared contrasts above. The last is directed from
+`periodic_reflection_no_memory` to `periodic_reflection`, so reported differences
+are memory-on minus memory-off. It explicitly permits the memory difference;
+other frozen settings, data identity and matched
 repeat/seed requirements still apply. Different targeted configurations remain
 separate in aggregates and plots as well as pairs. Legacy comparisons retain
 their original grouping behavior. The context policy separates new runs from
 historical context variants in matched analysis.
 
-## Authorized preflight recipe
+## Current bounded preflight recipe
 
 Each arm has a 300-second allowance, seven-attempt cap and $2 API guard: **$10 in
 combined guards**, with possible final-call overrun. Seven attempts permit reviews
@@ -60,8 +65,9 @@ file. GPU and network access must be available to the process.
 - Periodic reviews follow attempts three and six, and each is followed by a new
   researcher decision and fit. Frequent reviews follow attempts one through six.
 - Explicit reflection occurs only in the two reflection arms, after attempts one
-  through six. The memory arm begins empty, saves at least one valid lesson and
-  supplies it to a later researcher decision; other arms have no lesson register.
+  through six. Each of the first four arms begins empty, saves at least one valid
+  lesson and supplies it to a later researcher decision. The fifth control has no
+  lesson register, lesson updates or lesson context. Repeats start independently.
 - No recurrence of the advice-context error; metric citation repairs and any
   other rejected contracts are separately reported and investigated.
 - Five distinct report groups and four declared paired contrasts are present.
@@ -70,8 +76,16 @@ file. GPU and network access must be available to the process.
 
 This preflight checks execution and interaction coverage. A single repeat does
 not establish strategy superiority or causal benefits of advice or memory.
+No revised-protocol paid preflight is recorded here. Fresh offline rehearsal uses
+scripted decisions and real synthetic-data CPU fits without provider calls; its
+scores are engineering evidence. Before paid overnight launch, use a new bounded
+pilot to measure current memory prompt usage and refresh the spending estimate.
 
-## Fixes and offline verification — 2026-10-20
+## Historical fixes and offline verification — 2026-10-20
+
+This section describes the former design: memory off in the first four arms and
+on only in the final `periodic_reflection_memory` arm. Its receipts are preserved
+as historical records; they are not results for the revised mapping above.
 
 Implemented active initial advice, explicit numeric evidence choices and repair
 feedback, and the five-arm suite/report identities with only the four declared
@@ -83,10 +97,15 @@ Final full suite: **688 passed in 116.82 seconds**. The offline integration
 rehearsal completed five runs and 35 real synthetic-data CPU fits, with the
 expected review/reflection schedules, lesson isolation and later delivery,
 artifact hashes, five report groups and four matched contrasts. Its evidence is
-in `study-runs/targeted-offline-20261020-222604/`. The live preflight uses the
-unchanged prepared Fashion-MNIST data and the configuration above.
+in `study-runs/targeted-offline-20261020-222604/`. The historical live preflight
+used the same Fashion-MNIST data and the former arm-memory mapping.
 
-## Live results and review — 2026-10-20
+## Historical live results — 2026-10-20
+
+The [portable real replay](evidence/fashion-demo/demo.md) and
+[evidence JSON](evidence/fashion-demo/demo.json) remain available from a fresh
+clone as mechanism-demo fallbacks. Current CLI regeneration expects a new suite
+with the revised arms; the static historical export is retained as recorded.
 
 Evidence: [HTML report](../study-runs/fashion-targeted-preflight-20261020-222822/report.html)
 and [audit summary](../study-runs/fashion-targeted-preflight-20261020-222822/review-summary.json).
@@ -120,10 +139,11 @@ is a recovered formatting issue, not a blocker for the targeted repeated run.
 Keep validation and repair enabled; do not weaken the limit or spend tonight
 expanding scope to force perfect model formatting.
 
-Recommendation: freeze this tested implementation for the proposed three-repeat,
-ten-minute [five-arm overnight run](five-arm-overnight.md). This preflight establishes execution coverage, not
-strategy superiority. Some model hypotheses remain speculative and experiments
+These results supported execution coverage of the former policy, not strategy
+superiority or validation of the revised memory-default protocol. Some model hypotheses remain speculative and experiments
 change multiple settings; the reports mark interpretations unverified and
 comparisons confounded where applicable. Treat those as trace material, not
 causal claims. Run artifacts are retained locally under `study-runs/` and are
-not versioned. The overnight run has not been launched.
+not versioned. The overnight run has not been launched. The approximately $18.12
+projection once extrapolated from these timings and costs is historical only;
+four memory-enabled arms require a new bounded usage pilot before paid launch.

@@ -1,5 +1,8 @@
 # Five-arm overnight configuration and audit implementation plan
 
+> Dated engineering record. For current scope, instructions and review status,
+> use the [documentation guide](../../../docs/README.md). Later decisions may supersede this plan.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the approved overnight comparison reproducible and automatically distinguish completed search from verified interaction coverage.

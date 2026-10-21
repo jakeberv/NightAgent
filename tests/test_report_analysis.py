@@ -108,6 +108,32 @@ def test_one_pair_has_no_ci_and_memory_variants_are_never_pooled(tmp_path):
     assert len(data["conditions"]) == 4
 
 
+def test_apprentice_contrasts_preserve_memory_on_minus_off_direction(tmp_path):
+    # Sorting arm names would reverse or drop the matched memory contrast.
+    arms = [('researcher_alone', 'researcher_alone', True, .7),
+            ('frequent', 'frequent', True, .8),
+            ('periodic', 'periodic', True, .75),
+            ('periodic_reflection', 'periodic_reflection', True, .95),
+            ('periodic_reflection_no_memory', 'periodic_reflection', False, .85)]
+    for name, condition, memory, score in arms:
+        paired_run(tmp_path, name, condition, score=score, lesson_memory=memory,
+                   comparison='apprentice_interactions', supervisor_strategy='night_science')
+    data = build_report_data(tmp_path)
+    assert set(data['conditions']) == {name for name, *_ in arms}
+    pairs = data['paired_comparisons']
+    assert [(pair['condition_a'], pair['condition_b']) for pair in pairs] == [
+        ('researcher_alone', 'frequent'), ('frequent', 'periodic'),
+        ('periodic', 'periodic_reflection'),
+        ('periodic_reflection_no_memory', 'periodic_reflection')]
+    assert [pair['matched_pairs'] for pair in pairs] == [1, 1, 1, 1]
+    assert [pair['metrics']['best_score']['mean_delta'] for pair in pairs] == pytest.approx(
+        [.1, -.05, .2, .1])
+    assert pairs[-1]['pair_ids'] == [{'run_a': 'periodic_reflection_no_memory',
+        'run_b': 'periodic_reflection', 'repeat': 0, 'training_seed': 42}]
+    document = generate_report(tmp_path).read_text()
+    assert 'periodic_reflection minus periodic_reflection_no_memory' in document
+
+
 def test_grounded_policy_runs_are_not_pooled_with_historical_reasoning(tmp_path):
     paired_run(tmp_path, 'before', 'periodic_reflection', lesson_memory=True)
     paired_run(tmp_path, 'after', 'periodic_reflection', lesson_memory=True,

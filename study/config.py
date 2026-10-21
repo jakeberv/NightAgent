@@ -9,13 +9,18 @@ CONDITIONS = (
 SUPERVISOR_STRATEGIES = ('standard', 'night_science')
 COMPARISONS = ('schedules', 'supervisor_strategies', 'apprentice_interactions')
 APPRENTICE_ARMS = (
-    ('researcher_alone', 'researcher_alone', False),
-    ('frequent', 'frequent', False),
-    ('periodic', 'periodic', False),
-    ('periodic_reflection', 'periodic_reflection', False),
-    ('periodic_reflection_memory', 'periodic_reflection', True),
+    ('researcher_alone', 'researcher_alone', True),
+    ('frequent', 'frequent', True),
+    ('periodic', 'periodic', True),
+    ('periodic_reflection', 'periodic_reflection', True),
+    ('periodic_reflection_no_memory', 'periodic_reflection', False),
 )
-APPRENTICE_CONTRASTS = tuple((a[0], b[0]) for a, b in zip(APPRENTICE_ARMS, APPRENTICE_ARMS[1:]))
+APPRENTICE_CONTRASTS = (
+    ('researcher_alone', 'frequent'),
+    ('frequent', 'periodic'),
+    ('periodic', 'periodic_reflection'),
+    ('periodic_reflection_no_memory', 'periodic_reflection'),
+)
 
 
 def apprentice_arm(config):
@@ -60,7 +65,7 @@ class StudyConfig:
     supervisor_policy: str = "supervision_v2"
     supervisor_strategy: str = "night_science"
     comparison: str = "schedules"
-    lesson_memory: bool = False
+    lesson_memory: bool = True
     memory_limit: int = 6
 
     def __post_init__(self):

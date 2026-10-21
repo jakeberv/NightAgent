@@ -1,5 +1,8 @@
 # Problem Definitions Implementation Plan
 
+> Dated engineering record. For current scope, instructions and review status,
+> use the [documentation guide](../../../docs/README.md). Later decisions may supersede this plan.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development. User explicitly requested implementation and previously authorized parallel agents.
 
 **Goal:** Generalize the runner via declarative profiles and trusted task adapters.

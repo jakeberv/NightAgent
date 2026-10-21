@@ -191,6 +191,17 @@ class _Audit:
                    'artifact', 'A selected artifact does not match a verified completed fit', name)
         self.selections(es, config, manifest, summary, name)
         self.interactions(es, config, n, name)
+        register = run/'lessons.json'
+        if config.lesson_memory:
+            final_lessons = next((event['lessons'] for event in reversed(es)
+                                  if event['type'] == 'lesson_memory'), None)
+            saved = self.read(register, name) if register.exists() else None
+            self.check(final_lessons is not None and summary.get('lessons') == final_lessons and
+                       saved == {'scope': 'this run only', 'lessons': final_lessons},
+                       'memory', 'Saved lesson register and summary must match the final journal register', name)
+        else:
+            self.check(not register.exists() and 'lessons' not in summary,
+                       'memory', 'Disabled memory arm must not save a lesson register or summary lessons', name)
         if manifest.get('postrun_policy') == 'heldout_and_report':
             evaluated = self.read(run/'test-results.json', name) or {}
             for label, selected in selections.items():
@@ -287,6 +298,8 @@ class _Audit:
                 if event.get('valid') is False:
                     invalid.setdefault(phase, []).append(event)
                 elif event.get('valid') is True:
+                    self.check(config.lesson_memory or 'lesson_updates' not in (event.get('contract') or {}),
+                               'memory', 'Disabled memory arm accepted a contract containing lesson updates', name)
                     accepted[kind] = event
                     for repaired in invalid.pop(phase, []):
                         self.issue('contract_repaired', '; '.join(repaired.get('errors') or ['Invalid contract']), name, warning=True)

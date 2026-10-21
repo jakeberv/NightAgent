@@ -7,23 +7,23 @@ This application defines a research student, its supervisor and their open-ended
 | [STUDENT.md](STUDENT.md) | How the student works: phases, research-week procedure, night science principles, memory and reproducibility rules, the living paper |
 | [MEETING.md](MEETING.md) | The supervision meeting protocol, including the final report review |
 | [SUPERVISOR.md](SUPERVISOR.md) | How the supervisor behaves (public: both agents read it) |
-| [supervisor-persona.md](supervisor-persona.md) | What the supervisor values (private: only the supervisor sees it) |
+| [supervisor-persona.md](supervisor-persona.md) | What the supervisor values (included only in the supervisor prompt) |
 | [project-template/](project-template/) | The files every project starts with; `QUESTION.md` is the one the human fills in |
 | [run.py](run.py) | The orchestrator |
 | [requirements.txt](requirements.txt) | Its one dependency, the Claude Agent SDK |
 
 `run.py` drives the **student and the supervisor as separate Claude Code sessions** through the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk), and runs the meetings between them. Each project is one folder, e.g. [`../example-projects/mnist/`](../example-projects/mnist/).
 
-## What the orchestrator guarantees
+## Orchestration behavior and limits
 
 - **Phases:** it decides the next phase from `meetings/` and runs it in a fresh session, so the project files are the agents' only memory between phases.
-- **Separate agents:** the student and supervisor are separate sessions. The orchestrator relays each message verbatim and writes `meetings/MNN-transcript.md` itself, so the record of the meetings is neutral.
-- **Persona privacy:** the persona goes only into the supervisor's instructions. A hook also blocks any student tool call that names the persona file (best-effort: it checks the file name, so it is not a sandbox).
+- **Separate agents and transcript:** the student and supervisor are separate sessions. The orchestrator records returned meeting text under role headings in `meetings/MNN-transcript.md`; student continuation messages have `END MEETING` markers removed. The transcript remains a mutable project file.
+- **Persona:** only the supervisor prompt includes the persona. A best-effort hook rejects student tool arguments containing `supervisor-persona`; indirect shell access can bypass this filename check.
 - **Read-only supervisor:** the supervisor has only Read, Grep and Glob.
-- **Contained student:** the hook blocks file-tool writes outside the project folder, and the student can't use the Agent tool, so it can't simulate a supervisor. Shell commands are not sandboxed; staying inside the folder there relies on the student's instructions.
-- **Isolation from local settings:** both sessions ignore `CLAUDE.md` files and Claude Code settings on the machine (`setting_sources=[]`).
-- **Neutral sign-off:** the project ends only when the supervisor's own words in the transcript contain "Signed off".
-- **Errors stop the run:** if an agent's turn fails or produces no reply, the phase stops (nothing is relayed) and can be retried by running the command again.
+- **Student permissions:** Agent and Task tools are disabled. The hook checks Write/Edit/MultiEdit/NotebookEdit target paths; shell commands and file reads are not confined to the project.
+- **Local settings:** both sessions use `setting_sources=[]`, so local Claude Code settings are not automatically loaded.
+- **Sign-off detection:** the orchestrator searches parsed Supervisor sections in the latest transcript for literal `Signed off` text. Quoted or negated phrases and injected Markdown headings can trigger this heuristic.
+- **Errors and retries:** a failed or empty final reply stops the invocation before that reply is relayed. Already written files remain; the next invocation chooses a phase from file existence. Inspect partial minutes or briefs before retrying. Retrying a meeting restarts its transcript; copy it first if needed.
 - **Run log:** `meetings/harness-log.jsonl` records phases, sessions, the cost of each turn, blocked tool calls and failures.
 
 ## Setup
@@ -74,16 +74,16 @@ Caveats:
 - **Provider routing:** OpenRouter only guarantees Claude Code compatibility with Anthropic as the serving provider; its guide recommends making Anthropic the top-priority provider in your OpenRouter settings.
 - **Costs:** the cost figures in the run log come from Claude Code's own estimate, not OpenRouter's billing; check OpenRouter's activity page for actual spend.
 
-If a research phase stops without writing its brief, run the same command again: a fresh session picks up from the files.
+If a research phase stops, inspect its files before retrying; a partial brief can change which phase runs next.
 
-**The student runs unattended with full permissions** (`bypassPermissions`) inside the project folder: it installs packages and runs code there. A hook stops it writing outside the folder, but shell commands are not sandboxed. Run it on a machine where that is acceptable.
+**The student runs unattended with full permissions** (`bypassPermissions`) inside the project folder: it installs packages and runs code there. A hook blocks the checked file-tool writes outside the folder, but shell commands are not sandboxed. Run it on a machine where that is acceptable.
 
 ## How a run works
 
 ```
 init:      copy missing project-template files into the project (never overwrites)
 next phase (from meetings/):
-  supervisor said "Signed off"     → done
+  parsed sign-off text detected    → done
   no M00 minutes                  → meeting M00
   brief newer than latest minutes → meeting MNN
   otherwise                       → research week, ending with the next brief

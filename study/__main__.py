@@ -231,8 +231,9 @@ async def _dispatch(args, progress):
         summaries = []
         base = StudyConfig(model="offline-script", provider="offline",
             comparison=getattr(args, 'comparison', 'schedules'),
-            allowance_seconds=60, trial_cap=len(options) if options else 4, trial_timeout_seconds=15,
-            lesson_memory=bool(getattr(args, "lesson_memory", False)))
+            allowance_seconds=60, trial_cap=len(options) if options else 4, trial_timeout_seconds=15)
+        if getattr(args, 'lesson_memory', None) is not None:
+            base = replace(base, lesson_memory=args.lesson_memory)
         for arm in comparison_arms(base):
             config = base.for_run(arm['condition'], 0, supervisor_strategy=arm['supervisor_strategy'],
                                   lesson_memory=arm.get('lesson_memory'))
@@ -332,7 +333,7 @@ def main():
         p.add_argument("--summary-interval", type=float, default=15,
                        help="Seconds between findings summaries (default 15; 0 disables summaries)")
         p.add_argument("--lesson-memory", action=argparse.BooleanOptionalAction, default=None,
-                       help="Enable bounded lessons within each run; a separately recorded experimental variant")
+                       help="Bounded lessons within each run (default enabled); use --no-lesson-memory for an ablation")
         p.add_argument("--max-cores", type=int, help="Maximum local training threads; automatically balances independent suite runs")
         p.add_argument('--device', choices=('auto', 'cpu', 'mps'), help='Neural training backend; explicit mps fails if unavailable; classical models stay on CPU')
         p.add_argument("--no-animation", action="store_true", help="Disable the interactive status line")
@@ -365,7 +366,8 @@ def main():
             p.add_argument("--data", type=Path, required=True)
         if command == "smoke":
             p.add_argument('--comparison', choices=COMPARISONS, default='schedules')
-            p.add_argument("--lesson-memory", action="store_true", help="Exercise run-local lessons offline")
+            p.add_argument("--lesson-memory", action=argparse.BooleanOptionalAction, default=None,
+                           help="Exercise run-local lessons offline (default enabled); opt out for an ablation")
             p.add_argument("--problem", type=Path, help="Optional profile for a scripted all-condition smoke run")
             display = p.add_mutually_exclusive_group()
             display.add_argument("--verbose", action="store_true")

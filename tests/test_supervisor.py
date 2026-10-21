@@ -113,7 +113,9 @@ def test_initial_framing_survives_later_reviews_and_history_truncation(tmp_path)
     assert [e['after_trial'] for e in reviews] == [1, 2, 3]
     final_context = model.observed[-1][1]
     assert final_context['initial_framing'] == kickoff
-    assert final_context['last_supervisor_feedback'] == reviews[-1]['contract']
+    assert final_context['last_supervisor_feedback'] == {
+        key: value for key, value in reviews[-1]['contract'].items() if key != 'lesson_updates'}
+    assert final_context['lessons'] and 'lesson_updates' not in final_context['last_supervisor_feedback']
     assert final_context['recent_trials'][0]['trial_id'] == 3
     (run_dir / 'summary.json').unlink()
     (run_dir / 'events.jsonl').write_text(''.join(json.dumps(e) + '\n' for e in events if e['type'] != 'run_stopped'))

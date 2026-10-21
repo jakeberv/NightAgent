@@ -1,10 +1,10 @@
 # Define a problem without changing the runner
 
 A **problem profile** defines the question, data, scoring, targets and permitted
-experiments. A **study configuration** defines model/provider, schedules, repeats
-and resource limits. The same five-condition controller runs every supported
-problem. Targets are observations; the equal-wall-time study continues after
-reaching them.
+experiments. A **study configuration** defines model/provider, schedules and
+resource limits. The launch command and suite manifest define repeat counts.
+The same controller runs the supported comparisons on each compatible problem.
+Targets are observations; the equal-wall-time study continues after reaching them.
 
 ## Quick start
 
@@ -124,6 +124,12 @@ the legacy MAGIC reference remains its original fixed HGB pipeline.
 
 ## Bundled examples
 
+- [Fashion-MNIST](../study/problems/fashion-mnist.yaml): the current workshop task,
+  12,000 training and 3,000 validation images, accuracy targets 0.85/0.88/0.90,
+  and the untouched official test set. The trusted neural classification adapter
+  supports bounded logistic, random-forest, torch MLP and CNN experiments.
+  See [preparation and hardware calibration](fashion-pilot.md) and the
+  [current protocol](workshop-protocol.md) before a live run.
 - [MAGIC](../study/problems/magic.yaml): ten-column telescope data, binary ROC-AUC,
   0.93 milestone and 0.95 stretch threshold. Use `study-data/magic-profile` as the
   prepared output and reuse it across model-code updates.
@@ -136,7 +142,7 @@ the legacy MAGIC reference remains its original fixed HGB pipeline.
 - [Regression](../study/problems/regression.yaml): synthetic smoke data, minimizing
   RMSE with thresholds 15 and 11, plus MAE/R² measurements.
 
-MNIST is useful because it exercises multiclass labels and image-shaped input.
+The earlier MNIST profile exercises multiclass labels and image-shaped input.
 The initial adapter flattens pixels and uses the bounded classical model menu;
 it does not add convolutional networks or pretrained models. MAGIC and MNIST now
 share the AUC metric family and provisional thresholds, while their AUC definitions

@@ -258,9 +258,10 @@ def paired_comparisons(runs, warnings):
             if len(duplicates) > 1:
                 warnings.append(f"Duplicate matched unit for {condition}, repeat {repeat}, seed {seed}; "
                                 "these runs are excluded from pairing.")
-        for a, b in combinations(conditions, 2):
-            if (rows[0]['config'].get('comparison') == 'apprentice_interactions'
-                    and (a, b) not in APPRENTICE_CONTRASTS):
+        contrasts = (APPRENTICE_CONTRASTS if rows[0]['config'].get('comparison') == 'apprentice_interactions'
+                     else combinations(conditions, 2))
+        for a, b in contrasts:
+            if a not in conditions or b not in conditions:
                 continue
             a_rows, b_rows = [r for r in rows if treatment_name(r) == a], [r for r in rows if treatment_name(r) == b]
             pairs = []

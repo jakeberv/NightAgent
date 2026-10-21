@@ -262,7 +262,9 @@ def observed_scope(evidence, history):
     ids = list(dict.fromkeys(item['trial_id'] for item in evidence))
     records = {row.get('trial_id'): row for row in (history or []) if row.get('status') == 'completed'}
     configs = []; unresolved = False
-    excluded = {'device', 'n_jobs', 'random_state', 'architecture', 'estimator'}
+    # Both bounded constructors use fixed scaler defaults selected by preprocessing;
+    # their diagnostic parameters describe that choice, not another intervention.
+    excluded = {'device', 'n_jobs', 'random_state', 'architecture', 'estimator', 'preprocessing_params'}
     for trial_id in ids:
         row = records.get(trial_id, {})
         config = {}; params = {}

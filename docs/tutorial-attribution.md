@@ -103,23 +103,26 @@ The `structured_v1` runtime implements evidence references as trial/metric/split
 checks rather than merely checking whether a number occurs in a trace (Tutorial 1).
 It records repetitive calls and resolved-configuration equivalence without silently
 skipping experiments. Scientific constructors remain the source of defaults and
-aliases (Tutorial 3). Optional bounded, revisable lessons remain confined to a
-single run and are separately identified in comparisons (Tutorial 2). This is
+aliases (Tutorial 3). Bounded, revisable lesson memory is enabled by default and
+remains confined to a single run (Tutorial 2). Four current arms retain lessons;
+one matched periodic-reflection control explicitly disables them. This is
 context memory, not weight training or proof of self-improvement. The full behavior
 and limitations are documented in the [study guide](../study/README.md).
 
 ## Experimental design and reporting provenance
 
-The study's outcome hierarchy and five conditions come from the updated
-[Experimental design source](experimental-design-source.txt), with the
-implementation contract in [the approved plan](plans/2026-10-20-overnight-study.md).
-The tutorial patterns support implementation; they are not evidence that any
-condition will outperform another.
+The earlier [Experimental design source](experimental-design-source.txt) and
+[implementation plan](plans/2026-10-20-overnight-study.md) preserve the original
+five-schedule comparison including literature. The current Fashion-MNIST design
+is defined in [the workshop protocol](workshop-protocol.md): four memory-enabled
+arms and one matched memory-off control, with literature disabled. The tutorial
+patterns support implementation; they do not establish that any arm will win.
 
-Reports lead with each run's best completed validation ROC-AUC at its scheduled
-deadline. They retain nonattainers and failed runs, carry early-stopped valid
-results forward, use all runs in threshold-attainment denominators, and leave
-unknown time-to-threshold and costs unknown. Test confirmation is displayed
-separately. API billing, trial-process elapsed compute, and post-run accounting
-are distinguished. Synthetic runs are software checks, not evidence about the
-MAGIC task or the efficacy of supervision.
+Reports lead with the profile's primary validation objective: **accuracy** for
+current Fashion-MNIST, with macro-F1 and macro one-vs-rest ROC-AUC secondary.
+Earlier MAGIC and MNIST profiles use their declared AUC objectives. Reports retain
+nonattainers and failed runs, carry early-stopped valid results forward, use all
+runs in threshold-attainment denominators, and leave unknown time-to-threshold
+and costs unknown. Test confirmation is displayed separately. API billing,
+trial-process elapsed compute, and post-run accounting are distinguished.
+Synthetic runs verify software operation; they do not demonstrate strategy benefit.

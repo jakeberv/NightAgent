@@ -1,5 +1,8 @@
 # Study cleanup implementation plan
 
+> Dated engineering record. For current scope, instructions and review status,
+> use the [documentation guide](../../../docs/README.md). Later decisions may supersede this plan.
+
 > **For agentic workers:** Execute independent file ownership groups using the dispatching-parallel-agents skill, then perform one fresh whole-branch review. Steps use checkbox syntax for tracking.
 
 **Goal:** Complete the six cleanup recommendations accepted by the user, verify the current framework, and merge before reassessing the overnight launch.

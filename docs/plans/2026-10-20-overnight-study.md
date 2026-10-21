@@ -1,5 +1,8 @@
 # Overnight study implementation
 
+> Dated engineering record. For current scope, instructions and review status,
+> use the [documentation guide](../../docs/README.md). Later decisions may supersede this plan.
+
 Approved direction: implement the updated Experimental design tab in the
 existing `experiment/overnight-openrouter` checkout, based on dev-ben2 e285fad.
 Source: [Google Doc](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.60m8hjogcisp).

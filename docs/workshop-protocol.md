@@ -4,6 +4,12 @@ Updated 21 October 2026. This document and [the one-page specification](../SPEC.
 describe the implemented workshop experiment. The [launch recipe](five-arm-overnight.md)
 and frozen JSON/profile supply executable settings. Earlier MAGIC/MNIST AUC and
 literature comparisons are development history, not additional arms in this study.
+See [project goals](project-goals.md) for the apprentice vision and
+[workshop milestones](workshop-milestones.md) for requirement coverage and gaps.
+
+The memory-default implementation is under PR review. Main retains the previous
+policy until this revision is merged; do not launch the revised study before
+review and a new bounded live pilot.
 
 ## Research question and tutorial components
 
@@ -27,16 +33,18 @@ never test labels or held-out results during search.
 
 Five arms have three matched repeats with training seeds 42–44:
 
-1. Researcher alone, ordinary researcher planning, no supervisor or lesson register.
-2. Night Science supervision after each attempt.
-3. Night Science supervision after every three attempts.
-4. Periodic supervision plus researcher reflection after each attempt.
-5. Periodic supervision, reflection, and evidence-linked run-local lessons.
+1. `researcher_alone`: ordinary researcher planning and run-local lesson memory; no supervisor.
+2. `frequent`: Night Science supervision after each attempt, with memory.
+3. `periodic`: Night Science supervision after every three attempts, with memory.
+4. `periodic_reflection`: periodic supervision plus researcher reflection after each attempt, with memory.
+5. `periodic_reflection_no_memory`: the same periodic supervision and reflection as arm four, with lesson memory disabled.
 
 All supervised arms receive the same initial framing before their first fit.
-All arms receive recent experiment history; only the fifth retains the separate
-lesson register across the 12-trial history window. Lessons start empty in every
-run and do not transfer between repeats. Literature tools are disabled.
+All arms receive recent experiment history. The first four retain a separate
+evidence-linked lesson register across the 12-trial history window; memory is a
+standard apprentice capability, including in the researcher-alone arm. The
+explicit fifth control has no lesson register or lesson updates. Lessons start
+empty in every independent run and do not transfer between repeats. Literature tools are disabled.
 Reviews stop when there is no time for another experiment. Count completed,
 failed and timed-out attempts consistently for the schedule.
 
@@ -71,8 +79,11 @@ These cases meet the workshop's checkable-evaluation deliverable; the fifteen
 scientific runs are one dataset × five treatments × three repeats, not fifteen
 independent tasks. The full pytest suite remains the broader regression gate.
 
-Compare four declared adjacent contrasts: supervision, cadence, reflection and
-memory. Report all matched pairs and nonattainment, completed validation quality,
+Compare four declared contrasts: frequent minus researcher-alone for supervision,
+periodic minus frequent for cadence, periodic-reflection minus periodic for
+reflection, and periodic-reflection minus periodic-reflection-no-memory for
+memory. The first three hold memory on; the last is explicitly memory-on minus
+memory-off. Report all matched pairs and nonattainment, completed validation quality,
 time/cost to targets, total runtime/API cost, token accounting and failure rates.
 After all searches freeze, score verified selected artifacts on held-out data
 once per unique artifact. Do not feed those scores back into another search.
@@ -89,11 +100,15 @@ recommendation → decision/configuration → result → scoped lesson and subse
 delivery. An unsuccessful comparison can still produce a useful, appropriately
 limited lesson. A delivered lesson alone does not demonstrate benefit.
 
-The real five-arm preflight completed 35 fits and 68 model calls for $1.665228;
-all arms reached 85%, none reached 88% or 90%. It verifies operation, not efficacy.
-In the memory arm, 85% was reached before its first lesson, so that crossing is
-not evidence of memory benefit. Historical-source and one repaired-contract
-warning must remain visible when replaying this saved preflight.
+The [saved real preflight](targeted-preflight.md#historical-live-results--2026-10-20)
+used the former policy: memory off in four arms and on only in its final arm.
+Its 35 fits, 68 model calls, $1.665228 cost and 85.4%–87.5% best accuracies are
+historical mechanism evidence, not validation of the revised memory-default
+protocol. The [portable replay](evidence/fashion-demo/demo.md) remains a fallback.
+Its memory arm reached 85% before its first lesson; that crossing is not evidence
+of memory benefit. Retain historical-source and repaired-contract warnings.
+New offline rehearsal can verify implementation, while new paid prompt usage and
+spending require a bounded pilot before the revised overnight launch.
 
 Require successful launcher exit, complete accounting, verified artifacts,
 fifteen completed runs, three pairs per contrast, required interaction/memory
@@ -106,8 +121,7 @@ remain subject to team confirmation.
 
 ## Workshop milestones
 
-Specification: Monday 19 October, 17:00. Working baseline: Tuesday 20 October,
-17:00. Evaluation package: Wednesday 21 October, 11:00. Demo script: Wednesday
-21 October, 13:00. Presentations: Wednesday 21 October, 16:30. Times are Toronto.
-The spec, reference, named evaluation and replay make those deliverables concrete;
-the repeated paid comparison remains a separate launch decision.
+See [the milestone checklist](workshop-milestones.md) for the official deadlines,
+deliverables, evidence and remaining submission or ownership gaps. Available
+artifacts do not prove submission or organizer acceptance. The repeated paid
+comparison remains a separate launch decision.

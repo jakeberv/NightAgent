@@ -284,9 +284,9 @@ sentence for the dashboard. Validation citations are checked locally. Invalid
 responses consume the existing correction/time budgets and may stop the run with
 a nonzero exit; model interpretations are not treated as independently proven.
 
-Add `--lesson-memory` to the launch command to exercise bounded lessons within that
-run. Memory starts empty, keeps evidence and scope, and is a separately recorded
-experimental variant. It does not import other runs or test outcomes. No separate
+Lesson memory is on by default in the runnable preset. Use
+`--no-lesson-memory` for an explicit opt-out. Memory starts empty and retains
+evidence and scope within that run; historical runs retain their frozen setting. It does not import other runs or test outcomes. No separate
 API request is made for UI summaries; normal response tokens and any necessary
 corrections remain metered.
 
