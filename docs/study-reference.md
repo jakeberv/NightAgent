@@ -348,6 +348,69 @@ print their paths. Suites retain postrun phases/reserve. HTML embeds graphics;
 keep `figures/` for PNG/SVG download links. `summary.csv` and
 `paired-comparisons.json` retain machine-readable results.
 
+The default front page asks how much validation quality each strategy achieves
+for model tokens, API USD, and experiment attempts. Its short written summary is
+built by deterministic rules over computed results: no LLM calls, strategy names,
+conclusions, thresholds, or resource budgets are embedded in those rules.
+`report-summary.txt` exports the prose, `research-efficiency.json` exports the
+cohorts/calculations/method, `resource-trajectories.json` exports individual
+observations and evidence limits, and `report-provenance.json` fingerprints the
+loaded evidence. The original outcome, target, operational, role-accounting,
+held-out and trace sections remain in expandable supporting evidence. The
+presentation does not change declared outcomes or audit acceptance criteria.
+
+Resource cohorts share the existing frozen-identity gate and configuration
+strata used for matched outcomes. All scheduled runs in each stratum remain,
+including failures and nonattainers. Repeat/seed membership and duplicates are
+reported; descriptive group means are not paired effect estimates. Missing or
+inconsistent identities are listed explicitly outside the cohorts, not pooled.
+For each resource independently, the common lower budget is the latest first
+valid-model observation, and the upper budget is the earliest known prefix end
+across **every** cohort run. A run with no scored prefix blocks the cohort's
+comparison instead of disappearing. No subgroup is selected to extend the
+budget, no quality is imputed for a run without a valid model, and no curve is
+extended beyond observed resource use. These budgets are exploratory, selected
+from resource support rather than outcomes or target attainment.
+
+Absolute quality is the best observed valid in-allowance score at a cumulative
+budget. Improvement is direction-aware progress from **each run's own incumbent
+at the common lower budget**. The default report assumes no external zero-budget
+baseline: initial spending is retained in absolute budgets, and early improvement is not estimated. The baseline may
+differ across strategies and across resource axes; more subsequent improvement
+does not necessarily mean higher quality. Both start and end quality are
+exported alongside improvement. Continuous improvement area uses the exact
+right-continuous step integral; budget-normalized AUC divides by the shared
+interval width, retaining native metric units (no automatic percentages,
+score-range scaling, or cross-task pooling). Experiment AUC uses the discrete
+sum after attempts `start+1` through `end`, divided by `end-start`. Endpoint jumps
+therefore contribute to discrete AUC but not continuous area. The report
+withholds AUC if there is no positive shared interval.
+
+Resource coordinates come from serial controller journals. All roles, retries,
+reviews, reflection, failed calls and spending without a fit count. Input plus
+output tokens excludes double-counting cached/reasoning subsets. Trial starts
+count admitted experiments, including failed, timed-out, late and unfinished
+attempts; only observed valid results improve quality. Reused proposals are not
+new experiments. Unknown token or dollar usage ends that axis's known prefix
+independently, even if later usage is known; it never becomes zero. Missing or
+corrupt journals, inconsistent starts and accounting disagreements are explicit
+evidence limits. Complete accounting snapshots are checked against reconstructed
+usage. Local compute and post-run work remain separate from API USD. SDs describe
+observed repeats and do not establish superiority or uncertainty across tasks.
+Fewer total trials alone never establishes fewer trials required for a result.
+
+To regenerate a historical experiment without changing its evidence or report:
+
+```bash
+python -m study report --output study-runs/EXISTING_SUITE \
+  --report-dir study-runs/NEW_REPORT_DIRECTORY
+```
+
+The optional `generate_report(source, destination=...)` API uses the same loading,
+analysis and atomic rendering pipeline. With a separate destination, the source
+`postrun.json` is also untouched. The default automated invocation keeps writing
+to its existing report location.
+
 Reports include every planned run, no-classifier outcomes, stop reasons,
 validation progress, attainment, trial outcomes and per-role requests, failed/
 cancelled/unfinished attempts, retries, known cost/token subtotals and resource

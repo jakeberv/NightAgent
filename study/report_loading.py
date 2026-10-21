@@ -6,6 +6,7 @@ shared warnings list; summary selections never replace missing trial evidence.
 from __future__ import annotations
 
 import json
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +22,7 @@ class RunArtifacts:
     postrun: dict
     data_fingerprint: str | None
     events_available: bool
+    events_valid: bool = True
 
 
 @dataclass
@@ -30,6 +32,7 @@ class ReportArtifacts:
     warnings: list[str]
     postrun: dict
     is_suite: bool
+    provenance: dict
 
 
 def read_object(path: Path, warnings: list[str]) -> dict:
@@ -84,7 +87,9 @@ def data_fingerprint(summary: dict, events: list[dict]):
 
 
 def load_run(path: Path, summary: dict, cache: dict, warnings: list[str]) -> RunArtifacts:
+    prior_warnings = len(warnings)
     events = read_events(path.parent, warnings)
+    events_valid = len(warnings) == prior_warnings
     observed_ids = {str(event["result"]["trial_id"]) for event in events if event["type"] == "trial_finished"}
     missing_ids = {str(selected["trial_id"]) for selected in selections(summary).values()
                    if selected is not None} - observed_ids
@@ -100,7 +105,7 @@ def load_run(path: Path, summary: dict, cache: dict, warnings: list[str]) -> Run
     postrun_path = path.parent / "postrun.json"
     return RunArtifacts(path.parent, summary, events, tests,
                         read_object(postrun_path, warnings) if postrun_path.exists() else {},
-                        data_fingerprint(summary, events), (path.parent / "events.jsonl").exists())
+                        data_fingerprint(summary, events), (path.parent / "events.jsonl").exists(), events_valid)
 
 
 def load_report(root: Path) -> ReportArtifacts:
@@ -155,4 +160,16 @@ def load_report(root: Path) -> ReportArtifacts:
         runs = [load_run(path, summary, shared_test_cache, warnings) for path, summary in records.items()]
     postrun_path = root / "postrun.json"
     postrun = read_object(postrun_path, warnings) if postrun_path.exists() else {}
-    return ReportArtifacts(runs, metadata, warnings, postrun, manifest_path.exists())
+    inputs = {manifest_path, cache_path, postrun_path}
+    for run in runs:
+        inputs.update(run.folder / name for name in ('summary.json', 'events.jsonl', 'test-results.json', 'postrun.json'))
+    digests = {}
+    for path in sorted(inputs):
+        if path.exists():
+            try:
+                digests[str(path.relative_to(root))] = hashlib.sha256(path.read_bytes()).hexdigest()
+            except OSError as exc:
+                warnings.append(f"Could not fingerprint {path}: {exc}")
+    provenance = {'source': str(root.resolve()), 'sha256': digests,
+                  'note': 'Frozen reporting inputs only; this report does not change declared outcomes or audit acceptance criteria.'}
+    return ReportArtifacts(runs, metadata, warnings, postrun, manifest_path.exists(), provenance)
