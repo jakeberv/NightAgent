@@ -301,16 +301,17 @@ def _render_report(data: dict, root: Path) -> Path:
          for r in runs for role, values in r["role_metrics"].items()]))
     if runs:
         sections.append(role_plot(data, root))
-    sections.append("<h2>Recommendation uptake</h2><p>Valid decision contracts record whether the researcher followed, "
-                    "modified or rejected supervisor advice. The followed fraction uses those three responses as its "
+    sections.append("<h2>Recommendation uptake</h2><p>Researcher-reported responses state whether the agent says it followed, "
+                    "modified or rejected supervisor advice. These labels describe self-reports, not verified configuration compliance. "
+                    "The reported followed fraction uses those three responses as its "
                     "denominator; not-applicable, unknown and invalid responses are separate. Without contracts, uptake is "
                     "unknown. Differences from a referenced baseline are observed validation outcomes, not evidence that "
                     "advice caused an improvement. Repeated-experiment diagnostics are observational and do not imply failure.</p>")
-    sections.append(_table(["Run", "Recorded contracts", "Applicable", "Followed", "Modified", "Rejected", "Not applicable",
-                            "Unknown", "Invalid", "Followed fraction"],
+    sections.append(_table(["Run", "Recorded contracts", "Applicable", "Reported followed", "Reported modified", "Reported rejected", "Not applicable",
+                            "Unknown", "Invalid", "Reported followed fraction"],
         [[r["run_id"]] + [r["recommendation_uptake"][key] for key in ("recorded_contracts", "applicable", "followed",
             "modified", "rejected", "not_applicable", "unknown", "invalid", "followed_fraction")] for r in runs]))
-    sections.append(_table(["Run", "Trial", "Baseline", "Response", "Reason", "Trial status", "Baseline validation",
+    sections.append(_table(["Run", "Trial", "Baseline", "Reported response", "Reported reason", "Trial status", "Baseline validation",
                             "Trial validation", "Observed validation difference"],
         [[r["run_id"]] + [item[key] for key in ("trial_id", "baseline_trial_id", "supervisor_response", "response_reason",
             "trial_status", "baseline_score", "trial_score", "validation_delta")]

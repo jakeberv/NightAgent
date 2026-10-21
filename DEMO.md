@@ -1,10 +1,11 @@
-# Workshop demo: recorded evidence and acceptance limits
+# Workshop demo: accepted study and recorded evidence
 
-**A recorded mechanism demo is available.** The [21 October overnight suite](docs/overnight-results.md)
-failed audit, so it cannot supply an accepted strict export or a performance
-benefit claim. Use the portable historical replay below, or the labeled manual
-overnight trace showing an inconclusive result and later lesson delivery. A new
-full paid comparison is not required for this scoped presentation.
+**The [corrected five-arm study](docs/five-arm-results.md) is accepted.** All
+fifteen runs finished, with 344 verified fits and complete $24.268839 model cost.
+The audit passed with zero errors, fifteen repaired-contract warnings and one
+terminal-abandonment warning. Use its comparison report and strict recorded
+replay for the current demo. The older recordings below remain historical
+fallbacks; their failed or different protocols do not describe the current result.
 
 The current five-arm comparison makes lesson memory standard in
 `researcher_alone`, `frequent`, `periodic`, and `periodic_reflection`. The explicit
@@ -12,14 +13,14 @@ The current five-arm comparison makes lesson memory standard in
 Supervision, cadence and reflection comparisons hold memory on; the memory
 contrast reports on minus off. Every independent repeat begins with empty lessons.
 
-After a new suite has passed the current independent audit, generate a three
-minute replay from its memory-enabled `periodic_reflection` arm. From the
+Generate a three-minute replay from the accepted study's memory-enabled
+`periodic_reflection` arm. From the
 repository root, with the study environment activated:
 
 ```sh
 python -m study.demo \
-  --suite study-runs/YOUR_NEW_MEMORY_DEFAULT_SUITE \
-  --output /tmp/nightagent-workshop-demo \
+  --suite study-runs/fashion-five-arm-20261021-121920 \
+  --output study-runs/fashion-five-arm-demo-20261021 \
   --reference study-runs/fashion-fixed-reference-20261021-000433/trial/result.json
 ```
 
@@ -30,6 +31,14 @@ verified adjacent artifact hash. It reads evidence without unpickling or
 retraining. The recorded fixed reference is standard-scaled logistic regression
 (`C=1`, `max_iter=300`, seed 42): validation accuracy 81.0333%, one CPU, 4.744
 seconds. It is a separate fit outside the matched agent comparison.
+
+Regenerate the comparison report separately from the original saved report:
+
+```sh
+python -m study report \
+  --output study-runs/fashion-five-arm-20261021-121920 \
+  --report-dir study-runs/fashion-five-arm-20261021-121920/monitor/reviewed-report
+```
 
 The exporter writes `demo.md` (timed presenter script) and `demo.json`
 (measurements, configurations, context-delivery evidence, journal locations, line
@@ -42,15 +51,18 @@ lesson and confirms that the lesson entered a subsequent researcher context.
 It does not select the best score. `offline_fixture` and `unverified_provider`
 labels distinguish scripted or unverified records from real provider evidence.
 
-A new offline suite with scripted decisions and real synthetic-data CPU fits can
-verify this pipeline. Present it as engineering rehearsal, not language-model
-strategy evidence. The [revised paid preflight](docs/revised-preflight-results.md)
-completed but failed solo-memory acceptance; strict demo export must reject that
-suite. The [corrected solo revalidation](docs/solo-memory-revalidation.md) passed,
-but does not supply a new accepted five-arm suite. The
-[overnight suite](docs/overnight-results.md) has now run and failed audit; strict
-export must also reject it. Use the recorded options here and consult
-[readiness](docs/workshop-readiness.md) for correction and rerun status.
+The full comparison report contains all three matched seeds and held-out results.
+Periodic supervision provided a useful accuracy/throughput balance in this
+sample; reflection added cost without a final-accuracy gain, and memory's effect
+was mixed across seeds. None reached 90% validation accuracy. The replay proves
+an observable advice–experiment–measurement–lesson–context chain, not a causal
+memory benefit or general strategy ranking. See [results](docs/five-arm-results.md)
+and [readiness](docs/workshop-readiness.md) for the complete limitations.
+
+The earlier [revised paid preflight](docs/revised-preflight-results.md) and
+[overnight suite](docs/overnight-results.md) failed acceptance; strict export
+must still reject those originals. Scripted offline suites are engineering
+rehearsals and must not be presented as language-model strategy evidence.
 
 ## Historical real replay available from a fresh clone
 

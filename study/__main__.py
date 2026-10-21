@@ -200,12 +200,8 @@ async def _dispatch(args, progress):
         print(f"Held-out results saved under {args.output}")
     elif args.command == "report":
         from .report import generate_report
-        begin = time.monotonic()
         destination = getattr(args, 'report_dir', None)
         path = generate_report(args.output, destination=destination)
-        if destination is None:
-            previous = json.loads((args.output / "postrun.json").read_text()) if (args.output / "postrun.json").exists() else {}
-            atomic_json(args.output / "postrun.json", previous | {"reporting_seconds": time.monotonic() - begin})
         print(path)
     elif args.command == "reference":
         preflight_problem(problem_path, args.data)

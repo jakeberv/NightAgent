@@ -3,6 +3,7 @@ import asyncio
 from copy import deepcopy
 import json
 import hashlib
+from types import SimpleNamespace
 
 import numpy as np
 from pathlib import Path
@@ -30,7 +31,7 @@ def experiment(index):
 
 async def measured_trial(data_dir, trial_dir, config, *, seed, timeout):
     assert 'intent' not in config
-    assert seed == 42
+    assert seed in (42, 43, 44)
     return {'status': 'completed', 'score': .8, 'metrics': {'accuracy': .8},
             'artifact': 'trace-replay-fixture', 'artifact_hash': str(trial_dir)}
 
@@ -70,7 +71,7 @@ class TraceModel:
         return {'message': message, 'usage': {'prompt_tokens': 2, 'completion_tokens': 2, 'cost': 0}}
 
 
-def replay(tmp_path, model, *, condition='frequent', trials=7):
+def replay(tmp_path, model, *, condition='frequent', trials=7, training_seed=42):
     # A tiny prepared fixture preserves normal profile/identity validation.
     # The injected trial runner does not train or read the real Fashion data.
     partitions = {}
@@ -86,7 +87,7 @@ def replay(tmp_path, model, *, condition='frequent', trials=7):
     (tmp_path / 'manifest.json').write_text(json.dumps(manifest))
     run_dir = tmp_path / 'run'
     result = asyncio.run(run_one(StudyConfig(condition=condition, device='cpu',
-        lesson_memory=False, trial_cap=trials), tmp_path, run_dir, model,
+        lesson_memory=False, trial_cap=trials, training_seed=training_seed), tmp_path, run_dir, model,
         trial_runner=measured_trial, project={'n_features': 784}, problem=PROBLEM))
     events = [json.loads(line) for line in (run_dir / 'events.jsonl').read_text().splitlines()]
     return result, events
@@ -180,3 +181,59 @@ def test_offline_candidate_handles_schema_without_numeric_knobs_and_known_exhaus
         'entries': [{'model': 'logistic', 'preprocessing': 'standard', 'params': {}}]}
     with pytest.raises(ValueError, match='exhausted'):
         scripted_candidate(context)
+
+
+COMPLETED_STUDY = json.loads((Path(__file__).parent / 'fixtures/completed-study-duplicates.json').read_text())
+DUPLICATES = [(run, duplicate) for run in COMPLETED_STUDY['runs'] for duplicate in run['duplicates']]
+
+
+@pytest.mark.parametrize('run,duplicate', DUPLICATES,
+                         ids=[f"{run['run_id']}-line{duplicate['event_line']}" for run, duplicate in DUPLICATES])
+def test_completed_study_duplicates_supply_readable_history_then_recover_or_stop(tmp_path, monkeypatch, run, duplicate):
+    """The gate must retain all same-model settings, including older-than-window fits."""
+    count = duplicate['completed_count']
+    seed = run['fits'][0]['seed']
+    terminal = duplicate['next_fit'] is None
+    clock = [100.]
+    if terminal:
+        from study import controller
+        monkeypatch.setattr(controller, 'time', SimpleNamespace(monotonic=lambda: clock[0]))
+
+    class SavedProposal(TraceModel):
+        async def complete(self, messages, tools, *, timeout):
+            context = json.loads(messages[1]['content'])
+            attempted = context['trials_attempted']
+            contract = scripted_contract('researcher', context)
+            contract.pop('change', None)
+            if attempted < count:
+                candidate = deepcopy(run['fits'][attempted]['config'])
+            elif not self.injected:
+                candidate = deepcopy(duplicate['proposal'])
+                self.injected = True
+                if terminal:
+                    clock[0] = 699.  # Retain the duplicate, then refuse another call at deadline.
+            else:
+                candidate = deepcopy(run['fits'][count]['config'])
+            candidate['intent'] = contract
+            return {'message': {'role': 'assistant', 'tool_calls': [{'id': str(attempted),
+                'type': 'function', 'function': {'name': 'run_analysis', 'arguments': json.dumps(candidate)}}]},
+                'usage': {'prompt_tokens': 2, 'completion_tokens': 2, 'cost': 0}}
+
+    result, events = replay(tmp_path, SavedProposal(), condition='researcher_alone',
+                            trials=count + 1, training_seed=seed)
+    assert result['stop_reason'] == ('deadline' if terminal else 'trial_cap')
+    assert result['trials'] == count + (not terminal)
+    reused = [e for e in events if e['type'] == 'experiment_reused']
+    assert len(reused) == 1
+    assert reused[0]['matched_trial_ids'] == duplicate['matched_trial_ids']
+    # Literal recorded requests make the compressed canonical registry easier to
+    # apply during recovery; they are not suggested next experiments.
+    expected = [{'trial_id': row['trial_id'], 'config': row['config']}
+                for row in run['fits'][:count]
+                if row['config']['model'] == duplicate['proposal']['model']]
+    assert reused[0]['result']['completed_model_configurations'] == expected
+    starts = [e for e in events if e['type'] == 'trial_started']
+    assert len(starts) == count + (not terminal)  # No duplicate fit or trial slot.
+    if not terminal:
+        assert starts[-1]['config'] == run['fits'][count]['config']
+    assert all(e['result']['seed'] == seed for e in events if e['type'] == 'trial_finished')

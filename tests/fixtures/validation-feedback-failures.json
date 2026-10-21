@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "source_suite": "fashion-five-arm-20261021-121920",
+  "source_run": "r02-periodic_reflection",
+  "note": "Only scientific contract fields retained; no model credentials, account identifiers, or full journals.",
+  "cases": [
+    {
+      "source_event_lines": [
+        366,
+        369
+      ],
+      "after_trial": 19,
+      "contract": {
+        "summary": "Trial 19 tested lr=0.01 at batch_size=128 and recorded accuracy=0.877, below trial 11's 0.8817 at lr=0.007 batch_size=256.",
+        "evidence": [
+          {
+            "trial_id": 19,
+            "metric": "accuracy"
+          },
+          {
+            "trial_id": 11,
+            "metric": "accuracy"
+          }
+        ],
+        "what_changed": "Trial 19 tested the upper learning rate bound (0.01) with batch_size=128 and recorded accuracy=0.877, below the best observed 0.8817 from trial 11.",
+        "uncertainty": "Whether untested batch_size/learning_rate combinations (e.g., lr=0.0068 at batch_size=256) can exceed 0.882, or whether architectural constraints limit further progress within the 5-epoch budget, remains unresolved.",
+        "next_comparison": {
+          "model": "torch_cnn",
+          "preprocessing": "none",
+          "params": {
+            "epochs": 5,
+            "batch_size": 256,
+            "learning_rate": 0.0068,
+            "weight_decay": 0.0001,
+            "channels": 16
+          }
+        },
+        "lesson_updates": [
+          {
+            "id": "learning_rate_progression",
+            "status": "supported",
+            "summary": "Cited trials recorded validation accuracy from 0.877 to 0.88166667 across learning rates 0.0065-0.01.",
+            "scope": "Validation trials 11, 14, 15, 16, 17, 18, 19 compared learning_rate=0.007/0.008/0.0075/0.0065/0.0072/0.0065/0.01; batch_size varied. Multiple settings changed; effects are confounded.",
+            "evidence": [
+              {
+                "trial_id": 11,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 14,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 15,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 16,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 17,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 18,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 19,
+                "metric": "accuracy"
+              }
+            ]
+          }
+        ]
+      },
+      "expected_path": "lesson_updates.0.evidence",
+      "maximum_items": 6,
+      "received_items": 7
+    },
+    {
+      "source_event_lines": [
+        390
+      ],
+      "after_trial": 20,
+      "contract": {
+        "summary": "Trial 20 recorded accuracy=0.88133333 on validation, matching trial 11's 0.88166667 within 0.0003; the explored learning rate range 0.006-0.01 shows a plateau near 0.881-0.882.",
+        "evidence": [
+          {
+            "trial_id": 20,
+            "metric": "accuracy"
+          },
+          {
+            "trial_id": 11,
+            "metric": "accuracy"
+          }
+        ],
+        "what_changed": "Trial 20 tested lr=0.006 at batch_size=256, recording accuracy=0.88133333; this matches trial 11 (lr=0.007, batch_size=256, accuracy=0.88166667) within 0.0003.",
+        "uncertainty": "Whether untested combinations outside the explored learning rate range (e.g., lr=0.0062 or lr=0.0069) can exceed 0.882, or whether the 0.0183 gap to the 0.90 target reflects architectural limits, remains unresolved.",
+        "next_comparison": {
+          "model": "torch_cnn",
+          "preprocessing": "none",
+          "params": {
+            "epochs": 5,
+            "batch_size": 256,
+            "learning_rate": 0.0068,
+            "weight_decay": 0.0001,
+            "channels": 16
+          }
+        },
+        "lesson_updates": [
+          {
+            "id": "learning_rate_progression",
+            "status": "supported",
+            "summary": "Cited trials 11, 14, 15, 16, 17, 18, 20 recorded validation accuracy from 0.87633333 to 0.88133333.",
+            "scope": "Validation trials 11, 14, 15, 16, 17, 18, 20 compared learning_rate=0.007/0.008/0.0075/0.0065/0.0072/0.0065/0.006 at batch_size=256/256/256/128/256/256/256.",
+            "evidence": [
+              {
+                "trial_id": 11,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 14,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 15,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 16,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 17,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 18,
+                "metric": "accuracy"
+              },
+              {
+                "trial_id": 20,
+                "metric": "accuracy"
+              }
+            ]
+          }
+        ]
+      },
+      "expected_path": "lesson_updates.0.evidence",
+      "maximum_items": 6,
+      "received_items": 7
+    }
+  ]
+}

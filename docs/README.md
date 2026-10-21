@@ -13,6 +13,7 @@ development history have distinct homes.
 | [Workshop milestones](workshop-milestones.md) | Official requirements mapped to deliverables, evidence and remaining gaps |
 | [Demo script](../DEMO.md) | Presentation sequence and honest fallback using saved real evidence |
 | [Readiness](workshop-readiness.md) | Current acceptance, reliability correction, demo limits and rerun gates |
+| [Completed five-arm results](five-arm-results.md) | Accepted comparison across three matched seeds, costs, limitations and offline follow-up fixes |
 | [Overnight results](overnight-results.md) | Failed 15-attempt comparison, descriptive scores, verified memory trace and rerun assessment |
 | [Evaluation cases](evaluation-cases.md) | Eight named engineering acceptance cases and how to run them |
 | [Revised paid preflight result](revised-preflight-results.md) | Preserved five-arm failure, real-model measurements and diagnosis |

@@ -2,6 +2,33 @@
 
 ## Latest operational assessment
 
+The [corrected five-arm study](five-arm-results.md) finished at **13:35 Toronto
+on 21 October**: all 15 runs, 344 verified fits, 624 model calls and held-out
+scoring completed for **$24.268839**, with no failed fits/calls or unknown billing.
+The saved independent audit **passed with zero errors and 16 warnings**: fifteen
+repaired contracts and one rejected final reflection abandoned at deadline.
+All twelve memory-enabled runs saved and later delivered notes; none of the
+three controls wrote lesson memory.
+
+The post-study fixes preserve report input hashes, clarify self-reported uptake,
+return actionable citation-limit errors, and show readable same-model history
+when recovering from a duplicate proposal. Offline regressions replay all 29
+observed duplicates and the real rejected reflections. The original study stays
+unchanged; corrected reports render to a separate destination. A new full paid
+run is not required for these fixes. Offline checks verify the feedback and guard
+behavior, not that the language model will now stop proposing duplicates.
+The follow-up branch passed **1,163 tests in 207.17 seconds** and independent
+code review; the corrected real-suite report has 48/48 matching input digests.
+
+The study is suitable for the demo with its limitations visible. Three matched
+training seeds do not establish general strategy superiority. No arm reached
+90% validation accuracy, and no selected-best held-out score reached 88%.
+The completed study remains evidence for its frozen source; the offline follow-up
+checks do not retroactively change its behavior. This assessment supersedes the
+historical launch assessments below.
+
+## Historical contract preflight
+
 The [shared-action contract preflight](shared-contract-preflight.md) completed
 24 fits across the seed-43 periodic and two reflection attempts, with complete
 accounting and zero independent run-audit errors or warnings. All 22 accepted
@@ -13,8 +40,8 @@ The correction supports considering a new bounded full study after integration,
 with recovered proposal errors recorded as outcomes. It does not establish
 duplicate-free behavior, a full five-arm acceptance or strategy superiority.
 Use one frozen source for all 15 attempts, a fresh two-hour window and refreshed
-host/budget checks; no replacement full run has been launched. This assessment
-supersedes the historical validation queue below.
+host/budget checks. That proposed replacement has now completed as described
+above; this paragraph preserves the pre-launch assessment.
 
 **Original overnight acceptance: FAIL.** The
 [15-attempt overnight comparison](overnight-results.md) produced **349 verified

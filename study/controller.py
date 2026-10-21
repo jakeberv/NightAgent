@@ -254,7 +254,14 @@ async def run_one(config, data_dir, run_dir, model, *, trial_runner=None, projec
                             prior = next(row for row in history if row['trial_id'] == equivalent[0])
                             result = {'status': 'reused', 'matched_trial_ids': equivalent,
                                       'observation': compact_result(prior),
-                                      'message': 'This effective configuration and seed already completed. No fit or trial slot was used. Choose a different experiment.'}
+                                      # Recovery should not require mentally merging
+                                      # the compact registry's parameter bases. These
+                                      # are recorded requests, never suggested actions.
+                                      'completed_model_configurations': [
+                                          {'trial_id': row['trial_id'], 'config': row['config']}
+                                          for row in history if row.get('status') == 'completed'
+                                          and row.get('config', {}).get('model') == args['model']],
+                                      'message': 'This effective configuration and seed already completed. No fit or trial slot was used. Compare the completed model configurations below and the effective registry before choosing an untried setting within the tool bounds. Omitted defaults and aliases do not make a configuration new.'}
                             journal.emit('experiment_reused', matched_trial_ids=equivalent,
                                          config=args, result=result)
                             messages.append({'role': 'tool', 'tool_call_id': call.get('id', ''),

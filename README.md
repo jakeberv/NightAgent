@@ -36,8 +36,8 @@ make paid model calls: five approaches × three repeats, ten minutes per run,
 with a $5 guard per run ($75 combined; an in-flight call can exceed a guard).
 They finish with held-out evaluation, a comparison report and an acceptance audit.
 Check funding and run the [operational preflight](docs/workshop-readiness.md#what-requires-new-validation)
-before another full comparison. The previous Fashion run cost at least $22.44;
-remeasure costs under the corrected context before projecting another run.
+before another full comparison. The [accepted Fashion comparison](docs/five-arm-results.md)
+cost $24.27; this is an observed cost, not a guarantee for another run.
 
 **Fashion-MNIST, matching the overnight design.** First [prepare the data and
 install the neural dependencies](docs/fashion-pilot.md). This uses Apple MPS;
@@ -83,15 +83,17 @@ before treating its comparison as accepted.
 
 ## Where we are
 
-The [overnight comparison](docs/overnight-results.md) ran all 15 attempts and
-produced 349 verified fits, with $22.444005 known cost and two calls with unknown
-billing.
-Its original audit failed: two arms stopped early and one final supervisor note
-could not be repaired before the deadline. The saved results establish no winning
-approach or memory benefit. All 12 memory-enabled runs saved and later delivered
-lessons, so the [demo](DEMO.md) can show the mechanism with those limits visible.
-See [readiness](docs/workshop-readiness.md) for the reliability correction and
-what a new accepted comparison would require.
+The [corrected five-arm comparison](docs/five-arm-results.md) completed all 15 runs,
+344 successful experiments and held-out scoring for $24.27. Its audit passed with
+warnings. Periodic supervision offered a useful accuracy/throughput balance in
+these three repeats; reflection added cost without a clear final-accuracy gain,
+and the memory comparison was mixed. These are exploratory findings, not proof
+that one approach generally wins. All 12 memory-enabled runs saved and later
+delivered lessons; the three controls kept lesson memory off.
+
+See [readiness](docs/workshop-readiness.md) for the remaining limitations and
+offline follow-up checks. The [earlier failed overnight study](docs/overnight-results.md)
+is retained as historical evidence.
 
 This repository also contains a separate [conversational research prototype](nightagent/README.md) built with the Claude Agent SDK. It supports open-ended student–supervisor meetings and project files; the controlled workshop study described above provides the fixed experiments and comparative evaluation.
 

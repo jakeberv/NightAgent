@@ -174,6 +174,10 @@ def schema_errors(value, schema, label):
         location = '.'.join(map(str, error.path)) or 'root'
         if error.validator == "maxLength":
             detail = f"Use at most {error.validator_value} characters (received {len(error.instance)}); rewrite as short complete sentences."
+        elif error.validator in ('maxItems', 'minItems'):
+            bound = 'at most' if error.validator == 'maxItems' else 'at least'
+            unit = 'item' if error.validator_value == 1 else 'items'
+            detail = f"Use {bound} {error.validator_value} {unit} (received {len(error.instance)})."
         else:
             detail = error.message[:240]
         errors.append(f"Invalid {label} at {location}: {detail}")
