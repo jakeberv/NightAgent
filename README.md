@@ -22,6 +22,7 @@ The protocol enables lesson memory in the first four approaches. Every independe
 
 ## Start here
 
+- **Administrator evaluation:** [one-command solo demo](admin_demo/README.md), with seven live experiments, memory, a short report and a saved replay fallback.
 - **Watch the demo:** [presentation walkthrough](DEMO.md) and [saved real interaction replay](docs/evidence/fashion-demo/demo.md).
 - **Try it locally:** [getting started](docs/getting-started.md) provides an offline example with no API key or data download.
 - **Understand the project:** [goals and scope](docs/project-goals.md), [one-page workshop spec](SPEC.md), and [milestone checklist](docs/workshop-milestones.md).

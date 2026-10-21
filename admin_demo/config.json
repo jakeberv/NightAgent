@@ -1,0 +1,20 @@
+{
+  "condition": "researcher_alone",
+  "comparison": "apprentice_interactions",
+  "model": "anthropic/claude-sonnet-4.5",
+  "provider": "anthropic",
+  "temperature": 0,
+  "max_tokens": 2048,
+  "allowance_seconds": 300,
+  "trial_timeout_seconds": 45,
+  "trial_cap": 7,
+  "dollar_cap": 1,
+  "training_seed": 42,
+  "lesson_memory": true,
+  "history_trials": 12,
+  "model_timeout_seconds": 60,
+  "model_retries": 1,
+  "allow_unknown_cost": false,
+  "max_cores": 4,
+  "device": "auto"
+}
