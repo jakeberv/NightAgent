@@ -222,7 +222,7 @@ def test_cli_warning_exits_successfully_and_writes_summary(suite):
     ('missing_contracts','contract_evidence'),('reflection_delivery','reflection_delivery'),
     ('late_reflections','interaction_order'),('off_cadence_final_review','review_schedule'),
     ('missing_targets','selection'),('selected_path','selection'),('selected_score','selection'),
-    ('fit_seed','fit_seed'),('call_status','model_call_status')])
+    ('fit_seed','fit_seed'),('call_status','events')])
 def test_audit_rejects_contradictions_despite_consistent_summary_and_reports(suite,mutation,expected):
     run=suite/'runs/r00-periodic_reflection_memory';es=events(run);summary=read(run/'summary.json')
     if mutation=='missing_contracts': es=[e for e in es if not e['type'].endswith('_contract')]
@@ -282,3 +282,31 @@ def test_invalid_or_contradictory_metrics_fail_even_for_unselected_fits(suite,he
     else: save_events(run,es)
     result=audit(suite)
     assert not result['passed'] and 'metric' in codes(result),result
+
+
+def test_audit_catches_a_selection_bug_even_when_production_selector_agrees(suite,monkeypatch):
+    """Fault injection: a last-trial-wins selector must not become the audit oracle."""
+    from study.events import Accounting
+    from study import selection
+    run=suite/'runs/r00-periodic_reflection_memory';es=events(run)
+    last=next(e['result'] for e in reversed(es) if e['type']=='trial_finished')
+    account=Accounting()
+    for e in es:
+        if e['type']=='model_call': account.add(e['usage'])
+    summary=read(run/'summary.json')
+    summary['best']={**summary['best'],**{k:last[k] for k in
+        ('trial_id','elapsed_seconds','artifact','artifact_hash','config')},'accounting':account.snapshot()}
+    es[-1]['summary']=summary;write(run/'summary.json',summary);save_events(run,es)
+    original=selection.select_result
+    def last_wins(summary,result,accounting,config,problem=None):
+        original(summary,result,accounting,config,problem)
+        if config.condition=='periodic_reflection' and config.lesson_memory and config.repeat==0:
+            latest={}
+            original(latest,result,accounting,config,problem)
+            if latest.get('best'): summary['best']=latest['best']
+    monkeypatch.setattr(selection,'select_result',last_wins)
+    report=build_report_data(suite)
+    write(suite/'paired-comparisons.json',report['paired_comparisons'])
+    write(suite/'strategy-efficiency.json',{k:v['targets'] for k,v in report['conditions'].items()})
+    result=audit(suite)
+    assert any(e['code']=='selection' and e['scope']==run.name for e in result['errors']),result

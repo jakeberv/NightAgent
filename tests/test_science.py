@@ -124,6 +124,7 @@ def test_test_evaluation_deduplicates_and_survives_reinvocation(prepared, tmp_pa
     first = mod.evaluate_selected(prepared, tmp_path / "run", selected)
     assert first["best"]["status"] == "completed"
     assert .5 < first["best"]["test_auc"] <= 1
+    assert first["best"]["score"] == first["best"]["metrics"]["roc_auc"] == first["best"]["test_auc"]
     assert first["best"] == first["milestone"]
     (prepared / "test.npz").unlink()
     assert mod.evaluate_selected(prepared, tmp_path / "run", selected) == first

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from study.config import StudyConfig
-from study.controller import tools_for
+from study.model_tools import tools_for
 from study.problem import load_problem
 from study.provider import completion_tools
 

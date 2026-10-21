@@ -3,7 +3,8 @@ import json
 import pytest
 
 from study.config import StudyConfig
-from study.controller import run_one, recover_run
+from study.controller import run_one
+from study.recovery import recover_run
 from test_reasoning import decision
 from study.fake import FakeModel
 

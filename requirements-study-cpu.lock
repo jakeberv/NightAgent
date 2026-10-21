@@ -1,0 +1,52 @@
+# Locked CPU CI baseline: Ubuntu 24.04 x86_64, CPython 3.12.
+# Base versions match requirements-study.lock; neural dependency versions match
+# requirements-gpu.lock, with the Linux CPU wheel explicitly selected.
+# Install as both requirements and constraints; see docs/ci.md. This file is
+# platform-specific and is not the macOS/MPS environment lock.
+anyio==4.15.1
+attrs==26.1.0
+certifi==2026.10.19
+cloudpickle==3.1.2
+contourpy==1.4.0
+cycler==0.12.1
+fonttools==4.67.0
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.20
+iniconfig==2.3.1
+joblib==1.6.0
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+kiwisolver==1.5.1
+markdown-it-py==4.2.0
+matplotlib==3.11.2
+mdurl==0.1.2
+narwhals==2.27.1
+numpy==2.5.4
+packaging==26.3
+pillow==13.0.0
+pluggy==1.7.0
+psutil==7.2.2
+pygments==2.21.0
+pyparsing==3.3.3
+pytest==9.1.1
+python-dateutil==2.9.0.post0
+pyyaml==6.0.3
+referencing==0.37.0
+rich==14.3.4
+rpds-py==2026.9.1
+scikit-learn==1.9.1
+scipy==1.18.1
+six==1.17.0
+threadpoolctl==3.7.0
+typing-extensions==4.16.0
+filelock==4.2.4
+fsspec==2026.9.0
+jinja2==3.1.6
+markupsafe==3.0.4
+mpmath==1.3.0
+networkx==3.7
+setuptools==84.2.1
+sympy==1.14.0
+torch==2.14.1+cpu

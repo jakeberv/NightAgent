@@ -10,21 +10,96 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  MPLBACKEND: Agg
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  PYTHONHASHSEED: '0'
+
 jobs:
-  study-tests:
-    name: Study tests (CPU, Python 3.12)
+  study-locked:
+    name: Study locked baseline (CPU, Python 3.12)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    env:
-      MPLBACKEND: Agg
-      OMP_NUM_THREADS: '1'
-      OPENBLAS_NUM_THREADS: '1'
-      MKL_NUM_THREADS: '1'
-      PYTHONHASHSEED: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-study.txt
+            requirements-study-cpu.lock
+      - name: Install pinned study and CPU neural dependencies
+        run: |
+          mkdir -p ci-results/locked
+          python -m pip install --only-binary=:all: \
+            -r requirements-study.txt -r requirements-study-cpu.lock \
+            -c requirements-study-cpu.lock \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            --report ci-results/locked/install.json \
+            2>&1 | tee ci-results/locked/install.log
+          python -m pip check
+      - name: Verify installed pins, dependency closure and CPU runtime
+        run: |
+          python - <<'PY'
+          from importlib.metadata import metadata, version
+          from pathlib import Path
+          from packaging.requirements import Requirement
+          from packaging.utils import canonicalize_name
+          import torch
+
+          pins = {}
+          for line in Path('requirements-study-cpu.lock').read_text().splitlines():
+              if not line.strip() or line.startswith('#'):
+                  continue
+              requirement = Requirement(line)
+              pins[canonicalize_name(requirement.name)] = requirement
+          for name, requirement in pins.items():
+              assert version(name) in requirement.specifier, (name, version(name), str(requirement))
+              for dependency in metadata(name).get_all('Requires-Dist', []):
+                  dependency = Requirement(dependency)
+                  if dependency.marker is None or dependency.marker.evaluate({'extra': ''}):
+                      assert canonicalize_name(dependency.name) in pins, f'Unpinned runtime dependency: {name} -> {dependency}'
+          assert torch.__version__ == '2.14.1+cpu', torch.__version__
+          assert torch.version.cuda is None
+          assert not torch.cuda.is_available()
+          assert not torch.backends.mps.is_available()
+          print(f'Verified {len(pins)} installed pins and runtime dependency closure; PyTorch {torch.__version__}')
+          PY
+      - name: Run full offline test suite
+        run: python -m pytest -q --junitxml=ci-results/locked/pytest.xml
+      - name: Record locked environment diagnostics
+        if: always()
+        run: |
+          mkdir -p ci-results/locked
+          python -VV > ci-results/locked/python.txt 2>&1
+          python -m pip --version > ci-results/locked/pip.txt 2>&1
+          python -m pip freeze --all > ci-results/locked/dependencies.txt
+          python -m pip inspect > ci-results/locked/environment.json
+          python -m pip check > ci-results/locked/pip-check.txt 2>&1 || true
+      - name: Upload locked baseline diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: study-locked-results
+          path: ci-results/locked/
+          if-no-files-found: warn
+          retention-days: 7
+
+  study-ranges:
+    name: Study supported ranges (CPU, Python 3.12)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -32,29 +107,45 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: requirements-study.txt
-      - name: Install study dependencies and CPU-only PyTorch
+      - name: Resolve supported study dependency ranges
         run: |
-          python -m pip install -r requirements-study.txt
-          python -m pip install 'torch>=2.5,<3' --index-url https://download.pytorch.org/whl/cpu
+          mkdir -p ci-results/ranges
+          python -m pip install --upgrade --only-binary=:all: \
+            -r requirements-study.txt --report ci-results/ranges/study-install.json \
+            2>&1 | tee ci-results/ranges/study-install.log
+      - name: Resolve supported CPU PyTorch range
+        run: |
+          python -m pip install --upgrade --only-binary=:all: \
+            'torch>=2.5,<3' -c requirements-study.txt \
+            --index-url https://download.pytorch.org/whl/cpu \
+            --report ci-results/ranges/torch-install.json \
+            2>&1 | tee ci-results/ranges/torch-install.log
           python -m pip check
-      - name: Record environment and verify CPU runtime
+      - name: Verify CPU runtime
         run: |
-          mkdir -p ci-results
-          python -m pip freeze > ci-results/dependencies.txt
           python - <<'PY'
           import torch
-          print(f'PyTorch {torch.__version__}; CPU-only validation')
+          print(f'PyTorch {torch.__version__}; supported-range CPU validation')
           assert torch.version.cuda is None
           assert not torch.cuda.is_available()
           assert not torch.backends.mps.is_available()
           PY
       - name: Run full offline test suite
-        run: python -m pytest -q --junitxml=ci-results/pytest.xml
-      - name: Upload test results and dependency versions
+        run: python -m pytest -q --junitxml=ci-results/ranges/pytest.xml
+      - name: Record supported-range environment diagnostics
+        if: always()
+        run: |
+          mkdir -p ci-results/ranges
+          python -VV > ci-results/ranges/python.txt 2>&1
+          python -m pip --version > ci-results/ranges/pip.txt 2>&1
+          python -m pip freeze --all > ci-results/ranges/dependencies.txt
+          python -m pip inspect > ci-results/ranges/environment.json
+          python -m pip check > ci-results/ranges/pip-check.txt 2>&1 || true
+      - name: Upload supported-range diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: study-test-results
-          path: ci-results/
-          if-no-files-found: ignore
+          name: study-ranges-results
+          path: ci-results/ranges/
+          if-no-files-found: warn
           retention-days: 7

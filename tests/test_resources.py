@@ -209,19 +209,24 @@ def test_balancer_waits_for_cleanup_before_releasing_cores():
 
 def test_recovery_and_report_exclude_queue_time(tmp_path):
     from dataclasses import asdict
-    from study.controller import recover_run
-    from study.report import _trials
-    (tmp_path / 'config.json').write_text(json.dumps(asdict(StudyConfig(max_cores=2))))
+    from study.recovery import recover_run
+    from study.report_loading import trials_from_events
+    from study.problem import legacy_problem
+    problem = legacy_problem()
+    (tmp_path / 'resolved-config.json').write_text(json.dumps({
+        'config': asdict(StudyConfig(max_cores=2)), 'problem': problem.to_dict(),
+        'problem_hash': problem.fingerprint}))
     results = [
         {'trial_id': 1, 'status': 'timeout', 'duration_seconds': 8,
          'queue_seconds': 5, 'training_seconds': 3, 'elapsed_seconds': 10},
-        {'trial_id': 2, 'status': 'timeout', 'duration_seconds': 2, 'elapsed_seconds': 12},
+        {'trial_id': 2, 'status': 'timeout', 'duration_seconds': 2,
+         'training_seconds': 2, 'elapsed_seconds': 12},
     ]
     events = [{'type': 'trial_finished', 'result': result, 'elapsed_seconds': result['elapsed_seconds']}
               for result in results]
     (tmp_path / 'events.jsonl').write_text(''.join(json.dumps(event) + '\n' for event in events))
     assert recover_run(tmp_path)['training_seconds'] == 5
-    assert [trial['training_seconds'] for trial in _trials({}, events)] == [3, 2]
+    assert [trial['training_seconds'] for trial in trials_from_events(events, {})] == [3, 2]
 
 
 def test_gpu_queue_serializes_gpu_fits_without_blocking_cpu_fits(tmp_path, monkeypatch):

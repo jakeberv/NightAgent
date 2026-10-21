@@ -1,6 +1,7 @@
 """Measured run state, advisory capacity estimates and deadline admission budgets."""
 from copy import deepcopy
 import math
+import json
 from statistics import mean
 
 
@@ -120,3 +121,47 @@ def compact_feedback(contract):
 
 def compact_lessons(lessons):
     return [{k: deepcopy(v) for k, v in lesson.items() if k != 'interpretation'} for lesson in lessons]
+
+
+def agent_project(project):
+    """Describe generated feature indexes exactly without repeating a large name list."""
+    project = {k: v for k, v in project.items() if k != 'analysis_schema'}
+    names = project.get('feature_names', [])
+    if len(names) > 32 and names == [f'feature_{index:04d}' for index in range(len(names))]:
+        return {**{key: value for key, value in project.items() if key != 'feature_names'},
+                'feature_layout': {'count': len(names), 'naming': 'feature_{index:04d}',
+                                   'index_range': [0, len(names) - 1]}}
+    return dict(project)
+
+
+def build_context(state, *, project, permitted_experiments, memory, role=None, framing=False):
+    """Render current budgets and observations; retain all-trial citation visibility."""
+    config, summary, history = state.config, state.summary, state.history
+    return json.dumps({
+        'project': agent_project(project),
+        'recent_trials': [compact_result(row) for row in history[-config.history_trials:]],
+        **({'permitted_experiments': permitted_experiments} if role in ('supervisor', 'reflection') else {}),
+        **({'supervisor_strategy': 'standard' if framing else config.supervisor_strategy,
+            'supervisor_stage': 'framing' if framing else 'review'} if role == 'supervisor' else {}),
+        'best': compact_result(summary['best'] or {}),
+        'last_supervisor_feedback': compact_feedback(state.feedback),
+        'active_advice_source': ('none' if state.feedback is None else
+                                'initial_framing' if state.feedback == state.initial_framing else 'review'),
+        'initial_framing': compact_feedback(state.initial_framing),
+        'evidence_metrics_by_trial': {str(row['trial_id']): sorted(
+            name for name, value in (row.get('metrics') or {}).items()
+            if type(value) in (int, float) and math.isfinite(value))
+            for row in history if row.get('status') == 'completed'},
+        'last_explicit_reflection': compact_feedback(state.reflection),
+        'trials_attempted': summary['trials'], 'trial_cap': config.trial_cap,
+        'remaining_trials': max(0, config.trial_cap - summary['trials']),
+        'remaining_seconds': max(0, state.remaining()), 'accounting': state.accounting.snapshot(),
+        'trial_timeout_seconds': config.trial_timeout_seconds,
+        'compute_limits': {'max_cores': config.max_cores or 1, 'device': config.device},
+        'mean_model_call_seconds': state.model_seconds / state.accounting.calls if state.accounting.calls else None,
+        'review_every_trials': config.review_every, 'reflection_after_each_trial': config.reflection,
+        'objective': state.problem.objective,
+        'targets': {target['name']: target['value'] for target in state.problem.targets},
+        'target_status': state.targets(), 'capacity_estimate': state.capacity(role, framing),
+        **({'lessons': compact_lessons(memory.snapshot())} if config.lesson_memory else {}),
+    }, allow_nan=False)

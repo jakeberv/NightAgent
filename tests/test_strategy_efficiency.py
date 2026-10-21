@@ -23,10 +23,11 @@ def write_run(root, identity, *, reached=False, seconds=10, end_seconds=30,
     selected = {**trial, 'accounting': crossing or {}}
     summary = {**METADATA, 'run_id': identity, 'condition': condition, 'repeat': repeat,
                'config': {'allowance_seconds': 100}, 'allowance_seconds': 100,
-               'elapsed_seconds': end_seconds, 'stop_reason': 'trial_cap', 'trials': [trial],
+               'elapsed_seconds': end_seconds, 'stop_reason': 'trial_cap', 'trials': 1,
                'best': selected, 'target_selections': {'useful': selected if reached else None},
                'accounting': ending or {}}
     (folder / 'summary.json').write_text(json.dumps(summary))
+    (folder / 'events.jsonl').write_text(json.dumps({'type': 'trial_finished', 'result': trial}) + '\n')
     return folder
 
 
@@ -89,14 +90,17 @@ def test_no_attainment_does_not_invent_crossing_cost_or_time(tmp_path):
 def test_first_crossing_budget_does_not_use_accounting_from_a_later_selection(tmp_path):
     folder = write_run(tmp_path, 'hit', reached=True, crossing=account(.8, 400), ending=account(1, 500))
     summary = json.loads((folder / 'summary.json').read_text())
-    summary['trials'][0]['accounting'] = account(.2, 100)
+    event = json.loads((folder / 'events.jsonl').read_text())
+    event['result']['accounting'] = account(.2, 100)
+    (folder / 'events.jsonl').write_text(json.dumps(event) + '\n')
     summary['target_selections']['useful'].update(trial_id=2, elapsed_seconds=20)
     summary['best'] = summary['target_selections']['useful']
     (folder / 'summary.json').write_text(json.dumps(summary))
     details = build_report_data(tmp_path)['runs'][0]['targets']['useful']
     assert details['seconds'] == 10
     assert details['total_cost'] == .2 and details['total_tokens'] == 100
-    del summary['trials'][0]['accounting']
+    del event['result']['accounting']
+    (folder / 'events.jsonl').write_text(json.dumps(event) + '\n')
     (folder / 'summary.json').write_text(json.dumps(summary))
     details = build_report_data(tmp_path)['runs'][0]['targets']['useful']
     assert details['total_cost'] is None and details['total_tokens'] is None

@@ -2,7 +2,7 @@
 import copy
 import pytest
 
-from study import controller
+from study import model_tools
 
 HISTORY = [{"trial_id": 1, "status": "completed", "validation_auc": .9,
             "metrics": {"roc_auc": .9}, "config": {"model": "logistic"}}]
@@ -179,13 +179,13 @@ def test_structured_tool_schema_keeps_anthropic_compatible_root():
     from study.config import StudyConfig
     config = StudyConfig(decision_protocol="structured_v1")
     from study.provider import completion_tools
-    schema = completion_tools(controller.tools_for("researcher", config))[0]["function"]["parameters"]
+    schema = completion_tools(model_tools.tools_for("researcher", config))[0]["function"]["parameters"]
     assert schema["type"] == "object"
     assert not {"oneOf", "allOf", "anyOf"} & schema.keys()
     assert "intent" in schema["required"]
     assert "lesson_updates" not in schema["properties"]["intent"]["properties"]
     config = StudyConfig(decision_protocol="structured_v1", lesson_memory=True)
-    schema = controller.tools_for("researcher", config)[0]["function"]["parameters"]
+    schema = model_tools.tools_for("researcher", config)[0]["function"]["parameters"]
     assert "lesson_updates" in schema["properties"]["intent"]["properties"]
 
 

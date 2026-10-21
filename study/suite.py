@@ -10,7 +10,8 @@ import platform
 import random
 
 from .config import comparison_arms
-from .controller import initial_summary, prepared_fingerprint, resolve_problem, run_one
+from .controller import prepared_fingerprint, resolve_problem, run_one
+from .selection import initial_summary
 from .events import atomic_json, utc_now
 
 

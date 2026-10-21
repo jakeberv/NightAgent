@@ -140,8 +140,8 @@ def test_malformed_comparison_arm_is_excluded_from_pairing(tmp_path, strategy, c
     assert not any(row['matched_pairs'] for row in report['paired_comparisons'])
 
 
-def test_recovery_preserves_historical_supervisor_policy_without_relabeling(tmp_path):
-    from study.controller import recover_run
+def test_recovery_rejects_an_unsupported_supervisor_policy_without_relabeling(tmp_path):
+    from study.recovery import recover_run
     directory = tmp_path / 'run'
     asyncio.run(run_one(StudyConfig(condition='frequent', trial_cap=1), tmp_path,
         directory, FakeModel(), trial_runner=trial, project={}))
@@ -155,16 +155,17 @@ def test_recovery_preserves_historical_supervisor_policy_without_relabeling(tmp_
     events_path = directory / 'events.jsonl'
     events = [json.loads(line) for line in events_path.read_text().splitlines()]
     events_path.write_text(''.join(json.dumps(e) + '\n' for e in events if e['type'] != 'run_stopped'))
-    summary = recover_run(directory)
-    assert summary['config']['supervisor_policy'] == 'night_science_v1'
-    assert 'supervisor_strategy' not in summary['config']
-    assert summary['trials'] == 1 and summary['accounting']['calls'] == 2
+    with pytest.raises(ValueError, match='supervisor_policy'):
+        recover_run(directory)
+    assert not (directory / 'summary.json').exists()
 
 
 def test_missing_three_arm_runs_retain_planned_strategy_in_report(tmp_path):
     from study.report import build_report_data
     config = StudyConfig(comparison='supervisor_strategies').to_dict()
-    (tmp_path / 'suite.json').write_text(json.dumps({'config': config, 'schedule': [
+    (tmp_path / 'suite.json').write_text(json.dumps({'objective': {'metric': 'roc_auc', 'direction': 'maximize'},
+        'target_definitions': [{'name': 'milestone', 'value': .93}, {'name': 'stretch', 'value': .95}],
+        'config': config, 'schedule': [
         {'condition': 'researcher_alone', 'repeat': 0, 'run_id': 'solo', 'supervisor_strategy': 'night_science'},
         {'condition': 'frequent', 'repeat': 0, 'run_id': 'standard', 'supervisor_strategy': 'standard'},
         {'condition': 'frequent', 'repeat': 0, 'run_id': 'night', 'supervisor_strategy': 'night_science'}]}))

@@ -1,6 +1,6 @@
-# NightAgent
+# Conversational Claude SDK prototype
 
-The NightAgent application: the protocols that define a research student and its supervisor, and the orchestrator that runs them on a project.
+This application defines a research student, its supervisor and their open-ended meeting/research loop. It is launched with `nightagent/run.py`. The [controlled study](../study/README.md), launched with `python -m study`, has separate dependencies, frozen tools, budgets, evaluation and configuration presets. Use the [five-arm launch recipe](../docs/five-arm-overnight.md) for the current study demo.
 
 | File | What it is |
 |---|---|

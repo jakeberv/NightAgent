@@ -12,6 +12,7 @@ import re
 from .config import APPRENTICE_CONTRASTS, StudyConfig, comparison_arms
 from .events import Accounting, atomic_json
 from .run_context import compact_feedback, compact_lessons
+from .records import load_events
 
 
 def _digest(path):
@@ -48,9 +49,9 @@ class _Audit:
 
     def read_events(self, run):
         try:
-            records = [json.loads(line) for line in (run/'events.jsonl').read_text().splitlines()]
-            if not records or any(not isinstance(e, dict) or not isinstance(e.get('type'), str) for e in records):
-                raise ValueError('Journal is empty or contains malformed records')
+            records = load_events(run/'events.jsonl', policy='strict')
+            if not records:
+                raise ValueError('Journal is empty')
             return records
         except (OSError, ValueError) as error:
             self.issue('events', f'events.jsonl: {error}', run.name)
@@ -194,16 +195,44 @@ class _Audit:
             self.issue('metric', f'{label}: {error}', name)
 
     def selections(self, es, config, manifest, summary, name):
-        from .controller import initial_summary, select_result
         from .problem import ProblemSpec
         problem = ProblemSpec.from_dict(manifest['problem'])
-        replay = initial_summary(config, problem, manifest['data_fingerprint'])
-        accounting = Accounting()
+        metric = problem.objective['metric']
+        minimize = problem.objective['direction'] == 'minimize'
+        accounting = Accounting(); candidates = []
         for event in es:
             if event['type'] == 'model_call':
                 accounting.add(event.get('usage'))
             elif event['type'] == 'trial_finished':
-                select_result(replay, event['result'], accounting, config, problem)
+                fit = event['result']
+                score = fit.get('score', fit.get('metrics', {}).get(metric))
+                if score is None and metric == 'roc_auc':
+                    score = fit.get('validation_auc')
+                elapsed = fit.get('elapsed_seconds')
+                if fit.get('status') != 'completed' or type(score) not in (float, int) or not math.isfinite(score):
+                    continue
+                if not self.check(type(elapsed) in (float, int) and math.isfinite(elapsed) and
+                                  0 <= elapsed <= config.allowance_seconds, 'timing',
+                                  f"Trial {fit['trial_id']} has no valid in-budget completion time", name):
+                    continue
+                candidate = {key: fit[key] for key in ('trial_id', 'elapsed_seconds', 'artifact', 'artifact_hash')}
+                if 'config' in fit:
+                    candidate['config'] = fit['config']
+                candidate.update(score=score, metrics=dict(fit.get('metrics') or {metric: score}),
+                                 accounting=accounting.snapshot())
+                if metric == 'roc_auc':
+                    candidate['validation_auc'] = score
+                candidates.append(candidate)
+        # A batch ranking is deliberately independent of the live incremental
+        # selector: a selector regression must not become the audit's oracle.
+        replay = {'best': min(candidates, key=lambda c: (c['score'] if minimize else -c['score'],
+                      c['elapsed_seconds'], c['trial_id']), default=None), 'target_selections': {}}
+        for target in problem.targets:
+            crossed = [c for c in candidates if (c['score'] <= target['value'] if minimize else c['score'] >= target['value'])]
+            replay['target_selections'][target['name']] = min(crossed,
+                key=lambda c: (c['elapsed_seconds'], c['trial_id']), default=None)
+        for alias in ('milestone', 'stretch'):
+            replay[alias] = replay['target_selections'].get(alias)
         for key in ('best', 'target_selections', 'milestone', 'stretch'):
             self.check(summary.get(key) == replay[key], 'selection',
                        f'{key} disagrees with selections reconstructed from raw fits and usage', name)

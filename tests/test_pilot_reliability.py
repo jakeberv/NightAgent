@@ -1,8 +1,11 @@
 import asyncio
 import json
 
+import pytest
+
 from study.config import StudyConfig
-from study.controller import run_one, tools_for
+from study.controller import run_one
+from study.model_tools import tools_for
 from study.fake import FakeModel
 
 
@@ -66,14 +69,14 @@ def test_profile_offline_options_are_distinct_and_respect_bounds():
         adapter.validate_config(config)
 
 
-def test_recovery_preserves_old_policy_without_restarting_old_runtime(tmp_path):
-    from study.controller import recover_run
+def test_recovery_rejects_old_policy_without_relabeling_the_run(tmp_path):
+    from study.recovery import recover_run
     from study.problem import legacy_problem
     config = StudyConfig().to_dict() | {'reasoning_policy': 'grounded_v1'}
     problem = legacy_problem()
     (tmp_path/'resolved-config.json').write_text(json.dumps({'config': config,
         'problem': problem.to_dict(), 'problem_hash': problem.fingerprint}))
     (tmp_path/'events.jsonl').write_text('')
-    summary = recover_run(tmp_path)
-    assert summary['config']['reasoning_policy'] == 'grounded_v1'
-    assert summary['stop_reason'] == 'interrupted'
+    with pytest.raises(ValueError, match='reasoning_policy'):
+        recover_run(tmp_path)
+    assert not (tmp_path/'summary.json').exists()

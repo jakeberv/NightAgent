@@ -39,7 +39,7 @@ def overview(data):
 
 
 def workflow_plot(data, root):
-    # report._plots configures the headless matplotlib directory before this call.
+    # report_rendering configures headless matplotlib before rendering figures.
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     from matplotlib.ticker import MaxNLocator

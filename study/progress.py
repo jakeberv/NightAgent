@@ -91,7 +91,7 @@ def format_event(event, *, verbose=False):
                   "trial_skipped", "contract_grounded"):
         body = kind.replace("_", " ") + ": " + _text(
             {key: value for key, value in event.items()
-             if key not in ("type", "run_id", "elapsed_seconds", "timestamp")}, verbose)
+             if key not in ("type", "schema_version", "run_id", "elapsed_seconds", "timestamp")}, verbose)
     elif kind == "failure":
         body = "FAILURE " + _text(event["error"], verbose)
     elif kind == "run_stopped":

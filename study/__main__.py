@@ -13,7 +13,8 @@ import time
 import tempfile
 
 from .config import CONDITIONS, COMPARISONS, SUPERVISOR_STRATEGIES, StudyConfig, comparison_arms
-from .controller import recover_run, run_one
+from .controller import run_one
+from .recovery import recover_run
 from .events import atomic_json, utc_now
 from .suite import provenance, run_suite
 

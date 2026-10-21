@@ -10,7 +10,7 @@ def test_interrupted_suite_preserves_planned_runs_in_denominator(tmp_path):
     from study.report import build_report_data
     write_run(tmp_path, "done", trials=[trial("1", 3, .94)])
     (tmp_path / "suite.json").write_text(json.dumps({
-        "config": {"allowance_seconds": 100},
+        "config": {"allowance_seconds": 100, "decision_protocol": "structured_v1"},
         "schedule": [{"run_id": "done", "condition": "researcher_alone", "repeat": 0},
                      {"run_id": "missing", "condition": "researcher_alone", "repeat": 1}]}))
     data = build_report_data(tmp_path)
@@ -30,7 +30,7 @@ def test_postrun_timeout_keeps_completed_shared_test_scores_visible(tmp_path):
     cache = tmp_path / "evaluation"
     cache.mkdir()
     (cache / "test-evaluation-cache.json").write_text(json.dumps({"artifacts": {
-        "finished": {"artifact_hash": "finished", "status": "completed", "test_auc": .91},
+        "finished": {"artifact_hash": "finished", "status": "completed", "score": .91},
         "pending": {"artifact_hash": "pending", "status": "in_progress"}}}))
     row = build_report_data(tmp_path)["runs"][0]
     assert row["best_test_auc"] == .91
@@ -39,27 +39,82 @@ def test_postrun_timeout_keeps_completed_shared_test_scores_visible(tmp_path):
 
 
 def write_run(root, name, *, trials=None, events=None, **overrides):
+    """Write current frozen summaries and journal results for report scenarios."""
     folder = root / "runs" / name
     folder.mkdir(parents=True)
     summary = {"run_id": name, "condition": "researcher_alone", "repeat": 1,
+               "objective": {"metric": "roc_auc", "direction": "maximize"},
+               "target_definitions": [{"name": "milestone", "value": .93}, {"name": "stretch", "value": .95}],
                "allowance_seconds": 100, "elapsed_seconds": 20,
-               "stop_reason": "trial_cap", "trials": trials or [],
-               "best": None, "milestone": None, "stretch": None,
+               "stop_reason": "trial_cap", "trials": trials if type(trials) is int else len(trials or []),
+               "best": None, "target_selections": {},
                "accounting": {"known_cost": 0.4, "cost_complete": False,
                               "input_tokens": 80, "output_tokens": 20,
                               "cached_tokens": None, "reasoning_tokens": None,
                               "token_usage_complete": False},
-               "config": {"milestone_auc": 0.93, "stretch_auc": 0.95}}
+               "config": {"decision_protocol": "structured_v1"}}
     summary.update(overrides)
+    if "target_definitions" not in overrides:
+        for target in summary["target_definitions"]:
+            target["value"] = summary["config"].get(target["name"], target["value"])
+    for target in summary["target_definitions"]:
+        if target["name"] in overrides:
+            summary["target_selections"][target["name"]] = summary.pop(target["name"])
+    recorded = list(events or [])
+    observed = list(trials) if isinstance(trials, list) else []
+    # Selection-only scenarios explicitly record the selected trial in their
+    # fixture journal. Production never reconstructs missing trial evidence.
+    if events is None and not observed:
+        observed = [value for value in [summary["best"], *summary["target_selections"].values()] if value]
+    for result in observed:
+        recorded.append({"type": "trial_finished", "elapsed_seconds": result["elapsed_seconds"], "result": result})
+    metric = summary["objective"]["metric"]
+    for index, event in enumerate(recorded):
+        event["schema_version"] = 1
+        if event["type"] == "model_call":
+            event.setdefault("status", "completed")
+        if event["type"] != "trial_finished":
+            continue
+        result = dict(event["result"])
+        result.setdefault("trial_id", event.get("trial_id", index + 1))
+        result.setdefault("status", "completed")
+        result.setdefault("elapsed_seconds", event.get("elapsed_seconds"))
+        if "validation_auc" in result and "score" not in result:
+            result["score"] = result["validation_auc"]
+            result["metrics"] = {metric: result["score"]} if result["score"] is not None else {}
+        event["result"] = result
+    identities = {}
+    for event in recorded:
+        if event["type"] == "trial_finished":
+            identity = str(event["result"]["trial_id"])
+            identities.setdefault(identity, len(identities) + 1)
+    def current_id(value):
+        return identities.get(str(value), int(value) if str(value).isdigit() else None)
+    for event in recorded:
+        if "trial_id" in event and event["trial_id"] is not None:
+            event["trial_id"] = current_id(event["trial_id"])
+        if event["type"] == "trial_finished":
+            event["result"]["trial_id"] = current_id(event["result"]["trial_id"])
+        contract = event.get("contract") or {}
+        if contract.get("baseline_trial_id") is not None:
+            contract["baseline_trial_id"] = current_id(contract["baseline_trial_id"])
+    for selection in [summary["best"], *summary["target_selections"].values()]:
+        if selection:
+            selection["trial_id"] = current_id(selection["trial_id"])
+    if type(trials) is not int:
+        summary["trials"] = len({str(event["result"]["trial_id"]) for event in recorded if event["type"] == "trial_finished"})
+    if "postrun_accounting" in summary:
+        (folder / "postrun.json").write_text(json.dumps(summary.pop("postrun_accounting")))
     (folder / "summary.json").write_text(json.dumps(summary))
-    if events is not None:
-        (folder / "events.jsonl").write_text("\n".join(json.dumps(e) for e in events))
+    if recorded or events is not None:
+        (folder / "events.jsonl").write_text("\n".join(json.dumps(e) for e in recorded) + ("\n" if recorded else ""))
     return folder
 
 
 def trial(name, seconds, auc, status="completed", compute=1):
     return {"trial_id": name, "elapsed_seconds": seconds, "status": status,
-            "validation_auc": auc, "training_seconds": compute}
+            "score": auc, "metrics": {"roc_auc": auc} if auc is not None else {},
+            "training_seconds": compute}
 
 
 def test_deadline_outcome_keeps_nonattainers_and_extends_early_stop(tmp_path):
@@ -85,18 +140,18 @@ def test_deadline_outcome_keeps_nonattainers_and_extends_early_stop(tmp_path):
     assert aggregate["milestone_curve"] == [(0., 0.), (10., 1/3), (100., 1/3)]
 
 
-def test_event_results_use_completion_time_and_test_results_stay_separate(tmp_path):
+def test_event_results_use_frozen_completion_time_and_test_results_stay_separate(tmp_path):
     from study.report import build_report_data
     folder = write_run(tmp_path, "events", events=[
         {"type": "trial_finished", "trial_id": "one", "elapsed_seconds": 8,
-         "result": {"status": "completed", "validation_auc": .96, "elapsed_seconds": 2}},
+         "result": {"status": "completed", "validation_auc": .96, "elapsed_seconds": 8, "duration_seconds": 2}},
         {"type": "trial_finished", "trial_id": "two", "elapsed_seconds": 9,
          "result": {"status": "failed", "validation_auc": .99}},
         {"type": "trial_finished", "trial_id": "late", "elapsed_seconds": 101,
          "result": {"status": "completed", "validation_auc": .999}},
     ])
-    (folder / "test-results.json").write_text(json.dumps({"best": {"test_auc": .87},
-                                                         "milestone": {"test_auc": .87}}))
+    (folder / "test-results.json").write_text(json.dumps({"selections": {"best": {"status": "completed", "score": .87},
+                                                         "milestone": {"status": "completed", "score": .87}}}))
     row = build_report_data(tmp_path)["runs"][0]
     assert row["best_validation_auc"] == .96
     assert row["milestone_seconds"] == 8
@@ -205,9 +260,9 @@ def test_nested_science_results_and_postrun_metering(tmp_path):
     from study.report import build_report_data
     folder = write_run(tmp_path, "nested", trials=[trial("one", 20, .94)], training_seconds=7)
     (folder / "test-results.json").write_text(json.dumps({
-        "selections": {"best": {"status": "completed", "test_auc": .88},
+        "selections": {"best": {"status": "completed", "score": .88},
                        "milestone": {"status": "uncertain", "error": "interrupted"}},
-        "artifacts": {"abc": {"status": "completed", "test_auc": .88}}}))
+        "artifacts": {"abc": {"status": "completed", "score": .88}}}))
     (folder / "postrun.json").write_text(json.dumps({"evaluation_seconds": 3.5}))
     row = build_report_data(tmp_path)["runs"][0]
     assert row["best_test_auc"] == .88
@@ -223,7 +278,7 @@ def test_ties_keep_earliest_completion_and_empty_run_stays_in_denominator(tmp_pa
     write_run(tmp_path, "a", trials=[trial("later", 20, .95), trial("earlier", 10, .95)])
     write_run(tmp_path, "b", stop_reason="not_started")
     data = build_report_data(tmp_path)
-    assert data["runs"][0]["best_trial_id"] == "earlier"
+    assert data["runs"][0]["best_trial_id"] == "2"
     assert data["runs"][1]["milestone_seconds"] is None
     assert data["conditions"]["researcher_alone"]["milestone_fraction"] == .5
     assert data["conditions"]["researcher_alone"]["stretch_fraction"] == .5
@@ -234,7 +289,7 @@ def test_controller_integer_attempt_count_and_frozen_thresholds(tmp_path):
     write_run(tmp_path, "controller", trials=3, config={"milestone": .90, "stretch": .92},
               events=[{"type": "trial_finished", "elapsed_seconds": 15,
                        "result": {"trial_id": 1, "elapsed_seconds": 14.99,
-                                  "duration_seconds": 2, "status": "completed", "validation_auc": .91}}])
+                                  "duration_seconds": 2, "training_seconds": 2, "status": "completed", "validation_auc": .91}}])
     row = build_report_data(tmp_path)["runs"][0]
     assert row["trial_attempts"] == 3
     assert row["milestone_auc"] == .90
@@ -290,7 +345,7 @@ def test_rmse_minimizes_scores_above_one_and_uses_named_first_crossings(tmp_path
     data = build_report_data(tmp_path)
     row = data["runs"][0]
     assert row["best_score"] == 4.0
-    assert row["best_trial_id"] == "first"
+    assert row["best_trial_id"] == "3"
     assert row["best_metrics"] == {"rmse": 4.0}
     assert row["best_curve"] == [(2., 8.), (10., 4.), (100., 4.)]
     assert row["targets"]["usable model"]["seconds"] == 10
@@ -309,7 +364,7 @@ def test_generic_suite_includes_unstarted_runs_and_shared_partial_test_cache(tmp
     write_run(tmp_path, "done", **{**metadata, "best": selection,
               "target_selections": {"good": selection, "great": None}})
     (tmp_path / "suite.json").write_text(json.dumps({**metadata,
-        "config": {"allowance_seconds": 100}, "schedule": [
+        "config": {"allowance_seconds": 100, "decision_protocol": "structured_v1"}, "schedule": [
         {"run_id": "done", "condition": "researcher_alone", "repeat": 0},
         {"run_id": "missing", "condition": "researcher_alone", "repeat": 1}]}))
     cache = tmp_path / "evaluation"
@@ -387,11 +442,11 @@ def test_generic_r2_can_be_negative_and_invalid_metric_bounds_are_excluded(tmp_p
     assert row["valid_completed_trials"] == 2
 
 
-def test_report_preserves_frozen_selection_metadata_when_trial_log_is_sparse(tmp_path):
+def test_report_preserves_observed_trial_artifact_and_accounting_metadata(tmp_path):
     from study.report import build_report_data
     selected = generic_trial("one", 8, 3.0, artifact="pipeline.joblib", artifact_hash="frozen",
                              accounting={"known_cost": .25, "cost_complete": True})
-    write_run(tmp_path, "sparse", trials=[generic_trial("one", 8, 3.0)],
+    write_run(tmp_path, "sparse", trials=[selected],
               **generic_summary(best=selected, target_selections={"usable model": selected}))
     row = build_report_data(tmp_path)["runs"][0]
     assert row["best"]["artifact_hash"] == "frozen"
@@ -420,7 +475,7 @@ def test_report_same_data_fingerprint_and_unfinished_suite_rows_are_compatible(t
     schedule = [{"run_id": name, "condition": "researcher_alone", "repeat": repeat}
                 for repeat, name in enumerate(("done-a", "done-b", "interrupted", "unstarted"))]
     (tmp_path / "suite.json").write_text(json.dumps({**metadata,
-        "config": {"allowance_seconds": 100}, "schedule": schedule}))
+        "config": {"allowance_seconds": 100, "decision_protocol": "structured_v1"}, "schedule": schedule}))
     data = build_report_data(tmp_path)
     assert len(data["runs"]) == 4
     assert data["data_fingerprint"] == "snapshot-a"
@@ -428,15 +483,14 @@ def test_report_same_data_fingerprint_and_unfinished_suite_rows_are_compatible(t
     assert data["runs"][2]["stop_reason"] == "interrupted_unrecovered"
 
 
-def test_report_historical_run_can_recover_independent_data_provenance(tmp_path):
+def test_provider_file_cannot_supply_missing_frozen_run_identity(tmp_path):
     from study.report import build_report_data
-    folder = write_run(tmp_path, "old", **generic_summary())
+    folder = write_run(tmp_path, "unknown", **generic_summary())
     (folder / "provider.json").write_text(json.dumps({"runtime": {
         "data_manifest": {"data_fingerprint": "snapshot-a"}}}))
-    write_run(tmp_path, "new", **generic_summary(data_fingerprint="snapshot-a"))
-    data = build_report_data(tmp_path)
-    assert len(data["runs"]) == 2
-    assert {run["data_fingerprint"] for run in data["runs"]} == {"snapshot-a"}
+    write_run(tmp_path, "known", **generic_summary(data_fingerprint="snapshot-a"))
+    with pytest.raises(ValueError, match="(?i)(incompatible|snapshot)"):
+        build_report_data(tmp_path)
 
 
 def test_same_npz_path_with_different_prepared_source_bytes_cannot_pool(tmp_path):
@@ -482,7 +536,7 @@ def test_suite_fingerprint_does_not_fill_existing_unknown_run_identity(tmp_path)
     from study.report import build_report_data
     write_run(tmp_path, "old", **generic_summary())
     (tmp_path / "suite.json").write_text(json.dumps({**generic_summary(data_fingerprint="snapshot-a"),
-        "config": {"allowance_seconds": 100}, "schedule": [
+        "config": {"allowance_seconds": 100, "decision_protocol": "structured_v1"}, "schedule": [
             {"run_id": "old", "condition": "researcher_alone", "repeat": 0}]}))
     with pytest.raises(ValueError, match="(?i)(incompatible|fingerprint|snapshot)"):
         build_report_data(tmp_path)
@@ -491,7 +545,6 @@ def test_suite_fingerprint_does_not_fill_existing_unknown_run_identity(tmp_path)
 def test_report_rejects_conflicting_independent_run_fingerprints(tmp_path):
     from study.report import build_report_data
     folder = write_run(tmp_path, "conflicting", **generic_summary(data_fingerprint="snapshot-a"))
-    (folder / "provider.json").write_text(json.dumps({"runtime": {
-        "data_manifest": {"data_fingerprint": "snapshot-b"}}}))
+    (folder / "events.jsonl").write_text(json.dumps({"type": "run_started", "data_fingerprint": "snapshot-b"}) + "\n")
     with pytest.raises(ValueError, match="(?i)(incompatible|fingerprint|snapshot)"):
         build_report_data(tmp_path)

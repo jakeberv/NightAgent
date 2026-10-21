@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 import time
 
+from .records import EVENT_SCHEMA_VERSION, load_events, validate_event_record
+
 
 def utc_now():
     return datetime.now(timezone.utc).isoformat()
@@ -23,16 +25,7 @@ def atomic_json(path, value):
 
 
 def read_events(path):
-    events = []
-    lines = Path(path).read_text().splitlines(keepends=True)
-    for index, line in enumerate(lines):
-        try:
-            events.append(json.loads(line))
-        except json.JSONDecodeError as exc:
-            if index != len(lines) - 1 or line.endswith("\n"):
-                raise ValueError(f"Corrupt journal record at line {index + 1}") from exc
-            # A crash may leave one unfinished final append.
-    return events
+    return load_events(path, policy='recover')
 
 
 class Journal:
@@ -42,8 +35,9 @@ class Journal:
         self.progress = progress
 
     def emit(self, event_type, **payload):
-        event = {"type": event_type, "run_id": self.directory.name,
+        event = {"type": event_type, "schema_version": EVENT_SCHEMA_VERSION, "run_id": self.directory.name,
                  "timestamp": utc_now(), "elapsed_seconds": time.monotonic() - self.started, **payload}
+        validate_event_record(event)
         with (self.directory / "events.jsonl").open("a") as handle:
             handle.write(json.dumps(event, allow_nan=False) + "\n")
             handle.flush()
