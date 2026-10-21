@@ -69,7 +69,11 @@ class Accounting:
         self.calls += 1
         usage = usage if isinstance(usage, dict) else {}
         cost = usage.get("cost")
-        if type(cost) in (float, int) and math.isfinite(cost) and cost >= 0:
+        try:
+            valid_cost = type(cost) in (float, int) and math.isfinite(cost) and cost >= 0
+        except OverflowError:
+            valid_cost = False
+        if valid_cost:
             self.known_cost += cost
         else:
             self.cost_complete = False

@@ -273,3 +273,60 @@ def test_deadline_during_a_started_repair_is_not_claimed_as_admission_abandonmen
     assert result['stop_reason'] == 'deadline' and result['trials'] == 1
     assert any(event['type'] == 'supervisor_contract' and not event['valid'] for event in events)
     assert not any(event['type'] in ('contract_abandoned', 'model_call_skipped', 'review') for event in events)
+
+
+@pytest.mark.parametrize('role,condition', [('supervisor', 'frequent'), ('reflection', 'periodic_reflection')])
+def test_known_billed_failed_repair_then_skipped_retry_truthfully_abandons_pending_contract(tmp_path, monkeypatch, role, condition):
+    from study.provider import ProviderError
+
+    clock = [100.]
+    monkeypatch.setattr(controller, 'time', SimpleNamespace(monotonic=lambda: clock[0]))
+    failed_usage = {'prompt_tokens': 7, 'completion_tokens': 0, 'cost': .02,
+                    'prompt_tokens_details': {'cached_tokens': 0},
+                    'completion_tokens_details': {'reasoning_tokens': 0}}
+
+    class BilledRepairFailure(FakeModel):
+        reviews = 0
+
+        async def complete(self, messages, tools, *, timeout):
+            context = json.loads(messages[1]['content'])
+            active = messages[0]['content'].splitlines()[0].removeprefix('ROLE: ')
+            if active != role or context['trials_attempted'] == 0:
+                return await super().complete(messages, tools, timeout=timeout)
+            self.reviews += 1
+            if self.reviews == 1:
+                contract = scripted_contract(role, context)
+                contract['summary'] = 'x' * 241
+                contract['lesson_updates'][0]['id'] = 'rejected-review-lesson'
+                clock[0] += 5
+                return {'message': {'role': 'assistant', 'content': json.dumps(contract)},
+                        'usage': {'prompt_tokens': 2, 'completion_tokens': 2, 'cost': .01}}
+            clock[0] = 159.6
+            raise ProviderError('Repair attempt failed with recorded billing', {'usage': failed_usage})
+
+    result = asyncio.run(controller.run_one(StudyConfig(condition=condition, allowance_seconds=60,
+        trial_cap=2, model_retries=1), tmp_path, tmp_path / 'run', BilledRepairFailure(),
+        trial_runner=fit, project={}))
+    events = events_in(tmp_path / 'run')
+    assert result['stop_reason'] == 'deadline' and result['trials'] == 1
+    assert result['accounting']['calls'] == 4
+    assert result['accounting']['known_cost'] == pytest.approx(.03)
+    assert result['accounting']['cost_complete'] and result['accounting']['token_usage_complete']
+    invalid = next(event for event in events if event['type'] == role + '_contract' and not event['valid'])
+    invalid_index = events.index(invalid)
+    tail = events[invalid_index + 1:]
+    assert [event['type'] for event in tail] == [
+        'model_call_started', 'model_call', 'model_call_skipped', 'contract_abandoned', 'run_stopped']
+    assert tail[0]['role'] == role and tail[0]['attempt'] == 0
+    assert tail[1]['role'] == role and tail[1]['status'] == 'failed'
+    assert tail[1]['error'] == 'ProviderError' and tail[1]['usage'] == failed_usage
+    assert tail[2]['reason'] == 'deadline_admission'
+    assert tail[2]['remaining_seconds'] == pytest.approx(.4)
+    assert tail[2]['required_seconds'] > tail[2]['remaining_seconds']
+    abandoned = tail[3]
+    assert {key: abandoned[key] for key in ('role', 'after_trial', 'stage', 'reason')} == {
+        'role': role, 'after_trial': 1, 'stage': 'review', 'reason': 'deadline_admission'}
+    assert abandoned['contract'] == invalid['contract'] and abandoned['errors'] == invalid['errors']
+    assert not any(event['type'] in ('review', 'reflection') for event in events)
+    assert len([event for event in events if event['type'] == 'trial_started']) == 1
+    assert all(lesson['id'] != 'rejected-review-lesson' for lesson in result['lessons'])

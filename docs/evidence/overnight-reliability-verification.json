@@ -2,10 +2,10 @@
   "schema_version": 1,
   "scope": "Offline reliability correction only; not a new paid five-arm scientific result.",
   "full_regression": {
-    "passed": 1041,
-    "seconds": 155.72,
+    "passed": 1056,
+    "seconds": 158.62,
     "exit_code": 0,
-    "log": "study-runs/overnight-reliability-fix-20261021/full.log"
+    "log": "study-runs/overnight-reliability-fix-20261021/full-after-copilot.log"
   },
   "source_sha256": {
     "worker.py": "35fc5f789cac8258dc2f16f53d78f0596ba249c8f40352c380616c5c400c1146",
@@ -16,7 +16,7 @@
     "tasks.py": "044205d355132c65579fcc975206ac078a9556213822a854dac8fc3495259910",
     "config.py": "5cccc9e7464773f7d8bf7a74c45f1ff977aa4b345b468a8bb6307411e296e3bb",
     "suite.py": "4ecc828521b595350f8036eb2f6c596dc01f814d1ccf60f3829f90b872fb3951",
-    "audit.py": "d3f4f302c8a650fb320dd6a0123801e134ecd6aaa2b5f5f91375883c6a5176f8",
+    "audit.py": "df31e25808efb385144de1f46f1a69a093c731f20a5433c7b7334c37b5fdaf26",
     "recovery.py": "b751b6da217015eb7eaabc0b9d6e3bbfc4eb35ae7d3683b81d1b0b87d6f66374",
     "fake.py": "ae916f6f4fd0bedbd0c4fbdffcb2967424eccd1863409909598cd642f1209b04",
     "provider.py": "8bae924843480e68f0a31fb64577c6f7c56c54f87cd947b392f186959dbebeed",
@@ -24,7 +24,7 @@
     "terminal.py": "ce470934d6356f9d58c46b7ce752d39311fc747dc39028ceffeaedabbd642ac3",
     "credentials.py": "13f2302f99cbea0bc0415a0c68fcd8d785d921ff146337b623ce7a172c156c2d",
     "trial_execution.py": "f4a955d949d320c9ce48507beac49fe0efe5290fe88b41478b345930311e2d7f",
-    "events.py": "3b16a37be06cb368e102521e89dfda2d7223a4e7277fea1ea8035687b7987f04",
+    "events.py": "3582eea47d2addceae49a54c90bceceb02cc710988874f0bec05a514bdc21d6a",
     "diagnostics.py": "1f448189913e85c0d5890b574b43aa2120b7343ed38c1f987b7899bdd666d8b3",
     "records.py": "b8b2281eee0bed67435e78433db564b741c9cfe8d9333d210cf7a109ae5602c2",
     "cpu.py": "b8f05bc171e5cfa2a1be89eb64cd1adcdc4c1e42bda6eb0fb8f8d1105e6d26c2",
@@ -60,8 +60,8 @@
   },
   "targeted_regressions": {
     "audit": {
-      "passed": 119,
-      "source": "study-runs/overnight-reliability-fix-20261021/audit-green.log"
+      "passed": 140,
+      "source": "study-runs/overnight-reliability-fix-20261021/copilot-audit-green.log"
     },
     "timeout_accounting": {
       "passed": 101,
@@ -70,6 +70,10 @@
     "controller_context": {
       "passed": 120,
       "source": "study-runs/overnight-reliability-fix-20261021/terminal-duplicates-green.txt"
+    },
+    "controller_billed_repair": {
+      "passed": 15,
+      "source": "study-runs/overnight-reliability-fix-20261021/terminal-duplicates-billed-repair-green.txt"
     }
   },
   "historical_overnight_audit": {
@@ -86,7 +90,18 @@
     "passed": 8,
     "total": 8,
     "underlying_checks": 52,
-    "seconds": 12.0039306669496,
-    "source": "study-runs/overnight-reliability-fix-20261021/workshop-evaluation/results.json"
-  }
+    "seconds": 18.649873042013496,
+    "source": "study-runs/overnight-reliability-fix-20261021/workshop-evaluation-after-copilot/results.json"
+  },
+  "previous_full_regression": {
+    "passed": 1041,
+    "seconds": 155.72,
+    "exit_code": 0,
+    "log": "study-runs/overnight-reliability-fix-20261021/full.log"
+  },
+  "copilot_findings_fixed": [
+    "Contiguous known-billing failed repair attempts before deadline-abandoned review",
+    "Oversized skipped-repair budgets produce a failed audit verdict instead of OverflowError"
+  ],
+  "related_accounting_guard": "Unrepresentable costs remain unknown and do not lose the accounting record."
 }

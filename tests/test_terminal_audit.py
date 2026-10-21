@@ -76,3 +76,65 @@ def test_abandonment_cannot_hide_invalid_or_nonterminal_contracts(suite, mutatio
     result = audit(suite)
     assert not result['passed'], result
     assert codes(result) & {'contract_abandoned', 'contract_unrepaired'}, result
+
+
+def failed_repairs(es, *, count=1, role='reflection', status='failed', known_usage=True):
+    """Insert paid repair failures between the rejected contract and skipped retry."""
+    import json
+    from study.events import Accounting
+    from study.run_context import compact_lessons
+    request = deepcopy(next(e for e in reversed(es) if e['type'] == 'model_call_started'))
+    context = json.loads(request['messages'][1]['content'])
+    context['lessons'] = compact_lessons(next(e for e in reversed(es) if e['type'] == 'lesson_memory')['lessons'])
+    request['messages'][1]['content'] = json.dumps(context)
+    usage = {'cost': .01, 'prompt_tokens': 1, 'completion_tokens': 1,
+             'prompt_tokens_details': {'cached_tokens': 0},
+             'completion_tokens_details': {'reasoning_tokens': 0}} if known_usage else None
+    records = []
+    for attempt in range(count):
+        records.extend([{**deepcopy(request), 'role': role, 'attempt': attempt},
+                        {'type': 'model_call', 'role': role, 'attempt': attempt,
+                         'status': status, 'usage': usage, 'duration_seconds': .01}])
+    es[-3:-3] = records
+    accounting = Accounting()
+    for event in es:
+        if event['type'] == 'model_call': accounting.add(event.get('usage'))
+    es[-1]['summary']['accounting'] = accounting.snapshot()
+
+
+def test_accounted_failed_repair_followed_by_skipped_retry_can_be_abandoned(suite):
+    run, es = terminal_chain(suite); failed_repairs(es)
+    write(run/'summary.json', es[-1]['summary']); save_events(run, es)
+    result = audit(suite)
+    assert result['passed'], result
+    assert any(w['code'] == 'contract_abandoned' for w in result['warnings'])
+    assert any(w['code'] == 'model_call' for w in result['warnings'])
+
+
+@pytest.mark.parametrize('mutation', [
+    'successful_repair', 'unrelated_role', 'unknown_billing', 'unrelated_activity',
+    'wrong_attempt', 'excess_retries',
+])
+def test_failed_repair_exception_cannot_hide_other_activity(suite, mutation):
+    run, es = terminal_chain(suite)
+    failed_repairs(es, count=2 if mutation == 'excess_retries' else 1,
+                   role='researcher' if mutation == 'unrelated_role' else 'reflection',
+                   status='completed' if mutation == 'successful_repair' else 'failed',
+                   known_usage=mutation != 'unknown_billing')
+    if mutation == 'unrelated_activity':
+        es.insert(-3, {'type': 'tool_call', 'role': 'reflection', 'name': 'other', 'result': {}})
+    elif mutation == 'wrong_attempt': es[-5]['attempt'] = es[-4]['attempt'] = 1
+    write(run/'summary.json', es[-1]['summary']); save_events(run, es)
+    result = audit(suite)
+    assert not result['passed'], result
+    assert codes(result) & {'contract_abandoned', 'contract_unrepaired'}, result
+
+
+@pytest.mark.parametrize('field', ['remaining_seconds', 'required_seconds'])
+@pytest.mark.parametrize('sign', [-1, 1])
+def test_oversized_abandonment_budget_fails_without_crashing(suite, field, sign):
+    run, es = terminal_chain(suite); es[-3][field] = sign * 10**1000
+    save_events(run, es)
+    result = audit(suite)
+    assert not result['passed']
+    assert 'contract_abandoned' in codes(result)

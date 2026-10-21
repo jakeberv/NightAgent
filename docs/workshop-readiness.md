@@ -17,14 +17,18 @@ controls. It does not establish a winning strategy or a memory benefit.
 
 ## Reliability correction
 
-The corrected source passed **1,041 regression tests in 155.72 seconds** and
+The corrected source passed **1,056 regression tests in 158.62 seconds** and
 **8/8 named engineering cases**, with 52 underlying checks. The
 [verification receipt](evidence/overnight-reliability-verification.json) freezes
 source hashes and evidence locations.
 Independent review found and fixed a nonfinite-JSON edge case that could lose a
 failed-call journal record; re-review found no remaining blockers. New regression
 cases reproduce timeout/receipt failures, explicit terminal abandonment and
-configuration reuse beyond recent history.
+configuration reuse beyond recent history. Copilot identified two additional
+audit boundaries: known-billing failed repairs before a skipped retry, and
+oversized numeric budgets. Both are fixed with failing-then-passing regressions
+and independent re-review. Related unrepresentable charges remain unknown
+instead of crashing accounting.
 
 - The provider owns its total timeout, retains generation headers before body
   reads, and uses one bounded lookup of a matching finalized receipt for actual
@@ -39,7 +43,7 @@ configuration reuse beyond recent history.
   adds about 7.6 kB (47%) to context, so live duplicate reduction and token cost
   still require a pilot.
 
-The [PR and CI record](https://github.com/jakeberv/NightAgent/pulls) supplies
+The [PR 16 and CI record](https://github.com/jakeberv/NightAgent/pull/16) supplies
 review/integration status. Merge requires fresh Copilot findings resolved and
 both required CPU CI jobs passing on the final head. No paid rerun or new
 five-arm acceptance is claimed. The original suite still fails with its same

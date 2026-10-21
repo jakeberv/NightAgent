@@ -292,14 +292,34 @@ class _Audit:
             return False
         invalid, skipped, stopped = pending[-1], es[index - 1], es[-1]
         remaining, required = skipped.get('remaining_seconds'), skipped.get('required_seconds')
-        numeric_budget = (type(remaining) in (int, float) and type(required) in (int, float) and
-                          math.isfinite(remaining) and math.isfinite(required) and 0 <= remaining < required)
+        try:
+            numeric_budget = (type(remaining) in (int, float) and type(required) in (int, float) and
+                              math.isfinite(remaining) and math.isfinite(required) and 0 <= remaining < required)
+        except OverflowError:
+            numeric_budget = False
+        invalid_index = next((i for i in range(index - 1) if es[i] is invalid), None)
+        if invalid_index is None:
+            return False
+        repairs = es[invalid_index + 1:index - 1]
+        if len(repairs) % 2 or len(repairs) // 2 > config.model_retries:
+            return False
+        for attempt in range(len(repairs) // 2):
+            start, finish = repairs[2 * attempt:2 * attempt + 2]
+            if not (start.get('type') == 'model_call_started' and finish.get('type') == 'model_call' and
+                    start.get('role') == finish.get('role') == role and
+                    type(start.get('attempt')) is int and type(finish.get('attempt')) is int and
+                    start['attempt'] == finish['attempt'] == attempt and finish.get('status') == 'failed'):
+                return False
+            accounting = Accounting()
+            accounting.add(finish.get('usage'))
+            if not (accounting.cost_complete and accounting.token_usage_complete):
+                return False
         scheduled = (bool(config.reflection) if role == 'reflection' else
                      bool(config.review_every and completed % config.review_every == 0))
         return bool(completed > 0 and scheduled and event.get('stage') == 'review' and
             type(event.get('after_trial')) is int and event['after_trial'] == completed and
             event.get('reason') == 'deadline_admission' and
-            es[index - 2] is invalid and invalid.get('after_trial') == completed and
+            invalid.get('after_trial') == completed and
             invalid.get('stage') == 'review' and
             event.get('contract') == invalid.get('contract') and
             isinstance(event.get('errors'), list) and event['errors'] and
