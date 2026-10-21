@@ -190,7 +190,7 @@ def treatment_name(row):
 
 
 def assign_analysis_groups(runs):
-    """Separate protocol and memory variants while preserving legacy summaries."""
+    """Separate protocol and memory variants using frozen configurations."""
     def variant(row):
         if (row.get('config') or {}).get('comparison') == 'apprentice_interactions':
             return json.dumps(config_stratum(row), sort_keys=True)

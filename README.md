@@ -1,160 +1,58 @@
 # NightAgent
 
-NightAgent is a research apprentice that adapts bounded experiments using measured results and feedback from a supervisor agent.
+NightAgent studies how a research apprentice adapts bounded experiments using measured results, supervision, reflection, and run-local lessons. The repository contains two applications with different execution and evaluation rules.
 
 ## Controlled experimental study
 
-The [study runner](study/README.md) implements the updated five-condition,
-equal-wall-time experiment using OpenRouter. It includes
-bounded classification/regression tools, scheduled supervision/reflection, supervisor-only
-literature access, isolated held-out evaluation, and offline verification.
-Supervised runs begin with shared question framing. Choose a compact `standard`
-review or `night_science` reviews with explicit alternatives, cross-field reasoning,
-distinguishing outcomes, evidence, and resource constraints. The
-[three-condition comparison](study/README.md#three-condition-supervisor-comparison)
-matches researcher-alone, standard-supervisor, and Night-Science-supervisor runs.
-Use [problem profiles](docs/problem-definitions.md) to specify datasets, objectives,
-named targets, and search spaces without changing the runner. Bundled examples
-cover MAGIC binary AUC, multiclass CSV, MNIST multiclass AUC, and regression.
-See its README for setup, the MAGIC feasibility pilot, and the overnight CLI.
-The [Fashion-MNIST GPU pilot](docs/fashion-pilot.md) adds small local MLP/CNN
-models and reports strategy cost/token efficiency at fixed accuracy targets.
-The current demo launch is the [five-arm overnight comparison](docs/five-arm-overnight.md),
-with three matched repeats and an automatic offline acceptance audit.
-The conversational prototype below remains available separately.
+The current demo is the [five-arm Fashion-MNIST comparison](docs/five-arm-overnight.md), run with `python -m study`. It compares researcher alone, frequent supervision, periodic supervision, periodic supervision plus reflection, and periodic supervision plus reflection and lesson memory. All supervised arms use Night Science reviews; literature is disabled. The launch recipe freezes three matched repeats, 600 seconds per run, the prepared data and targets, resource sharing, and an offline acceptance audit.
 
-## What we are building
+The [study runner](study/README.md) uses OpenRouter and fixed scientific tools. Agents choose bounded classification/regression experiments; the harness controls splits, timeouts, artifact verification, accounting, selection and held-out evaluation. Reviews and lessons cite recorded validation measurements. A supervisor's interpretation is not ground truth. Lessons start empty in every run; transfer between independent runs is not established.
 
-A supervised research apprentice for scientists. A supervisor sets the research direction, reviews results, and gives feedback; NightAgent performs analyses with tools and carries confirmed lessons into later work. Learning changes its stored context, not its model weights. In the current prototype the supervisor is itself an agent: the scientist writes the research question, and the supervisor's values are defined in a private persona.
+- [Current launch and acceptance criteria](docs/five-arm-overnight.md)
+- [All configuration presets and their status](docs/configurations.md)
+- [Targeted five-arm preflight and evidence](docs/targeted-preflight.md)
+- [Problem profiles, datasets, objectives and search spaces](docs/problem-definitions.md)
+- [Fashion-MNIST GPU calibration and earlier pilot recipes](docs/fashion-pilot.md)
+- [Offline verification and limitations](docs/study-verification.md) · [CI dependency checks](docs/ci.md)
 
-The workshop goal is to evaluate research process reliability and held-out classifier performance separately. The controlled study compares how much time, API cost and tokens each interaction strategy needs to achieve a fixed classification target. Keep scientific exploration open-ended and execution bounded: humans define the brief and budget, and agents revise hypotheses within frozen tools, data splits and metrics. A supervisor opinion is not ground truth; lessons retain measured evidence, scope and unverified interpretations. Transfer across independent runs is not established.
-
-## How it works
-
-1. **Supervision meeting:** present results, receive feedback, clarify ambiguity, and agree on the next actions.
-2. **Research cycle:** choose approved analyses, run tools within limits, save reproducible results, and return for supervision.
-3. **Persistent memory:** retain confirmed lessons with their source and scope, so corrections influence later meetings and analyses.
-
-After feedback, the student extracts the actions and lessons and checks each for unclear meaning, unclear scope, or conflicting instructions. It asks batched clarification questions until the actions are clear, leaves unresolved items pending, and executes only agreed actions. This is an ambiguity check, not calibrated uncertainty about scientific truth.
-
-## Minimal prototype
-
-Following [autoresearch](https://github.com/karpathy/autoresearch), agent behaviour is defined in plain-language protocols, and Claude Code does the work. A small Python orchestrator ([nightagent/run.py](nightagent/run.py), using the Claude Agent SDK) runs a **student** and a **supervisor** as separate Claude Code sessions and relays the supervision meetings between them. The human only writes the question and starts the run. Memory is markdown files in the project folder.
-
-### Repository layout
-
-This repository defines the agents and how they work. It does not store project work: the only project content kept here is each example project's starting `QUESTION.md` (enforced by `.gitignore`).
-
-- [nightagent/](nightagent/): the NightAgent application: the agents' protocols and the orchestrator that runs them. See its [README](nightagent/README.md).
-  - [STUDENT.md](nightagent/STUDENT.md): how the student works: phases, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
-  - [MEETING.md](nightagent/MEETING.md): the meeting protocol: brief → present → feedback → clarification → agreed actions (about a week of student effort) → minutes and memory. Ends with a final meeting where the supervisor reviews the report.
-  - [SUPERVISOR.md](nightagent/SUPERVISOR.md): how the supervisor behaves: checks the evidence, gives concise feedback, confirms actions, reviews the final report, signs off. Both agents read it, so the student understands the whole process.
-  - [supervisor-persona.md](nightagent/supervisor-persona.md): what the supervisor values as good research. **Private to the supervisor**: the student is blocked from reading it, so it has to learn these values through meetings.
-  - [run.py](nightagent/run.py): the orchestrator. It runs the student and supervisor as separate Claude Code sessions, relays meetings between them and writes the transcripts.
-  - [project-template/](nightagent/project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human, written in the supervisor's voice (the supervisor treats it as its own); the rest is the skeleton the agents work in (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`).
-- [example-projects/](example-projects/): example projects, each starting with just `QUESTION.md`. [mnist/](example-projects/mnist/): "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
-
-### Running a project
+From the repository root, verify the workflow without model calls or data downloads:
 
 ```bash
-python3 -m venv nightagent/.venv && nightagent/.venv/bin/pip install -r nightagent/requirements.txt
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements-study.lock
+.venv/bin/python -m pytest -q
+.venv/bin/python -m study smoke --comparison apprentice_interactions \
+  --output study-runs/offline-five-arm-smoke
 ```
 
+The smoke command uses synthetic data and scripted decisions with real local classifier fits. Its results demonstrate operation, not language-model strategy performance. Neural CPU/MPS installation is separate; see [CI](docs/ci.md) and [GPU setup](docs/fashion-pilot.md).
+
+The runner also supports the earlier five-schedule literature comparison and a three-arm supervisor-style comparison. Their settings and budgets differ from the current demo; consult the [preset index](docs/configurations.md) before launching one.
+
+## Conversational Claude SDK prototype
+
+The separate [conversational prototype](nightagent/README.md), launched with `nightagent/run.py`, relays meetings between a student and supervisor in separate Claude Code sessions. Plain-language protocols guide open-ended research, project files hold memory, and a private supervisor persona shapes feedback. Each invocation performs the next meeting or research phase; `--all` continues until supervisor sign-off. It does not implement the controlled study's frozen tools, equal time allowances, or held-out comparison.
+
 ```bash
+python3 -m venv nightagent/.venv
+nightagent/.venv/bin/pip install -r nightagent/requirements.txt
 nightagent/.venv/bin/python nightagent/run.py example-projects/mnist
 ```
 
-Each run executes the next phase (first the kickoff meeting) and stops; `--all` continues until the supervisor signs off. For a new question, create `example-projects/<name>/` with a filled-in copy of `nightagent/project-template/QUESTION.md`. Details, options and the safety notes are in the [nightagent README](nightagent/README.md).
+Read the [prototype setup, permissions and provider notes](nightagent/README.md) before a live run. Its [student](nightagent/STUDENT.md), [meeting](nightagent/MEETING.md), and [supervisor](nightagent/SUPERVISOR.md) protocols describe that application's behavior. The [project template](nightagent/project-template/) and [example questions](example-projects/) are starting points; generated project work is ignored by Git.
 
-### How the loop works
+## Design history and status
 
-The outer loop is supervision meetings, where the supervisor steers. The inner loop is research between meetings, where the student works alone. Each phase is a fresh session, so the project files are the only memory; only the supervisor knows its persona.
+The [original workshop proposal](SPEC.md), [design notes](NOTES.md), and [shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z) preserve the project's development history. Their proposed three-condition memory experiment and six-analysis budget do not define the current study. Implemented profiles now cover MAGIC, multiclass CSV, MNIST, Fashion-MNIST and regression.
 
-```
-SETUP (human, once per project)
-  mkdir example-projects/<name>; write QUESTION.md in the supervisor's voice
-      (question, context, what "best" means, constraints); optional data/code
-  run nightagent/run.py on that folder
+As of 21 October 2026, MAGIC live pilots, Fashion-MNIST MPS calibration and the targeted five-arm live preflight have run. The repeated five-arm overnight comparison remains pending. Passing offline checks or a short preflight does not establish strategy superiority or learning across independent runs.
 
-EACH RUN (orchestrator)
-  copy any missing template files into the project (never overwrites)
-  decide the next phase from meetings/:
-      supervisor said "Signed off" → stop
-      no M00 minutes             → MEETING (kickoff)
-      brief newer than minutes   → MEETING
-      otherwise                  → RESEARCH
-
-MEETING Mnn (fresh student session ↔ fresh supervisor session, relayed verbatim)
-  student:    presents brief (kickoff: reframes question, asks about constraints, proposes plan)
-  supervisor: believes it wrote QUESTION.md and holds the student to it;
-              reads brief + earlier minutes; spot-checks evidence in the project folder;
-              gives feedback shaped by its private persona;
-              sets ~1 week of human-student effort
-  repeat until clear:
-    student:    batched clarification questions + candidate lessons
-                ("should I remember you value X?") + restated actions
-    supervisor: answers; "Agreed" or amends
-  student ends with END MEETING
-  orchestrator: has written meetings/MNN-transcript.md verbatim
-  student:    writes minutes, ACTIONS.md (agreed only),
-              memory (confirmed only; unresolved → pending.md)
-
-RESEARCH (fresh student session, no overall time limit)
-  agreed actions → goals with done-criteria
-  explore first: alternative framings, methods from other fields, web search
-  repeat until goals are done, or blocked, or a result changes the plan:
-    experiment: prediction → runtime pilot (≤ 3 min per run) → run →
-                results + figures → compare with prediction
-    reusable code → tools/; update REPORT.md
-  write brief (action status, key results, surprises, interpretation, options, questions)
-
-ENDING
-  supervisor judges the question answered well enough → "write it up"
-  student finishes REPORT.md as a paper → final MEETING:
-    supervisor reviews like a paper reviewer → student revises → … → "Signed off"
-```
-
-Learning shows up in three places:
-
-- The supervisor's preferences are in its private persona (figures, seeds, controlled comparisons, ablations, cross-field links). The student discovers them only through feedback.
-- Memory holds only lessons the supervisor has confirmed, and the student rereads it at the start of every phase.
-- The orchestrator's verbatim transcripts show whether the student starts acting on those preferences without being told again.
-
-The proof of concept is the record in the project's `meetings/` (briefs, transcripts and minutes: results, feedback, Q&A, agreed actions), the memory files showing what the student learned about its supervisor, and the final `REPORT.md`, written like a short paper.
-
-## Original workshop plan
-
-The plan the team proposed in [SPEC.md](SPEC.md). The prototype above departs from it in places: Claude Code's own tools instead of four prewritten tools, markdown memory instead of JSON, and a supervisor agent instead of a human. The evaluation ideas still apply.
-
-- Start with one scientist, one project, one model, a CLI, and editable JSON memory.
-- Provide four prewritten tools: `inspect_project`, `run_analysis`, `read_results`, and `save_report`.
-- Combine Tutorial 1's tool loop and traces with Tutorial 2's persistent memory and independent evaluation.
-- Compare memory off, unconditional memory updates, and checked memory updates on six two-meeting cases with two repeats per condition.
-- Score student behavior and scientific outcomes separately, alongside cost and runtime.
-- Demonstrate feedback, clarification, a confirmed memory update, and a fresh session that uses the lesson.
-
-The scientific task, dataset, analysis script, and role owners are still open. Candidate tasks belong in the notes. Generated tools, web/GitHub automation, multi-agent coordination, and a graphical interface are deferred.
-
-## Project documents and status
-
-- [SPEC.md](SPEC.md): approximately 400-word workshop proposal; a draft, not an implemented system.
-- [NOTES.md](NOTES.md): design rationale, evaluation details, candidate tasks, and open decisions.
-- [Shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z): collaborative spec draft.
-
-Status as of 20 October 2026: the controlled study runner includes five strategies, live CLI views, complete usage accounting and offline reports. MAGIC live pilots and local Fashion-MNIST GPU calibration have run; repeated overnight comparisons remain pending. The separate `nightagent/` conversational prototype and the original workshop proposal remain available. See [the Fashion pilot](docs/fashion-pilot.md) and [study verification](docs/study-verification.md) for runnable checks and limitations.
-
-## Name and guiding ideas
-
-Inspired by [Night Science](https://night-science.org/): explore before judging, improve the question, connect across fields, balance openness with structure, and return to evidence. These are adapted design principles, not claims that the agent already implements them.
+The project draws on [Night Science](https://night-science.org/) principles: explore alternatives, improve questions, connect across fields, and return to measured evidence. The study makes review behavior and advice uptake observable; these are evaluation targets, not claims of scientific understanding.
 
 ## Team 5
 
-Josef Osumeje - josumeje@umich.edu
-
-Ben Moseley - b.moseley@imperial.ac.uk
-
-Jake Berv — jacob.berv@gmail.com
-
-Guido Herrera-R - guidohero@hotmail.com
-
-Weiwei Chen - chenww535@gmail.com
+- Josef Osumeje — josumeje@umich.edu
+- Ben Moseley — b.moseley@imperial.ac.uk
+- Jake Berv — jacob.berv@gmail.com
+- Guido Herrera-R — guidohero@hotmail.com
+- Weiwei Chen — chenww535@gmail.com

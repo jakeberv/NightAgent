@@ -18,7 +18,7 @@ def test_reader_rejects_corruption_before_final_record(tmp_path):
         read_events(path)
 
 
-@pytest.mark.parametrize("tail", ['', '{"type":', '{"type": broken}'])
+@pytest.mark.parametrize("tail", ['', '{"type":', '{"type":"unfinished'])
 def test_reader_preserves_records_before_unfinished_final_append(tmp_path, tail):
     path = tmp_path / "events.jsonl"
     path.write_text('{"type":"valid"}\n' + tail)

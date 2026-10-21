@@ -1,10 +1,20 @@
-# Controlled overnight comparison
+# Controlled study runner
 
-This runner implements the **Experimental design** tab dated 20 October 2026,
-using direct OpenRouter Chat Completions and bounded scientific tools. It is
-separate from the conversational Claude SDK prototype in `nightagent/run.py`.
-The older `SPEC.md` three-condition design and its six-analysis budget do not
-govern this runner.
+This application uses direct OpenRouter Chat Completions and bounded scientific
+tools. The **current demo** is the [five-arm overnight Fashion-MNIST comparison](../docs/five-arm-overnight.md):
+researcher alone, frequent supervision, periodic supervision, periodic supervision
+plus reflection, and periodic supervision plus reflection and run-local lesson
+memory. All supervised arms use Night Science; literature is disabled. Use
+[`fashion-five-arm-overnight-config.json`](fashion-five-arm-overnight-config.json)
+with the linked recipe's three repeats, resource policy, deadline and `--audit`.
+The [preset index](../docs/configurations.md) lists every configuration, its actual
+comparison mode, budgets and status.
+
+The earlier five-schedule literature and three-arm supervisor-style comparisons
+remain available below. This runner is separate from the
+[conversational Claude SDK prototype](../nightagent/README.md) in `nightagent/run.py`.
+The older `SPEC.md` three-condition memory design and six-analysis budget are
+historical proposals, not this application's protocol.
 
 [Source design](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.60m8hjogcisp)
 · [Retrieved source](../docs/experimental-design-source.txt)
@@ -13,7 +23,7 @@ govern this runner.
 
 ## Setup and offline verification
 
-Use Python 3.12 or later from the repository root:
+Use the verified Python 3.12 environment from the repository root:
 
 ```bash
 python3.12 -m venv .venv
@@ -22,8 +32,13 @@ python3.12 -m venv .venv
 .venv/bin/python -m study smoke --output study-runs/offline-smoke
 ```
 
-`requirements-study.lock` records the verified dependency versions;
-`requirements-study.txt` contains the supported dependency ranges for updates.
+`requirements-study.lock` records the base versions verified on macOS arm64;
+`requirements-study.txt` contains supported dependency ranges for updates.
+For the pinned Linux CPU neural environment, use
+[`requirements-study-cpu.lock`](../requirements-study-cpu.lock) and the
+[CI installation command](../docs/ci.md). MPS setup uses the separate
+[`requirements-gpu.lock`](../requirements-gpu.lock); see [GPU setup](../docs/fashion-pilot.md).
+Neither neural lock is a universal platform lock.
 
 The smoke command uses synthetic data, scripted model decisions, and fixture
 literature responses. It trains real classifiers, runs all five schedules,
@@ -152,9 +167,8 @@ experiment schema and current resource limits in context. Its call and repairs
 consume the same wall-time and API cost allowance as later work. Invalid framing
 or exhausted budgets stop the run before training. Accepted framing is recorded
 as a separate `framing` event and appears in the live narrative and report trace.
-Reports separate this policy from historical runs, including `night_science_v1`,
-which used Night Science instructions during kickoff too. Recovery keeps the
-original frozen policy; it does not relabel historical results as current runs.
+The frozen policy identifies the review contract. Historical artifacts document
+their original policies and are not evidence for the current protocol.
 
 Invalid contracts return actionable errors and consume the existing bounded
 turn/review budget. Exhausted repairs stop unsuccessfully; they cannot silently
@@ -164,8 +178,8 @@ input/output tokens to existing requests; all are included in normal accounting.
 JSON config files without an explicit policy adopt the new protocol automatically.
 An explicit old `supervisor_policy` is rejected for new execution; remove that
 setting only when intentionally starting a new run with the current policy.
-Protocol identity is
-frozen in every new run; reports label old logs as legacy for comparison purposes.
+Protocol identity is frozen in every new run; historical formats are not a
+compatibility guarantee.
 
 Each API attempt refreshes the remaining time, remaining trial count and observed
 average call latency. Review/reflection format repairs disable further tool calls
@@ -184,25 +198,28 @@ slower work. Hard timeouts still apply. Unknown API charges take precedence over
 a simultaneous deadline and make the command fail unless `allow_unknown_cost`
 was explicitly enabled; valid models and the report remain available.
 
-For a five-minute, validation-only comparison of researcher alone, standard
-supervision and Night Science supervision on the prepared Fashion-MNIST subset:
+### Earlier Fashion supervisor-style pilot
+
+This earlier five-minute, validation-only recipe compares researcher alone,
+standard supervision and Night Science supervision on the prepared Fashion-MNIST
+subset. For the current three-repeat demo, use the
+[five-arm overnight recipe](../docs/five-arm-overnight.md) and its 600-second
+per-run allowance and $75 sum of API guards.
 
 The active profile uses 0.85, 0.88 and 0.90 accuracy targets. Prepare it once with
 `.venv/bin/python -m study prepare --problem study/problems/fashion-mnist.yaml --output study-data/fashion-mnist`.
 The previous `fashion-pilot` directory remains bound to its earlier targets and
 must not be used with this updated definition. The partitions and model bounds
-are unchanged. For the five-repeat overnight recipe and its $75 sum of spending
-guards, see [the frozen overnight comparison](../docs/fashion-pilot.md#frozen-overnight-comparison).
+are unchanged.
 
 For coverage of both supervisor styles, all five schedules, and memory off/on,
 use the [comprehensive smoke recipe](../docs/comprehensive-smoke.md). Its four
 validation-only suites contain 20 runs with four attempts each and $40 in combined
 API guards; it includes a required event-level coverage audit before longer runs.
 
-For the current three-repeat demo run, use the [five-arm overnight recipe](../docs/five-arm-overnight.md)
-and `study/fashion-five-arm-overnight-config.json`. Include `--audit` to verify
-interaction coverage and artifacts after reporting; `study audit --output ROOT`
-reruns that read-only check independently.
+The current demo's `--audit` verifies interaction coverage and artifacts after
+reporting; `study audit --output ROOT` reruns the offline check independently.
+It writes `audit-summary.json` without making model calls or evaluating data.
 
 For the smaller demo comparison, use the [targeted five-arm preflight](../docs/targeted-preflight.md)
 and `study/fashion-targeted-preflight-config.json`: researcher alone, frequent
@@ -302,12 +319,12 @@ prepared directory if later held-out evaluation is needed. Do not refresh a data
 directory while a run is using it. A genuinely changed source or problem still
 requires a separate prepared directory.
 
-Memory is **off by default** and recorded as a separate experimental variant.
-`--no-lesson-memory` overrides a config that enables it. A memory-enabled suite
-applies the same memory setting independently to all five schedules; it is a
-separate suite, not a sixth condition mixed into the original comparison. Review
-cadence remains fixed. No RL training, adaptive scheduling, or extra agent roles
-are introduced.
+Memory is **off by default**. In `schedules` and `supervisor_strategies`,
+`--lesson-memory`/`--no-lesson-memory` selects the same memory setting independently
+for every arm; reports keep those variants separate. In `apprentice_interactions`,
+suite construction fixes memory off for the first four arms and on for the final
+arm, so the final adjacent contrast explicitly tests memory. Review cadence stays
+fixed. No model-weight training or adaptive treatment scheduling is introduced.
 
 The offline demonstration exercises the same contracts with real local fits:
 
@@ -327,9 +344,10 @@ calls and equivalent experiments. Observed score changes are descriptive rather
 than causal estimates of advice quality.
 
 Matched comparisons require the same frozen problem, data, objective, allowance,
-configuration, repeat and training seed, allowing only condition to vary within a
-pair. Protocol and memory variants are not pooled. Duplicate units and unknown
-identities are excluded explicitly. Tables retain all-run counts, stop reasons,
+repeat and training seed. Only the selected comparison's declared treatment
+fields may differ: schedule, supervisor style, or the final five-arm memory
+contrast. Other configuration, protocol and memory differences are not pooled.
+Duplicate units and unknown identities are excluded explicitly. Tables retain all-run counts, stop reasons,
 unmatched runs and matched pairs missing a valid score. Numerical differences use
 complete pairs and are always condition B minus A; consult metric direction.
 For two or more complete pairs, the report gives a two-sided 95% Student-t interval
@@ -522,7 +540,7 @@ stops the run by default with `unknown_cost`; the exploratory
 The dollar guard checks known charges between calls; a completed request can
 cross the ceiling, and timed-out requests may still incur an unknown charge.
 
-## Five controlled schedules
+## Earlier five-schedule comparison
 
 | Condition | Supervisor review | Separate reflection | Literature |
 |---|---|---|---|
@@ -540,7 +558,9 @@ After framing, the order is result → due review → enabled reflection → nex
 No extra treatment call is made after a cap/deadline prevents a next trial.
 Ordinary planning remains available in every condition.
 
-The selected `supervisor_strategy` applies across these five schedules. The
+These schedules belong to `comparison: "schedules"`; the current five-arm demo
+replaces the literature arm with a memory contrast. The selected
+`supervisor_strategy` applies across these five schedules. The
 researcher alone can invoke `run_analysis`; the supervisor can
 inspect the project and results. Literature tools exist only during the fifth
 condition's scheduled reviews. A fixed cap counts both search and fetch attempts.
@@ -620,8 +640,10 @@ allowances, preparation overhead, and the reporting reserve:
   --deadline 2026-10-21T08:00:00-04:00 --reserve-seconds 3600
 ```
 
-Change the example date to the intended future deadline. The runner executes
-one condition at a time and randomizes condition order within each repeat.
+Change the example date to the intended future deadline. The runner randomizes
+condition order within each repeat. Without `max_cores`,
+it executes one run at a time; with a shared core pool, it balances up to two
+concurrent runs and permits one MPS fit at a time.
 All conditions in a repeat share the same split and training seed; repeat
 seeds increment from the configured base. `suite.json` freezes the order,
 settings, data/library/source fingerprints, platform, prices, and deadline.
@@ -655,6 +677,11 @@ also exit nonzero on fitting or scoring failure. See the
 [pilot guide](../docs/magic-pilot.md) for status interpretation.
 
 ## Artifacts, evaluation, and recovery
+
+The [event format and read policies](../docs/event-format.md) define the versioned
+journal contract, strict audit parsing, interrupted-append recovery and visible
+report corruption warnings. Unsupported versions are explicit errors; historical
+layouts are not translated into current evidence.
 
 Each run has an append-only `events.jsonl`, `config.json`, agent-facing
 `project.json`, live `checkpoint.json`, verified model artifacts, and final
@@ -708,8 +735,9 @@ make `report.html` self-contained; `figures/performance.{png,svg}` and
 the report if you want the download links to work. Use `study report --output`
 to regenerate these outputs for earlier runs or after held-out evaluation.
 Reports reject comparisons with different frozen problems, objectives, or dataset
-fingerprints. Historical groups with no recorded dataset identity remain readable,
-but cannot be pooled with runs having known identity.
+fingerprints. Missing dataset identity cannot establish a matched comparison.
+Historical artifacts may require their original checkout; obsolete event formats are not
+translated into current-format evidence.
 
 
 ### Fashion-MNIST and strategy efficiency

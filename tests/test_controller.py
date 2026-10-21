@@ -4,7 +4,8 @@ import json
 import pytest
 
 from study.config import StudyConfig
-from study.controller import run_one, recover_run
+from study.controller import run_one
+from study.recovery import recover_run
 
 
 class ScriptedModel:
@@ -151,7 +152,7 @@ def test_recovery_only_tolerates_unterminated_corrupt_tail(tmp_path, terminated)
     events = [json.loads(line) for line in path.read_text().splitlines()]
     path.write_text("".join(json.dumps(e) + "\n" for e in events
                             if e["type"] != "run_stopped")
-                    + '{"type": broken}' + ("\n" if terminated else ""))
+                    + '{"type":' + ("\n" if terminated else ""))
     if terminated:
         with pytest.raises(ValueError, match="Corrupt"):
             recover_run(run_dir)
@@ -268,7 +269,7 @@ def test_failed_literature_redirect_is_visible_to_supervisor_and_journal(tmp_pat
 
 def test_minimize_objective_selects_named_targets_and_earliest_ties():
     from types import SimpleNamespace
-    from study.controller import select_result
+    from study.selection import select_result
     from study.events import Accounting
     problem = SimpleNamespace(objective={"metric": "rmse", "direction": "minimize"},
                               targets=[{"name": "useful", "value": 12.0},
@@ -288,7 +289,7 @@ def test_minimize_objective_selects_named_targets_and_earliest_ties():
 
 def test_generic_selection_rejects_failed_late_and_nonfinite_results():
     from types import SimpleNamespace
-    from study.controller import select_result
+    from study.selection import select_result
     from study.events import Accounting
     problem = SimpleNamespace(objective={"metric": "r2", "direction": "maximize"},
                               targets=[{"name": "baseline", "value": -1.0}])
@@ -402,7 +403,7 @@ def test_changed_profile_is_rejected_before_controller_model_call(tmp_path, regr
     ("rmse", "minimize", -1.0), ("r2", "maximize", 1.1)])
 def test_selection_respects_objective_metric_bounds(metric, direction, score):
     from types import SimpleNamespace
-    from study.controller import select_result
+    from study.selection import select_result
     from study.events import Accounting
     summary = {"best": None, "target_selections": {}}
     select_result(summary, {"status": "completed", "score": score, "metrics": {metric: score},

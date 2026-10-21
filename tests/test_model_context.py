@@ -1,4 +1,4 @@
-from study.controller import agent_project
+from study.run_context import agent_project
 
 
 def test_generated_pixel_feature_names_are_described_without_repeating_784_names():

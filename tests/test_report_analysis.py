@@ -159,7 +159,7 @@ def test_report_exports_analysis_tables_and_role_graphic_without_inventing_legac
     assert run["recommendation_uptake"]["followed_fraction"] is None
 
 
-def test_historical_protocol_is_labeled_legacy_and_never_matched_to_structured(tmp_path):
+def test_unknown_protocol_stays_unknown_and_never_matches_structured(tmp_path):
     path = paired_run(tmp_path, "old", "researcher_alone") / "summary.json"
     summary = json.loads(path.read_text())
     summary["config"].pop("decision_protocol")
@@ -167,7 +167,7 @@ def test_historical_protocol_is_labeled_legacy_and_never_matched_to_structured(t
     paired_run(tmp_path, "new", "frequent")
     data = build_report_data(tmp_path)
     old = next(row for row in data["runs"] if row["run_id"] == "old")
-    assert old.get("decision_protocol") == "legacy"
+    assert old.get("decision_protocol") is None
     assert not any(c["matched_pairs"] for c in data["paired_comparisons"])
 
 

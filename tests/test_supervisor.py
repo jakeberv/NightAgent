@@ -6,7 +6,8 @@ import json
 import pytest
 
 from study.config import CONDITIONS, StudyConfig
-from study.controller import run_one, recover_run
+from study.controller import run_one
+from study.recovery import recover_run
 from study.fake import FakeModel
 from study.reasoning import validate_contract
 from test_reasoning_controller import trial

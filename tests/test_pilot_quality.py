@@ -5,7 +5,8 @@ import json
 import pytest
 
 from study import reasoning
-from study.controller import agent_result, run_one
+from study.controller import run_one
+from study.run_context import compact_result
 from study.config import StudyConfig
 from study.fake import FakeModel, scripted_contract
 from study.problem import ProblemSpec
@@ -101,7 +102,7 @@ def test_scoped_observations_and_explicit_uncertainty_are_preserved():
 
 def test_effective_feature_count_reaches_agents_without_artifact_paths():
     result = {'artifact': '/private/model', 'actual_effective_config': {'params': {'max_features': 10}}, 'score': .9}
-    visible = agent_result(result)
+    visible = compact_result(result)
     assert visible['resolved_parameters']['max_features'] == 10
     assert 'artifact' not in visible
 

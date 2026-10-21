@@ -527,12 +527,14 @@ def evaluate_selected(data_dir: Path, run_dir: Path, selections: dict[str, dict]
                 with np.load(data_dir / 'test.npz', allow_pickle=False) as data, threadpool_limits(limits=1):
                     if problem is None:
                         score = float(roc_auc_score(data['y'], bundle['pipeline'].predict_proba(data['X'])[:, 1]))
-                        result = {'artifact_hash': digest, 'status': 'completed', 'test_auc': score}
+                        metrics = {'roc_auc': score}
+                        metric = 'roc_auc'
                     else:
                         metrics = get_adapter(problem).metrics(bundle['pipeline'], data['X'], data['y'])
-                        result = {'artifact_hash': digest, 'status': 'completed', 'metrics': metrics, 'score': metrics[problem.objective['metric']]}
-                        if problem.objective['metric'] == 'roc_auc':
-                            result['test_auc'] = result['score']
+                        metric = problem.objective['metric']
+                    result = {'artifact_hash': digest, 'status': 'completed', 'metrics': metrics, 'score': metrics[metric]}
+                    if metric == 'roc_auc':
+                        result['test_auc'] = result['score']
             except Exception as exc:
                 result = {"artifact_hash": digest, "status": "failed", "error": str(exc)[:2000]}
             cache["artifacts"][digest] = result

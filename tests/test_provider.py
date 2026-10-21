@@ -199,7 +199,7 @@ def test_anthropic_receives_supported_analysis_schema_and_local_rules_stay_stric
     from pathlib import Path
     import jsonschema
     from study.config import StudyConfig
-    from study.controller import tools_for
+    from study.model_tools import tools_for
     from study.problem import load_problem
     problem = None if profile == "legacy" else load_problem(
         Path(__file__).resolve().parents[1] / "study/problems" / f"{profile}.yaml")

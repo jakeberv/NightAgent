@@ -43,7 +43,7 @@ def test_capacity_includes_pending_review_reflection_and_future_calls():
 
 
 def test_context_retains_measurements_errors_and_actual_device_without_duplicate_configs():
-    from study.controller import agent_result
+    from study.run_context import compact_result
     row = {'trial_id': 7, 'status': 'completed', 'config': {'model': 'torch_cnn', 'params': {'epochs': 5}},
         'metrics': {'accuracy': .8743}, 'score': .8743, 'duration_seconds': 5,
         'effective_config': {'params': {'device': 'cpu'}},
@@ -52,13 +52,13 @@ def test_context_retains_measurements_errors_and_actual_device_without_duplicate
                             'training_loss': [.8, .7, .6, .5, .4]},
         'artifact': 'long/path', 'artifact_hash': 'hash', 'provenance': {'x': 'y'}}
     original = copy.deepcopy(row)
-    compact = agent_result(row)
+    compact = compact_result(row)
     assert compact['metrics'] == row['metrics'] and compact['config'] == row['config']
     assert compact['fit_diagnostics']['device'] == 'mps'
     assert 'effective_config' not in compact and 'actual_effective_config' not in compact
     assert 'training_loss' not in compact['fit_diagnostics']
     assert compact['fit_diagnostics']['final_training_loss'] == .4
-    assert agent_result({'status': 'failed', 'error': 'fit failed'})['error'] == 'fit failed'
+    assert compact_result({'status': 'failed', 'error': 'fit failed'})['error'] == 'fit failed'
     assert row == original
     assert len(json.dumps(compact)) < len(json.dumps(row)) * .75
 
@@ -170,8 +170,8 @@ def test_target_repair_preserves_experiment_when_action_and_target_share_sentenc
 
 
 def test_partial_configs_retain_scientific_defaults_and_actual_device():
-    from study.controller import agent_result
-    result = agent_result({'config': {'model': 'torch_cnn', 'params': {}},
+    from study.run_context import compact_result
+    result = compact_result({'config': {'model': 'torch_cnn', 'params': {}},
         'seed': 42, 'allocated_cores': 4,
         'actual_effective_config': {'params': {'architecture': 'cnn', 'device': 'mps',
             'random_state': 42, 'batch_size': 128, 'channels': 16, 'epochs': 3,
