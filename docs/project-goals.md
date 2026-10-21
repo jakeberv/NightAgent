@@ -5,8 +5,10 @@ into main in [PR 14](https://github.com/jakeberv/NightAgent/pull/14) at `3b4a385
 The [revised live preflight](revised-preflight-results.md) exposed a researcher-alone
 memory gap. The [contract correction](https://github.com/jakeberv/NightAgent/pull/15)
 passed offline checks and [targeted solo revalidation](solo-memory-revalidation.md).
-The [readiness ledger](workshop-readiness.md) tracks integration and launch gates;
-the full repeated comparison and held-out scoring remain pending at validation.
+The [overnight comparison](overnight-results.md) completed 349 fits and held-out
+scoring but failed acceptance. The [readiness ledger](workshop-readiness.md)
+tracks reliability integration and the remaining operational preflight; a fresh
+accepted comparison under the corrected source remains pending.
 
 ## The original goal
 
