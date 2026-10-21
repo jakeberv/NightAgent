@@ -1,6 +1,10 @@
-# Project work never belongs in this repo: only each example project's starting QUESTION.md.
+# Project work never belongs in this repo: only each example project's starting QUESTION.md and its
+# hidden task metric. Experiment runs (runs/) and condition records stay local too.
 example-projects/*/*
 !example-projects/*/QUESTION.md
+!example-projects/*/hidden-question-metrics.md
+runs/
+*.nightagent.json
 .venv/
 __pycache__/
 .env

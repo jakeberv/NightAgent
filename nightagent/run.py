@@ -1,14 +1,15 @@
 """NightAgent orchestrator: runs a student agent and a supervisor agent as separate Claude Code sessions.
 
 Usage:
+    python nightagent/run.py <project_dir> --relationship pastoral   # first run: choose the relationship
     python nightagent/run.py <project_dir>            # run the next phase (one meeting or one research week)
-    python nightagent/run.py <project_dir> --all      # run phases until the supervisor signs off
+    python nightagent/run.py <project_dir> --all      # run phases until the project is reviewed
     python nightagent/run.py <project_dir> --dry-run  # exercise the loop with fake agents (no API calls)
     python nightagent/run.py <project_dir> --provider openrouter   # bill OpenRouter (key in .env or env)
 
 The project folder needs a QUESTION.md. On first use, the rest of nightagent/project-template/ is
-copied in. Protocols (STUDENT.md, MEETING.md, SUPERVISOR.md) and the private persona are read from
-this folder; they describe how the orchestrator runs meetings and phases.
+copied in. Protocols (STUDENT.md, MEETING.md, SUPERVISOR.md, REVIEWER.md) and the personas
+(personas/) are read from this folder. To run many relationships and repeats, use experiment.py.
 
 Design decisions:
 - Two separate agents. The student and supervisor are independent Claude Code sessions (via the
@@ -17,18 +18,30 @@ Design decisions:
 - A fresh session for every phase. No conversation context survives from one phase to the next, so
   the project files (memory/, minutes, ACTIONS.md, experiments/) are the agents' only memory. This
   makes the effect of the memory files testable.
-- All state lives in the project folder. The next phase is derived from the files in meetings/, so a
-  run can be stopped at any time and resumed by running the same command again.
-- Only the supervisor sees the persona. It is part of the supervisor's system prompt; the student is
-  never given it, and a hook blocks the student's tool calls that name the persona file.
-- Isolation from the machine's own Claude Code configuration: setting_sources=[] means neither agent
-  loads CLAUDE.md files or settings.json, so behaviour depends only on the files in nightagent/.
+- All state lives in the project folder, except the condition (below). The next phase is derived
+  from the files in meetings/ and review/, so a run can be stopped at any time and resumed by running
+  the same command again.
+- Relationships. A relationship pairs a supervision style (personas/supervisors/) with a student
+  personality (personas/students/); --supervisor and --student can also be chosen separately. Every
+  supervisor has the same private research values (personas/supervisor-values.md), so conditions
+  differ only in style. Each agent sees only its own persona.
+- The condition is recorded next to the project, not inside it (.<project>.nightagent.json), so the
+  agents never see which relationship they are in. It is fixed on the first run.
+- The end: when the supervisor signs off, or after --max-meetings meetings without sign-off, an
+  independent reviewer agent assesses the project (REVIEWER.md) against the hidden task metric of the
+  research question (hidden-question-metrics.md, which neither agent sees) and writes review/.
+- Only the supervisor sees its persona. The student is never given it; reads outside the project are
+  blocked, and a hook blocks the student's tool calls that name private files.
+- Isolation from the machine's own Claude Code configuration: setting_sources=[] means no agent loads
+  CLAUDE.md files or settings.json, so behaviour depends only on the files in nightagent/.
 - Containment without an OS sandbox (Claude Code's sandbox refuses network hosts that no setting
   allows, which stops pip and dataset downloads). Instead: bypass-permissions mode is off and reads
-  outside the project are blocked (PERMISSIONS, from the owner's own Claude Code policy); both agents
+  outside the project are blocked (PERMISSIONS, from the owner's own Claude Code policy); all agents
   run in "dontAsk" mode, so anything that would need a human's approval is denied; and a PreToolUse
   hook (guard) keeps file tools inside the project and refuses shell commands that name a path
   outside it (see guard for what that does not catch).
+- Accounting: meetings/harness-log.jsonl records every turn's cost, tokens and wall time per role;
+  summarise() totals them, and review/metrics.json holds the totals once the project is reviewed.
 - Billing: by default the agents use whatever Claude Code is logged in with (a Claude subscription) or
   ANTHROPIC_API_KEY. With --provider openrouter they are pointed at OpenRouter's Anthropic-compatible
   endpoint instead, using OPENROUTER_API_KEY from the environment or the repository's .env file
@@ -44,25 +57,38 @@ import os
 import re
 import shutil
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-CORE = Path(__file__).resolve().parent  # nightagent/: protocols, persona, template
-PERSONA = CORE / "supervisor-persona.md"
+CORE = Path(__file__).resolve().parent  # nightagent/: protocols, personas, template
+PERSONAS = CORE / "personas"
+VALUES = PERSONAS / "supervisor-values.md"
+SUPERVISORS = sorted(p.stem for p in (PERSONAS / "supervisors").glob("*.md"))
+STUDENTS = sorted(p.stem for p in (PERSONAS / "students").glob("*.md"))
+# Each relationship model pairs a supervision style with the student personality it is known for.
+RELATIONSHIPS = {
+    "hands-off": ("hands-off", "self-starter"),  # laissez-faire: low structure, low support
+    "pastoral": ("pastoral", "perfectionist"),  # low structure, high support
+    "directive": ("directive", "pleaser"),  # high structure, low support
+    "collaborative": ("collaborative", "pragmatist"),  # contractual: high structure, high support
+}
+HIDDEN_METRICS = "hidden-question-metrics.md"  # in a task folder next to QUESTION.md; reviewer only
+PRIVATE_NAMES = ("personas", "supervisor-values", HIDDEN_METRICS, ".nightagent.json")  # student may not name
 TEMPLATE_SKIP = {".gitkeep", ".DS_Store"}  # placeholder/OS files not copied into projects
 END_MARKER = "END MEETING"  # the student ends a meeting with this line (see MEETING.md)
 SIGN_OFF = "Signed off"  # the supervisor ends the project with this phrase (see SUPERVISOR.md)
 DEFAULT_MODELS = {  # per provider; override with --model (OpenRouter uses its own model names)
-    "claude": "claude-opus-5-5",
-    "openrouter": "~anthropic/claude-opus-latest[1m]",  # OpenRouter's alias; [1m] = 1M-token context
+    "claude": "claude-sonnet-5-5",
+    "openrouter": "anthropic/claude-sonnet-5.5",  # a pinned version, so every run of an experiment uses the same model
 }
 # One message from Claude Code can carry a whole tool result (e.g. a figure the agent reads); the SDK's
 # 1 MB default would end the phase with an error.
 MAX_MESSAGE_BYTES = 64 * 1024 * 1024
 # The repository owner's Claude Code permission policy (~/.claude/settings.json), applied explicitly to
-# both agents because setting_sources=[] skips that file.
+# every agent because setting_sources=[] skips that file.
 PERMISSIONS = {"blockReadsOutsideWorkingDirectories": True, "disableBypassPermissionsMode": "disable"}
 # System locations a shell command may name outside the project (interpreters, libraries, temp files).
 SYSTEM_PATHS = tuple(Path(p) for p in ("/usr", "/bin", "/sbin", "/opt", "/etc", "/dev", "/tmp", "/private/tmp",
@@ -71,6 +97,8 @@ FILE_TOOLS = {"Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Gre
 # With bypass mode off, the student runs in "dontAsk": these tools are allowed, anything else is denied.
 STUDENT_TOOLS = ["Bash", "Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep",
                  "WebSearch", "WebFetch", "TodoWrite"]
+READ_TOOLS = ["Read", "Glob", "Grep"]  # the supervisor's and the reviewer's only tools
+REVIEW_KEYS = ("task_metric", "science", "interaction", "observations")  # required in the reviewer's JSON
 
 
 def load_dotenv(path: Path = CORE.parent / ".env") -> None:
@@ -109,7 +137,7 @@ class AgentError(RuntimeError):
 
 @dataclass
 class Phase:
-    kind: str  # "meeting", "research" or "done"
+    kind: str  # "meeting", "research", "review" or "done"
     number: int  # meeting number, or the number of the brief the research week will end with
 
 
@@ -117,6 +145,10 @@ def init_project(project: Path) -> None:
     """Copy missing template files into the project. Never overwrites, so it is safe on every run."""
     if not (project / "QUESTION.md").is_file():
         sys.exit(f"Error: {project}/QUESTION.md not found: write the question first.")
+    if (project / HIDDEN_METRICS).exists():
+        sys.exit(f"Error: {project} holds {HIDDEN_METRICS}, so it is a task definition: the agents would be "
+                 f"able to read the hidden metric. Run it with experiment.py, which copies only QUESTION.md "
+                 f"into fresh run folders, or copy QUESTION.md into a new folder yourself.")
     template = CORE / "project-template"
     for src in template.rglob("*"):
         rel = src.relative_to(template)
@@ -129,6 +161,38 @@ def init_project(project: Path) -> None:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
     (project / "meetings").mkdir(exist_ok=True)
+
+
+def condition_file(project: Path) -> Path:
+    """Where the project's condition is recorded: next to the project, so no agent can read it."""
+    return project.parent / f".{project.name}.nightagent.json"
+
+
+def resolve_condition(project: Path, relationship: str | None, supervisor: str | None, student: str | None,
+                      metrics: Path | None) -> dict[str, Any]:
+    """Load the project's recorded condition, or record the one chosen on the command line.
+
+    A condition is fixed once the project has started: asking for a different one is an error.
+    """
+    path = condition_file(project)
+    if path.exists():
+        saved = json.loads(path.read_text())
+        asked = {"relationship": relationship, "supervisor": supervisor, "student": student,
+                 "metrics": str(metrics.resolve()) if metrics else None}
+        clash = {k: v for k, v in asked.items() if v is not None and v != saved.get(k)}
+        if clash:
+            sys.exit(f"Error: this project was started with {json.dumps(saved)}; it can't change to {json.dumps(clash)}.")
+        return saved
+    if relationship:
+        default_supervisor, default_student = RELATIONSHIPS[relationship]
+        supervisor, student = supervisor or default_supervisor, student or default_student
+    if not (supervisor and student):
+        sys.exit(f"Error: choose the relationship for this new project: --relationship {{{','.join(RELATIONSHIPS)}}}, "
+                 f"or both --supervisor and --student.")
+    condition = {"relationship": relationship or "custom", "supervisor": supervisor, "student": student,
+                 "metrics": str(metrics.resolve()) if metrics else None, "seed": None}
+    path.write_text(json.dumps(condition, indent=2) + "\n")
+    return condition
 
 
 def meeting_files(project: Path, kind: str) -> dict[int, Path]:
@@ -153,14 +217,23 @@ def supervisor_signed_off(transcript: Path) -> bool:
     return any(s.startswith("Supervisor\n") and SIGN_OFF in s for s in sections)
 
 
-def next_phase(project: Path) -> Phase:
-    """Decide what to run next from meetings/ (mirrors the table in STUDENT.md)."""
+def ending(project: Path, max_meetings: int) -> str | None:
+    """Why the research is over ("signed_off" or "meeting_limit"), or None if it isn't."""
+    minutes = meeting_files(project, "minutes")
+    if not minutes:
+        return None
+    if supervisor_signed_off(project / "meetings" / f"M{max(minutes):02d}-transcript.md"):
+        return "signed_off"
+    return "meeting_limit" if len(minutes) >= max_meetings else None
+
+
+def next_phase(project: Path, max_meetings: int) -> Phase:
+    """Decide what to run next from meetings/ and review/ (mirrors the table in STUDENT.md)."""
     minutes = meeting_files(project, "minutes")
     briefs = meeting_files(project, "brief")
-    if minutes:
-        latest = max(minutes)
-        if supervisor_signed_off(project / "meetings" / f"M{latest:02d}-transcript.md"):
-            return Phase("done", latest)
+    if ending(project, max_meetings):
+        done = (project / "review" / "scores.json").exists()
+        return Phase("done" if done else "review", max(minutes))
     if 0 not in minutes:
         return Phase("meeting", 0)  # kickoff
     latest = max(minutes)
@@ -168,6 +241,34 @@ def next_phase(project: Path) -> Phase:
     if pending:
         return Phase("meeting", min(pending))  # a brief is waiting for its meeting
     return Phase("research", latest + 1)  # the agreed actions are waiting to be done
+
+
+def summarise(project: Path) -> dict[str, Any]:
+    """Totals from the run log: cost, tokens and wall time per role, plus meetings and research weeks.
+
+    Turns from failed attempts count too: they were spent. Logs written before token accounting
+    existed have no token fields; those turns count as zero tokens.
+    """
+    log = project / "meetings" / "harness-log.jsonl"
+    events = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+    roles: dict[str, dict[str, float]] = {}
+    for e in events:
+        if e["event"] == "turn":
+            r = roles.setdefault(e["role"], {"cost_usd": 0.0, "input_tokens": 0, "output_tokens": 0, "seconds": 0.0})
+            for k in r:
+                r[k] += e.get(k, 0) or 0
+    research_agents = [r for role, r in roles.items() if role != "reviewer"]  # the project itself
+    return {
+        "roles": {role: {k: round(v, 4) for k, v in r.items()} for role, r in roles.items()},
+        "meetings": len(meeting_files(project, "minutes")),
+        "research_weeks": sum(e["event"] == "phase_end" and e["phase"] == "research" for e in events),
+        "failed_phases": sum(e["event"] == "phase_failed" for e in events),
+        "project_cost_usd": round(sum(r["cost_usd"] for r in research_agents), 4),
+        "project_tokens": int(sum(r["input_tokens"] + r["output_tokens"] for r in research_agents)),
+        "student_tokens": int(sum(roles.get("student", {}).get(k, 0) for k in ("input_tokens", "output_tokens"))),
+        "student_hours": round(roles.get("student", {}).get("seconds", 0) / 3600, 3),
+        "project_hours": round(sum(r["seconds"] for r in research_agents) / 3600, 3),
+    }
 
 
 # ---------------------------------------------------------------------------------------------
@@ -178,57 +279,72 @@ def read(name: str) -> str:
     return (CORE / name).read_text()
 
 
+def usage_totals(model_usage: dict[str, Any] | None) -> tuple[int, int]:
+    """(input tokens including cache reads and writes, output tokens) summed over models."""
+    usage = (model_usage or {}).values()
+    inputs = sum(u.get("inputTokens", 0) + u.get("cacheReadInputTokens", 0) + u.get("cacheCreationInputTokens", 0)
+                 for u in usage)
+    return inputs, sum(u.get("outputTokens", 0) for u in usage)
+
+
 class Agent:
     """One Claude Code session (via the Agent SDK). `send` returns the final text of the turn.
 
-    Protocol files are read when the session starts, so edits to nightagent/*.md take effect from
+    Protocol and persona files are read when the session starts, so edits to them take effect from
     the next phase.
     """
 
-    def __init__(self, role: str, project: Path, log: "RunLog", model: str | None, effort: str | None,
-                 env: dict[str, str] | None = None):
-        self.role, self.project, self.log = role, project, log
+    def __init__(self, role: str, project: Path, log: "RunLog", condition: dict[str, Any], model: str | None,
+                 effort: str | None, env: dict[str, str] | None = None):
+        self.role, self.project, self.log, self.condition = role, project, log, condition
         self.model, self.effort, self.env = model, effort, env or {}
         self.client = None
-        self.session_cost = 0.0  # running total reported by the SDK; used to log per-turn cost
+        # Running session totals reported by the SDK; each turn's share is logged as the difference.
+        self.session_cost, self.session_tokens = 0.0, (0, 0)
 
     def options(self):
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
-        # Both agents work in the project folder, ignore local Claude Code config, run under the
-        # permission policy above and have every tool call checked by the guard hook (see docstring).
+        # Every agent works in the project folder, ignores local Claude Code config, runs under the
+        # permission policy above and has every tool call checked by the guard hook (see docstring).
         common = dict(cwd=str(self.project), setting_sources=[], model=self.model, effort=self.effort, env=self.env,
                       settings=json.dumps({"permissions": PERMISSIONS}), max_buffer_size=MAX_MESSAGE_BYTES,
                       hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[self.guard])]})
         if self.role == "student":
             # Student: Claude Code's normal coding-agent prompt plus all three public protocols, so it
-            # understands the whole process (including how the supervisor works), but not the persona.
-            # It runs unattended in "dontAsk" mode: STUDENT_TOOLS are pre-approved and anything that
-            # would need a human's approval is denied. The Agent tool is removed so it cannot simulate
-            # a supervisor.
-            prompt = "\n\n".join([read("STUDENT.md"), read("MEETING.md"), read("SUPERVISOR.md")])
+            # understands the whole process (including how the supervisor works), and its own persona,
+            # but not the supervisor's. It runs unattended in "dontAsk" mode: STUDENT_TOOLS are
+            # pre-approved and anything that would need a human's approval is denied. The Agent tool is
+            # removed so it cannot simulate a supervisor.
+            parts = [read("STUDENT.md"), read("MEETING.md"), read("SUPERVISOR.md")]
+            parts.append((PERSONAS / "students" / f"{self.condition['student']}.md").read_text())
             return ClaudeAgentOptions(
-                system_prompt={"type": "preset", "preset": "claude_code", "append": prompt},
+                system_prompt={"type": "preset", "preset": "claude_code", "append": "\n\n".join(parts)},
                 permission_mode="dontAsk",
                 allowed_tools=STUDENT_TOOLS,
                 disallowed_tools=["Agent", "Task"],
                 **common,
             )
-        # Supervisor: a plain system prompt (protocol + meeting agenda + private persona) and read-only
-        # tools. "dontAsk" denies anything not in allowed_tools instead of waiting for a human.
-        prompt = "\n\n".join([read("SUPERVISOR.md"), read("MEETING.md"), PERSONA.read_text()])
-        return ClaudeAgentOptions(
-            system_prompt=prompt,
-            tools=["Read", "Glob", "Grep"],
-            allowed_tools=["Read", "Glob", "Grep"],
-            permission_mode="dontAsk",
-            **common,
-        )
+        if self.role == "supervisor":
+            # Supervisor: a plain system prompt (protocol + meeting agenda + private values + style).
+            parts = [read("SUPERVISOR.md"), read("MEETING.md"), VALUES.read_text(),
+                     (PERSONAS / "supervisors" / f"{self.condition['supervisor']}.md").read_text()]
+        else:
+            # Reviewer: its protocol, the supervisor's values (to judge what the student learned) and
+            # the hidden task metric; not the personas' styles, so it judges what it sees.
+            metrics = self.condition.get("metrics")
+            hidden = Path(metrics).read_text() if metrics else (
+                "# Hidden task metric\n\nNone was defined for this project: set task_metric.value to null.")
+            parts = [read("REVIEWER.md"), "# The supervisor's private research values\n\n" + VALUES.read_text(), hidden]
+        # Read-only tools; "dontAsk" denies anything not in allowed_tools instead of waiting for a human.
+        return ClaudeAgentOptions(system_prompt="\n\n".join(parts), tools=READ_TOOLS, allowed_tools=READ_TOOLS,
+                                  permission_mode="dontAsk", **common)
 
     async def guard(self, hook_input: dict[str, Any], tool_use_id: str | None, context: Any) -> dict[str, Any]:
-        """PreToolUse hook for both agents: deny tool calls that leave the project folder, and log them.
+        """PreToolUse hook for every agent: deny tool calls that leave the project folder, and log them.
 
-        - Any tool call whose arguments name the persona file is denied (Read, Grep, Bash `cat`, ...).
+        - A student tool call whose arguments name a private file (the personas, the hidden metric, the
+          condition record) is denied (Read, Grep, Bash `cat`, ...).
         - File tools (Read, Write, Edit, Glob, Grep, ...) may only use paths inside the project folder.
         - A shell command is denied if it names a path outside the project folder (an absolute path,
           ~, $HOME, or ../ that climbs out) other than the system locations in SYSTEM_PATHS.
@@ -237,8 +353,8 @@ class Agent:
         """
         tool, args = hook_input["tool_name"], hook_input["tool_input"]
         reason = None
-        if PERSONA.stem in json.dumps(args):
-            reason = "The supervisor's persona is private."
+        if self.role == "student" and any(name in json.dumps(args) for name in PRIVATE_NAMES):
+            reason = "That file is private."
         elif tool in FILE_TOOLS:
             target = args.get("file_path") or args.get("notebook_path") or args.get("path") or "."
             if not self.inside(Path(target).expanduser()):
@@ -296,6 +412,7 @@ class Agent:
     async def _send(self, text: str) -> str:
         from claude_agent_sdk import AssistantMessage, ResultMessage, TextBlock, ToolUseBlock
 
+        started = time.monotonic()
         await self.client.query(text)
         result, failed = "", False
         async for msg in self.client.receive_response():
@@ -307,11 +424,13 @@ class Agent:
                         print(f"    [{self.role}] {short(block.text)}")
             elif isinstance(msg, ResultMessage):
                 result, failed = (msg.result or "").strip(), msg.is_error
-                total = msg.total_cost_usd or 0.0
+                cost, tokens = msg.total_cost_usd or 0.0, usage_totals(msg.model_usage)
                 self.log.event("turn", role=self.role, session=msg.session_id,
-                               cost_usd=round(total - self.session_cost, 4), session_cost_usd=round(total, 4),
-                               turns=msg.num_turns, error=msg.is_error)
-                self.session_cost = total
+                               cost_usd=round(cost - self.session_cost, 4), session_cost_usd=round(cost, 4),
+                               input_tokens=tokens[0] - self.session_tokens[0],
+                               output_tokens=tokens[1] - self.session_tokens[1],
+                               seconds=round(time.monotonic() - started, 1), turns=msg.num_turns, error=msg.is_error)
+                self.session_cost, self.session_tokens = cost, tokens
         if failed or not result:
             raise AgentError(f"{self.role} turn {'failed' if failed else 'ended with no reply'}: {short(result, 300)}")
         return result
@@ -335,7 +454,13 @@ class FakeAgent:
 
     async def send(self, text: str) -> str:
         self.turns += 1
-        self.log.event("turn", role=self.role, session="dry-run", cost_usd=0.0, turns=1, error=False)
+        self.log.event("turn", role=self.role, session="dry-run", cost_usd=0.01, input_tokens=1000,
+                       output_tokens=100, seconds=1.0, turns=1, error=False)
+        if self.role == "reviewer":
+            scores = {"task_metric": {"name": "dry run", "value": 0.5, "source": None, "verified": False, "notes": ""},
+                      "science": {"overall": 5}, "interaction": {"overall": 5, "values_learned": 2},
+                      "observations": ["dry run"]}
+            return f"## Summary\n\nDry run.\n\n```json\n{json.dumps(scores)}\n```"
         if self.role == "supervisor":  # gives feedback, then agrees; signs off at the third meeting
             if self.turns == 1:
                 self.meeting = int(re.search(r"Meeting M(\d+)", text).group(1))
@@ -356,7 +481,7 @@ class FakeAgent:
 
 
 class RunLog:
-    """Append-only JSONL log of the run in meetings/harness-log.jsonl: phases, per-turn cost, blocked calls."""
+    """Append-only JSONL log of the run in meetings/harness-log.jsonl: phases, per-turn usage, blocked calls."""
 
     def __init__(self, project: Path):
         self.path = project / "meetings" / "harness-log.jsonl"
@@ -436,51 +561,103 @@ async def run_research(project: Path, n: int, make_agent) -> None:
         await student.close()
 
 
+def parse_review(reply: str) -> dict[str, Any]:
+    """The reviewer's scores: the last fenced json block of its reply, with the required keys."""
+    blocks = re.findall(r"```json\s*(\{.*?\})\s*```", reply, re.DOTALL)
+    try:
+        scores = json.loads(blocks[-1])
+    except (IndexError, json.JSONDecodeError) as e:
+        raise AgentError(f"the reviewer's reply has no valid json scores block ({e})") from e
+    missing = [k for k in REVIEW_KEYS if k not in scores]
+    if missing:
+        raise AgentError(f"the reviewer's scores lack {', '.join(missing)}")
+    return scores
+
+
+async def run_review(project: Path, make_agent, how: str, meetings: int) -> None:
+    """The independent review: a fresh reviewer session reads the finished project and scores it.
+
+    The orchestrator writes its reply to review/REVIEW.md and the parsed scores, with how the project
+    ended and the run totals, to review/scores.json and review/metrics.json.
+    """
+    reason = ("the supervisor signed off in the last meeting" if how == "signed_off" else
+              f"the orchestrator stopped it after {meetings} meetings without the supervisor signing off")
+    reviewer = make_agent("reviewer")
+    try:
+        await reviewer.start()
+        reply = await reviewer.send(
+            f"The project in this folder is finished: {reason}. Review it as REVIEWER.md describes, "
+            f"and end your reply with the json scores block.")
+    finally:
+        await reviewer.close()
+    scores = parse_review(reply)
+    out = project / "review"
+    out.mkdir(exist_ok=True)
+    (out / "REVIEW.md").write_text(f"# Independent review\n\n_Ended: {reason}._\n\n{reply}\n")
+    (out / "scores.json").write_text(json.dumps({**scores, "ended": how, "meetings": meetings}, indent=2) + "\n")
+    (out / "metrics.json").write_text(json.dumps(summarise(project), indent=2) + "\n")
+
+
 async def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("project", type=Path, help="project folder containing QUESTION.md")
-    ap.add_argument("--all", action="store_true", help="run phases until the supervisor signs off")
+    ap.add_argument("--relationship", choices=sorted(RELATIONSHIPS),
+                    help="supervisor-student relationship model (needed on a project's first run)")
+    ap.add_argument("--supervisor", choices=SUPERVISORS, help="supervision style, overriding the relationship's")
+    ap.add_argument("--student", choices=STUDENTS, help="student personality, overriding the relationship's")
+    ap.add_argument("--metrics", type=Path, help=f"the research question's {HIDDEN_METRICS}, for the reviewer")
+    ap.add_argument("--all", action="store_true", help="run phases until the project is reviewed")
+    ap.add_argument("--max-meetings", type=int, default=10,
+                    help="stop the research after this many meetings without sign-off, and review it")
     ap.add_argument("--dry-run", action="store_true", help="use fake agents (no API calls)")
     ap.add_argument("--provider", default="claude", choices=sorted(DEFAULT_MODELS),
                     help="who serves the model: your Claude login/ANTHROPIC_API_KEY (default), or OpenRouter "
                          "(needs OPENROUTER_API_KEY in the environment or .env)")
-    ap.add_argument("--model", help="model for both agents (default depends on --provider)")
-    ap.add_argument("--effort", default="high", choices=["low", "medium", "high", "xhigh", "max"])
+    ap.add_argument("--model", help="model for all agents (default depends on --provider)")
+    ap.add_argument("--effort", default="medium", choices=["low", "medium", "high", "xhigh", "max"])
     ap.add_argument("--max-meeting-messages", type=int, default=20,
                     help="safety limit on student replies per meeting (guards against a runaway loop)")
     args = ap.parse_args()
 
     project = args.project.resolve()
     init_project(project)
+    condition = resolve_condition(project, args.relationship, args.supervisor, args.student, args.metrics)
     log = RunLog(project)
     agent_cls = FakeAgent if args.dry_run else Agent
     model = args.model or DEFAULT_MODELS[args.provider]
     env = {} if args.dry_run else provider_env(args.provider)
+    # The condition is not logged here: the log is inside the project, where the agents could read it.
     log.event("run_start", provider=args.provider, model=model, effort=args.effort, dry_run=args.dry_run)
 
     def make_agent(role: str):
-        return agent_cls(role, project, log, model, args.effort, env)
+        return agent_cls(role, project, log, condition, model, args.effort, env)
 
     while True:
-        phase = next_phase(project)
+        phase = next_phase(project, args.max_meetings)
         if phase.kind == "done":
-            print("Project signed off.")
+            print(f"Project finished and reviewed: see {project / 'review'}.")
             return
         mid = f"M{phase.number:02d}"
-        print(f"== meeting {mid}" if phase.kind == "meeting" else f"== research week → {mid} brief")
+        print({"meeting": f"== meeting {mid}", "research": f"== research week → {mid} brief",
+               "review": "== independent review"}[phase.kind])
         log.event("phase_start", phase=phase.kind, number=phase.number)
         try:
             if phase.kind == "meeting":
                 await run_meeting(project, phase.number, make_agent, log, args.max_meeting_messages)
-            else:
+            elif phase.kind == "research":
                 await run_research(project, phase.number, make_agent)
+            else:
+                how = ending(project, args.max_meetings)
+                await run_review(project, make_agent, how, len(meeting_files(project, "minutes")))
         except AgentError as e:
             log.event("phase_failed", phase=phase.kind, number=phase.number, error=str(e))
             sys.exit(f"Stopping: {e}\nRun the same command again to retry this phase.")
         # Each phase must leave its output file; otherwise the next phase would be wrong.
-        expected = project / "meetings" / f"{mid}-{'minutes' if phase.kind == 'meeting' else 'brief'}.md"
+        expected = {"meeting": project / "meetings" / f"{mid}-minutes.md",
+                    "research": project / "meetings" / f"{mid}-brief.md",
+                    "review": project / "review" / "scores.json"}[phase.kind]
         if not expected.exists():
-            sys.exit(f"Stopping: the student did not write {expected.name}. Run the same command again to retry.")
+            sys.exit(f"Stopping: {expected.name} was not written. Run the same command again to retry.")
         log.event("phase_end", phase=phase.kind, number=phase.number)
         if not args.all:
             return

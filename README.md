@@ -26,12 +26,14 @@ This repository defines the agents and how they work. It does not store project 
 
 - [nightagent/](nightagent/): the NightAgent application: the agents' protocols and the orchestrator that runs them. See its [README](nightagent/README.md).
   - [STUDENT.md](nightagent/STUDENT.md): how the student works: phases, research-week procedure, night science principles, memory and reproducibility rules, the living paper.
-  - [MEETING.md](nightagent/MEETING.md): the meeting protocol: brief → present → feedback → clarification → agreed actions (about a week of student effort) → minutes and memory. Ends with a final meeting where the supervisor reviews the report.
-  - [SUPERVISOR.md](nightagent/SUPERVISOR.md): how the supervisor behaves: checks the evidence, gives concise feedback, confirms actions, reviews the final report, signs off. Both agents read it, so the student understands the whole process.
-  - [supervisor-persona.md](nightagent/supervisor-persona.md): what the supervisor values as good research. **Private to the supervisor**: the student is blocked from reading it, so it has to learn these values through meetings.
+  - [MEETING.md](nightagent/MEETING.md): the meeting protocol: brief → present → feedback → clarification → agreed actions (a few days of student effort) → minutes and memory. Ends with a final meeting where the supervisor reviews the report.
+  - [SUPERVISOR.md](nightagent/SUPERVISOR.md): the rules every supervisor follows: agrees a few days of work, confirms actions and lessons, reviews the final report, signs off. Both agents read it, so the student understands the whole process.
+  - [REVIEWER.md](nightagent/REVIEWER.md): the independent reviewer that assesses a finished project: the hidden task metric, the science, the quality of the interaction, and observations.
+  - [personas/](nightagent/personas/): the private personas: the supervisor's research values (the same for every supervisor; the student has to learn them through meetings), four supervision styles and four student personalities, which make up four relationship models (hands-off, pastoral, directive, collaborative).
   - [run.py](nightagent/run.py): the orchestrator. It runs the student and supervisor as separate Claude Code sessions, relays meetings between them and writes the transcripts.
+  - [experiment.py](nightagent/experiment.py): runs every relationship model several times on one research question and reports the metrics per seed and per relationship.
   - [project-template/](nightagent/project-template/): everything a project starts with. `QUESTION.md` is the blank question for the human, written in the supervisor's voice (the supervisor treats it as its own); the rest is the skeleton the agents work in (`ACTIONS.md`, `memory/`, `meetings/`, `experiments/`, `tools/`, `REPORT.md`).
-- [example-projects/](example-projects/): example projects, each starting with just `QUESTION.md`. [mnist/](example-projects/mnist/): "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?"
+- [example-projects/](example-projects/): research questions, each a `QUESTION.md` plus a `hidden-question-metrics.md` that only the reviewer sees. [mnist/](example-projects/mnist/): "What is the best way to classify MNIST handwritten digits, and why do different models perform differently on it?" [magic/](example-projects/magic/): gamma vs hadron classification on the MAGIC telescope data, and why.
 
 ### Running a project
 
@@ -39,21 +41,24 @@ This repository defines the agents and how they work. It does not store project 
 python3 -m venv nightagent/.venv && nightagent/.venv/bin/pip install -r nightagent/requirements.txt
 ```
 
+To compare the four supervisor-student relationships, with 4 repeats each, on one research question:
+
 ```bash
-nightagent/.venv/bin/python nightagent/run.py example-projects/mnist
+nightagent/.venv/bin/python nightagent/experiment.py example-projects/magic --seeds 4
 ```
 
-Each run executes the next phase (first the kickoff meeting) and stops; `--all` continues until the supervisor signs off. For a new question, create `example-projects/<name>/` with a filled-in copy of `nightagent/project-template/QUESTION.md`. Details, options and the safety notes are in the [nightagent README](nightagent/README.md).
+Each run goes from the kickoff meeting to sign-off (or a meeting limit), then an independent reviewer scores it; `runs/magic-<date>/results.md` reports every seed and the mean ± std per relationship. For a new question, create `example-projects/<name>/` with a filled-in copy of `nightagent/project-template/QUESTION.md` and a `hidden-question-metrics.md`. To run a single project phase by phase, use `run.py` with `--relationship`. Details, options, budget and the safety notes are in the [nightagent README](nightagent/README.md).
 
 ### How the loop works
 
 The outer loop is supervision meetings, where the supervisor steers. The inner loop is research between meetings, where the student works alone. Each phase is a fresh session, so the project files are the only memory; only the supervisor knows its persona.
 
 ```
-SETUP (human, once per project)
+SETUP (human, once per research question)
   mkdir example-projects/<name>; write QUESTION.md in the supervisor's voice
       (question, context, what "best" means, constraints); optional data/code
-  run nightagent/run.py on that folder
+  write hidden-question-metrics.md: the task metric only the reviewer sees
+  run nightagent/experiment.py on that folder (or run.py on a copy of QUESTION.md)
 
 EACH RUN (orchestrator)
   copy any missing template files into the project (never overwrites)
@@ -68,7 +73,7 @@ MEETING Mnn (fresh student session ↔ fresh supervisor session, relayed verbati
   supervisor: believes it wrote QUESTION.md and holds the student to it;
               reads brief + earlier minutes; spot-checks evidence in the project folder;
               gives feedback shaped by its private persona;
-              sets ~1 week of human-student effort
+              sets a few days of human-student effort
   repeat until clear:
     student:    batched clarification questions + candidate lessons
                 ("should I remember you value X?") + restated actions
@@ -91,11 +96,14 @@ ENDING
   supervisor judges the question answered well enough → "write it up"
   student finishes REPORT.md as a paper → final MEETING:
     supervisor reviews like a paper reviewer → student revises → … → "Signed off"
+  (or the orchestrator stops the research after --max-meetings meetings)
+  independent REVIEWER (fresh session, took no part) reads everything:
+    hidden task metric, science, quality of interaction, observations → review/
 ```
 
 Learning shows up in three places:
 
-- The supervisor's preferences are in its private persona (figures, seeds, controlled comparisons, ablations, cross-field links). The student discovers them only through feedback.
+- The supervisor's preferences are in its private persona (figures, seeds, controlled comparisons, ablations, cross-field links), the same in every relationship model. The student discovers them only through feedback, delivered in the style of its supervisor.
 - Memory holds only lessons the supervisor has confirmed, and the student rereads it at the start of every phase.
 - The orchestrator's verbatim transcripts show whether the student starts acting on those preferences without being told again.
 
@@ -120,7 +128,7 @@ The scientific task, dataset, analysis script, and role owners are still open. C
 - [NOTES.md](NOTES.md): design rationale, evaluation details, candidate tasks, and open decisions.
 - [Shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z): collaborative spec draft.
 
-Status as of 20 October 2026: orchestrator prototype with student and supervisor agents (`nightagent/`, MNIST example project) on branch `dev-ben2`; kickoff run on MNIST; no evaluation results yet. Next, choose an accessible task and script, assign owners, and build the fixed baseline before adding the adaptive loop.
+Status as of 21 October 2026: orchestrator with student, supervisor and reviewer agents, four relationship models and an experiment runner (`nightagent/`) on branch `dev-ben2`. Real runs so far used the earlier single persona (MNIST to M02, MAGIC to M01); the relationship personas and the reviewer are tested only with `--dry-run`. Next: one real seed of each relationship on MAGIC, then the full 4 × 4 experiment.
 
 ## Name and guiding ideas
 
