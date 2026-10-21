@@ -570,7 +570,7 @@ async def main() -> None:
     ap.add_argument("--student", choices=STUDENTS, help="student personality, overriding the relationship's")
     ap.add_argument("--metrics", type=Path, help=f"the research question's {HIDDEN_METRICS}, for the reviewer")
     ap.add_argument("--all", action="store_true", help="run phases until the project is reviewed")
-    ap.add_argument("--max-meetings", type=int, default=10,
+    ap.add_argument("--max-meetings", type=int, default=5,
                     help="stop the research after this many meetings without sign-off, and review it")
     ap.add_argument("--dry-run", action="store_true", help="use fake agents (no API calls)")
     ap.add_argument("--provider", default="claude", choices=sorted(DEFAULT_MODELS),

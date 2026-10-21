@@ -31,7 +31,7 @@ Every supervisor has the same private research values (`personas/supervisor-valu
 
 ## The end of a project: independent review
 
-The research ends when the supervisor signs off, or after `--max-meetings` meetings (default 10) without sign-off. Then a fresh **reviewer** agent, which took no part, reads the whole project, including the verbatim transcripts, and assesses:
+The research ends when the supervisor signs off, or after `--max-meetings` meetings (default 5) without sign-off. Then a fresh **reviewer** agent, which took no part, reads the whole project, including the verbatim transcripts, and assesses:
 
 1. **Task metric:** the research question's own measure of success, defined in its `hidden-question-metrics.md`, which neither the student nor the supervisor sees (e.g. MNIST test accuracy). The reviewer takes the value from the student's result files.
 2. **Science:** relevance, evidence, insight, rigour, reproducibility and limitations (0–2 each), and an overall score out of 10.
@@ -94,7 +94,7 @@ That runs the **next phase** only (first, the kickoff meeting) and stops, so you
 - `--relationship`, or `--supervisor` and `--student`: the condition, needed on the first run only.
 - `--metrics`: the research question's hidden metric, for the reviewer (without it, the task metric is left empty).
 - `--all`: keep going until the project is reviewed.
-- `--max-meetings` (default 10): end the research after this many meetings without sign-off, and review it.
+- `--max-meetings` (default 5): end the research after this many meetings without sign-off, and review it.
 - `--dry-run`: fake agents and no API calls; tests the loop and the files it writes.
 - `--provider` (`claude` or `openrouter`, see below), `--model` (default `claude-sonnet-5-5`, or `anthropic/claude-sonnet-5.5` with `--provider openrouter`), `--effort` (default `medium`).
 - `--max-meeting-messages` (default 20): a safety limit on student replies within one meeting, so a stuck conversation can't loop forever. It is not a research limit; hitting it is logged.
