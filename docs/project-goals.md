@@ -102,8 +102,8 @@ Present the [recorded mechanism demo](../DEMO.md) with its acceptance limits.
 Before another long run, complete integration and a small paid operational
 preflight as recorded in the [readiness ledger](workshop-readiness.md). Remeasure
 cost under the corrected context: the original overnight cost was at least
-$22.44, exceeding remaining key allowance. Underlying account balance remains
-unavailable; key allowance and successful billing are separate evidence.
+$22.44. Refresh funding immediately before launch. Underlying account balance
+remains unavailable; key allowance and successful billing are separate evidence.
 A new comparative claim requires a fresh five-arm, three-repeat matrix from
 one frozen source, with search frozen before held-out scoring and full audit
 acceptance. Inspect traces for useful advice and appropriate lesson scope, and
