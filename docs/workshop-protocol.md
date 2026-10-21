@@ -7,9 +7,12 @@ literature comparisons are development history, not additional arms in this stud
 See [project goals](project-goals.md) for the apprentice vision and
 [workshop milestones](workshop-milestones.md) for requirement coverage and gaps.
 
-The memory-default implementation is under PR review. Main retains the previous
-policy until this revision is merged; do not launch the revised study before
-review and a new bounded live pilot.
+The memory-default implementation was merged into main in
+[PR 14](https://github.com/jakeberv/NightAgent/pull/14) at `3b4a385`. The subsequent
+[contract fix](https://github.com/jakeberv/NightAgent/pull/15) passed offline checks
+and [targeted solo revalidation](solo-memory-revalidation.md). Integration and
+launch gates are tracked in the [readiness ledger](workshop-readiness.md).
+The full 15-run comparison and held-out scoring remain pending at revalidation.
 
 ## Research question and tutorial components
 
@@ -45,6 +48,11 @@ evidence-linked lesson register across the 12-trial history window; memory is a
 standard apprentice capability, including in the researcher-alone arm. The
 explicit fifth control has no lesson register or lesson updates. Lessons start
 empty in every independent run and do not transfer between repeats. Literature tools are disabled.
+At the first researcher decision with completed evidence and an empty enabled
+register, require a cited, scoped observation note through `lesson_updates`.
+The first decision without evidence and the memory-off control are exempt;
+omission at an eligible decision receives bounded repair. The
+[memory contract](memory-default.md) defines validation and scope.
 Reviews stop when there is no time for another experiment. Count completed,
 failed and timed-out attempts consistently for the schedule.
 
@@ -107,15 +115,34 @@ historical mechanism evidence, not validation of the revised memory-default
 protocol. The [portable replay](evidence/fashion-demo/demo.md) remains a fallback.
 Its memory arm reached 85% before its first lesson; that crossing is not evidence
 of memory benefit. Retain historical-source and repaired-contract warnings.
-New offline rehearsal can verify implementation, while new paid prompt usage and
-spending require a bounded pilot before the revised overnight launch.
+The revised [bounded preflight](targeted-preflight.md) allows seven validation
+fits in each of the five arms, with one seed, 300 seconds and a $2 API guard per
+arm; it performs no held-out scoring. The [21 October paid run](revised-preflight-results.md)
+completed all 35 fits and verified artifacts, with 65 real model calls,
+429,259 tokens and $1.665021 cost. Its audit reported two errors from the
+researcher-alone arm's missing lesson creation/delivery and resulting missing
+final register, with no warnings. All seven solo decisions omitted optional
+`lesson_updates`; the other four arms passed coverage checks. Offline checks
+did not expose this live behavior. This failed acceptance result remains preserved.
+
+The [contract correction and solo revalidation](solo-memory-revalidation.md)
+added the first-eligible-note requirement and passed 961 regression tests. Only
+the failed solo arm was rerun: seven fits and calls, $0.163809, three
+lesson-update events for one lesson ID, and five later researcher contexts with
+lessons. All seven artifacts verified and the audit passed with zero errors
+and warnings. The first note preceded fit two. The other four arms were not
+rerun under this source, so these separate receipts do not establish a combined
+current-source five-arm pass or a causal memory benefit. Use the new solo cost
+measurement in the provisional launch estimate.
 
 Require successful launcher exit, complete accounting, verified artifacts,
 fifteen completed runs, three pairs per contrast, required interaction/memory
 coverage, completed held-out work and a passing independent `study audit`.
 Investigate every warning. Do not automatically rerun a paid failure.
-Recheck credits and AC power immediately before launch; key allowance and account
-funding are separate. Keep credentials out of Git, documents and exported traces.
+Recheck key allowance, current billing evidence and AC power immediately before
+launch; apply the funding decision in the [readiness ledger](workshop-readiness.md).
+Full account balance remains unavailable and has not been verified. Keep
+credentials out of Git, documents and exported traces.
 The repository maintainer coordinates integration; component-owner assignments
 remain subject to team confirmation.
 

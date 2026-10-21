@@ -33,4 +33,4 @@ Show recommendation → configuration → measurement → lesson → later deliv
 
 ## 7. Risks, limits, roles
 
-Main risk: unsupported conclusions. Reset lessons each run; cross-run learning is untested. Four shared cores, two runs, serialized MPS; queue time counts. Limits: 1,000 attempts, 45-second fits, 2,048 output tokens/call. Fifteen $5 guards total $75, with possible overrun. Spend forecast and funding require a revised live pilot. Maintainer coordinates integration; component owners need confirmation. Defer RL/generated tools.
+Main risk: unsupported conclusions. Reset lessons each run; cross-run learning is untested. Four shared cores, two runs, serialized MPS; queue time counts. Limits: 1,000 attempts, 45-second fits, 2,048 output tokens/call. Fifteen $5 guards total $75, with possible overrun. Solo memory revalidation passed. Provisional spend: $18.38; key allowance covers reserve, account balance unavailable. Maintainer coordinates integration; component owners need confirmation. Defer RL/generated tools.

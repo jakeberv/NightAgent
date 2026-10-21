@@ -32,7 +32,17 @@ LESSON = {"type": "object", "properties": {
     "required": ["id", "status", "summary", "scope", "evidence"], "additionalProperties": False}
 
 
-def contract_schema(role, memory=False, *, supervisor_strategy='night_science', framing=False):
+def lesson_update_required(role, *, memory, history, lessons):
+    """Seed an enabled empty ledger once completed, citable observations exist."""
+    return bool(memory and role == 'researcher' and not lessons and any(
+        row.get('status') == 'completed' and any(
+            type(value) in (int, float) and math.isfinite(value)
+            for value in (row.get('metrics') or {}).values())
+        for row in history))
+
+
+def contract_schema(role, memory=False, *, supervisor_strategy='night_science', framing=False,
+                    require_lesson_update=False):
     """Schema for canonical contracts stored in logs, feedback and memory."""
     properties = {"summary": prose(240), "evidence": deepcopy(EVIDENCE)}
     if role == "researcher":
@@ -60,13 +70,18 @@ def contract_schema(role, memory=False, *, supervisor_strategy='night_science', 
     properties.update(interpretation_status={'const': 'unverified'}, comparison_scope=prose(240))
     if memory:
         properties["lesson_updates"] = {"type": "array", "maxItems": 2, "items": deepcopy(LESSON)}
+        if role == 'researcher' and require_lesson_update:
+            required.append('lesson_updates')
+            properties['lesson_updates']['minItems'] = 1
     return {"type": "object", "properties": properties, "required": required,
             "additionalProperties": False}
 
 
-def request_contract_schema(role, memory=False, *, supervisor_strategy='night_science', framing=False):
+def request_contract_schema(role, memory=False, *, supervisor_strategy='night_science', framing=False,
+                            require_lesson_update=False):
     """Model input contains references; measurements and interpretation labels are harness-owned."""
-    schema = contract_schema(role, memory, supervisor_strategy=supervisor_strategy, framing=framing)
+    schema = contract_schema(role, memory, supervisor_strategy=supervisor_strategy, framing=framing,
+                             require_lesson_update=require_lesson_update)
     schema['properties']['evidence'] = deepcopy(EVIDENCE_REFERENCES)
     for field in ('interpretation_status', 'comparison_scope'):
         del schema['properties'][field]
@@ -153,9 +168,10 @@ def schema_errors(value, schema, label):
 
 
 def validate_contract(contract, role, history, *, has_feedback=False, memory=False,
-                      supervisor_strategy='night_science', framing=False):
+                      supervisor_strategy='night_science', framing=False, require_lesson_update=False):
     errors = schema_errors(contract, contract_schema(role, memory,
-        supervisor_strategy=supervisor_strategy, framing=framing), f"{role} contract")
+        supervisor_strategy=supervisor_strategy, framing=framing,
+        require_lesson_update=require_lesson_update), f"{role} contract")
     if errors:
         return errors
     errors = evidence_errors(contract["evidence"], history)
@@ -452,8 +468,10 @@ class LessonMemory:
         return deepcopy(list(self._lessons.values()))
 
 
-def instructions(role, *, memory=False, supervisor_strategy='night_science', framing=False):
-    schema = request_contract_schema(role, memory, supervisor_strategy=supervisor_strategy, framing=framing)
+def instructions(role, *, memory=False, supervisor_strategy='night_science', framing=False,
+                 require_lesson_update=False):
+    schema = request_contract_schema(role, memory, supervisor_strategy=supervisor_strategy, framing=framing,
+                                     require_lesson_update=require_lesson_update)
     prefix = ("Place the decision contract in run_analysis.intent. " if role == "researcher" else
               "When finished with tools, return only one JSON object matching this contract. ")
     return "\n" + prefix + """Use short complete sentences, not fragments or Markdown lists.
@@ -497,12 +515,17 @@ assessment and what_changed fields are replaced with cited observations by the
 runner; comparison_scope records which settings changed and any confounding.
 Project metadata and recent trials are already in context. Researchers must submit
 the next experiment through run_analysis.
-""" + ("""You may provide at most two lesson_updates based on completed trials. Retain
+""" + ("""Provide at most two lesson_updates based on completed trials. Retain
 scope, uncertainty and citations. Reuse an id to revise a lesson; use superseded
 when a conclusion no longer applies. The harness generates lesson summary and scope
 from cited measurements and configurations. Your original lesson prose is retained
 under interpretation with status unverified; it is never supported evidence.
 Supported describes only the generated factual observation, not the interpretation.
 Memory is confined to this run and its frozen split.
-""" if memory else "") + ("Use the intent schema supplied by the tool." if role == "researcher" else
+""" if memory else "") + ("""The lesson ledger is empty and a completed trial has a citable metric.
+This researcher decision must include at least one lesson_updates entry citing a
+completed validation measurement, with a scoped observation note. A simple factual
+observation is sufficient; no novel insight or causal conclusion is required.
+Once the ledger contains a note, further updates are optional.
+""" if memory and role == 'researcher' and require_lesson_update else "") + ("Use the intent schema supplied by the tool." if role == "researcher" else
            "Contract: " + json.dumps(schema, separators=(",", ":")))

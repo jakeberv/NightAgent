@@ -146,7 +146,7 @@ def test_refreshed_context_supplies_target_state_and_preserves_raw_trial_details
         return {'status': 'completed', 'score': .96, 'metrics': {'roc_auc': .96},
                 'artifact': 'fake', 'artifact_hash': 'hash',
                 'actual_effective_config': {'params': {'max_features': 10}}}
-    model = StructuredModel()
+    model = StructuredModel(memory=True)
     result = asyncio.run(run_one(StudyConfig(trial_cap=2), tmp_path, tmp_path/'run', model,
                                 trial_runner=fit, project={}))
     assert result['stop_reason'] == 'trial_cap'

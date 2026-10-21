@@ -42,11 +42,15 @@ evaluation receipt. For full arguments, use `.venv/bin/python -m study COMMAND -
 
 ## Credentials and paid execution
 
-Before paid execution, review the preset, prepare matching data, verify account
-funding, and measure a bounded pilot's actual latency and charged usage. The
-current protocol requires a [new targeted preflight](targeted-preflight.md) before
-the [overnight launch](five-arm-overnight.md). Earlier costs and memory policies
-are historical and do not establish a current estimate.
+Before paid execution, review the preset, prepare matching data, check key
+allowance and billing evidence, and measure a bounded pilot's actual latency and
+charged usage. Record funding visibility and the launch decision in
+[readiness](workshop-readiness.md). The
+corrected memory contract passed [targeted solo-memory revalidation](solo-memory-revalidation.md).
+The [preflight recipe](targeted-preflight.md) and
+[overnight runbook](five-arm-overnight.md) own current launch requirements.
+Earlier costs and memory policies are historical and do not establish a current
+estimate.
 
 Supply `OPENROUTER_API_KEY` in the launching environment or pass `--env-file PATH`.
 Tutorial-style `LLM_API_KEY` is accepted when that file's `LLM_BASE_URL` identifies
@@ -167,10 +171,22 @@ Memory is on by default, including for solo researchers without explicit
 reflection. The register holds six lessons by default (`memory_limit`: 1–12),
 each with ID, scope, complete-sentence finding, validation citations and status
 `supported`, `inconclusive` or `superseded`. Reusing an ID revises it; least
-recently updated lessons are evicted at the cap. Existing responses can include
-up to two updates. Memory survives history truncation and recovery within a run;
-`lessons.json` and events preserve it. Independent runs start empty; other runs'
-lessons and test feedback are never loaded. `supported` describes generated
+recently updated lessons are evicted at the cap. Memory-enabled responses can
+include up to two `lesson_updates`. If the register is empty and a completed fit
+has a citable validation measurement, each researcher decision must include
+at least one scoped, cited observation note through that existing field. The
+first decision, absence of citable completed evidence, and histories with only
+failed fits are exempt. A researcher's note is saved when a proposal is admitted
+for a new fit. Reused or deadline-skipped proposals do not save it, so an empty
+register still requires a note on the next decision. Once the register is
+nonempty, further updates are optional. Memory-off behavior is unchanged.
+
+Missing or empty required updates use the existing bounded decision-repair budget
+before another fit starts; they add no reflection phase or separate memory call.
+A factual observation, including an inconclusive one, suffices. No novel insight
+or causal claim is required. Memory survives history truncation and recovery
+within a run; `lessons.json` and events preserve it. Independent runs start empty;
+other runs' lessons and test feedback are never loaded. `supported` describes generated
 factual observations rather than independent replication. Original explanations
 remain unverified. The [memory contract](memory-default.md) owns opt-out behavior
 and the fixed five-arm mapping.
@@ -444,7 +460,13 @@ earlier targets. Runnable three-arm presets now use memory throughout;
 `--no-lesson-memory` opts out. Earlier memory-off records do not validate this
 change. For the current protocol use the [targeted preflight](targeted-preflight.md).
 The [comprehensive smoke](comprehensive-smoke.md) is a separate earlier **paid**
-coverage recipe. A new bounded pilot is required before revised overnight launch.
+coverage recipe. The [revised preflight](revised-preflight-results.md) recorded
+35 fits, 65 calls and $1.665021 on 21 October 2026, with a **NO-GO** from failed
+solo-memory coverage. That historical receipt remains unchanged. The contract
+correction passed a [bounded paid revalidation of the failed solo arm](solo-memory-revalidation.md):
+seven fits and seven calls for $0.163809, with zero audit errors or warnings.
+The other four arms were not rerun; this is no combined current-source five-arm
+pass or evidence of strategy benefit.
 
 ### Three-condition supervisor comparison
 
