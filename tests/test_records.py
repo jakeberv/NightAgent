@@ -61,7 +61,9 @@ def test_only_recovery_permits_partial_final_append_without_accepting_semantic_c
 
 
 @pytest.mark.parametrize('tail', ['{"type":"last", BAD}', '{"type": broken}',
-    '{"type":"last","value":True', '{"type":"last"} extra', '{"type":"bad\\q"}'])
+    '{"type":"last","value":True', '{"type":"last"} extra', '{"type":"bad\\q"}',
+    '{"type":"last","value":tru ', '{"type":"last","value":- ',
+    '{"type":"last","value":1e ', '{"type":"last","value":1. '])
 def test_recovery_does_not_hide_clear_syntax_corruption_without_a_newline(tmp_path, tail):
     from study.records import load_events
     path = journal(tmp_path, ['{"type":"committed"}\n', tail])

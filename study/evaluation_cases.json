@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "purpose": "Named offline engineering acceptance cases; these are not scientific repetitions or evidence of strategy efficacy.",
+  "scientific_comparison": {"datasets": 1, "arms": 5, "repeats": 3, "runs": 15},
+  "cases": [
+    {
+      "id": "artifact-data-isolation",
+      "name": "Normal artifact production and data isolation",
+      "check": "A real bounded classifier trains without a test partition, saves a verified artifact, and receives only disjoint training/validation data with no inherited secrets.",
+      "pytest_nodes": [
+        "tests/test_science.py::test_split_is_reproducible_disjoint_and_stratified",
+        "tests/test_science.py::test_trial_completes_without_test_partition_and_saves_verified_artifact",
+        "tests/test_science.py::test_worker_environment_excludes_secrets_and_receives_no_test_path"
+      ]
+    },
+    {
+      "id": "proposal-repair-and-citations",
+      "name": "Bad proposal repair and grounded evidence citations",
+      "check": "Unknown evidence is rejected before fitting and repaired within the existing budget; supplied measurements require repair even if correct; accepted contracts cite recorded validation measurements.",
+      "pytest_nodes": [
+        "tests/test_reasoning_controller.py::test_bad_evidence_repairs_within_existing_budget_before_training",
+        "tests/test_reasoning_controller.py::test_model_supplied_review_measurement_requires_repair_even_when_correct",
+        "tests/test_reasoning_controller.py::test_default_offline_model_exercises_all_contract_roles_and_optional_memory"
+      ]
+    },
+    {
+      "id": "feedback-schedule",
+      "name": "Feedback and reflection schedules",
+      "check": "Each schedule delivers the expected reviews and reflections, continues after reaching a target, omits terminal reviews, and counts failed trials toward cadence.",
+      "pytest_nodes": [
+        "tests/test_controller.py::test_exact_cadence_continues_after_threshold_and_skips_terminal_review",
+        "tests/test_controller.py::test_failed_trials_count_towards_review_cadence"
+      ]
+    },
+    {
+      "id": "memory-isolation-and-history",
+      "name": "Run-local memory and bounded history",
+      "check": "Lessons survive the recent-history window and recovery while staying within the run; older completed evidence remains available to each role.",
+      "pytest_nodes": [
+        "tests/test_reasoning_controller.py::test_memory_is_run_local_survives_history_window_and_recovers",
+        "tests/test_run_execution.py::test_context_preserves_old_evidence_outside_recent_window_and_role_fields"
+      ]
+    },
+    {
+      "id": "budget-and-deadline",
+      "name": "Budget and deadline admission",
+      "check": "Unknown cost, dollar and trial caps stop new work; model calls and fits are not admitted when the remaining allowance cannot contain them.",
+      "pytest_nodes": [
+        "tests/test_run_execution.py::test_state_safeguards_are_enforced_before_more_work",
+        "tests/test_run_execution.py::test_model_admission_does_not_call_or_charge_provider",
+        "tests/test_deadline_admission.py::test_slow_decision_does_not_start_a_fit_that_no_longer_fits"
+      ]
+    },
+    {
+      "id": "late-results-and-selection",
+      "name": "Late result rejection and frozen selections",
+      "check": "Completed, failed, timeout and late results are journaled before selection; only eligible results update checkpoints, with earliest ties and named target crossings preserved.",
+      "pytest_nodes": [
+        "tests/test_run_execution.py::test_trial_executor_records_result_before_selection_and_checkpoint",
+        "tests/test_controller.py::test_generic_selection_rejects_failed_late_and_nonfinite_results",
+        "tests/test_controller.py::test_minimize_objective_selects_named_targets_and_earliest_ties"
+      ]
+    },
+    {
+      "id": "heldout-separation",
+      "name": "Held-out evaluation separation and deduplication",
+      "check": "Agents cannot see held-out data; frozen artifacts are scored once across selections and reinvocation, and a crashed scoring reservation is never silently repeated.",
+      "pytest_nodes": [
+        "tests/test_science.py::test_local_magic_parser_and_agent_info_hide_test",
+        "tests/test_science.py::test_test_evaluation_deduplicates_and_survives_reinvocation",
+        "tests/test_science.py::test_reserved_evaluation_is_not_repeated_after_crash"
+      ]
+    },
+    {
+      "id": "audit-integrity",
+      "name": "Audit integrity and tamper detection",
+      "check": "A complete offline fixture passes without changing evidence; missing, corrupt or inconsistent evidence and altered selections fail independent audit; modified model artifacts cannot be evaluated.",
+      "pytest_nodes": [
+        "tests/test_audit.py::test_complete_five_arm_repeats_pass_without_modifying_evidence",
+        "tests/test_audit.py::test_incomplete_or_inconsistent_evidence_fails",
+        "tests/test_audit.py::test_audit_catches_a_selection_bug_even_when_production_selector_agrees",
+        "tests/test_science.py::test_evaluation_rejects_modified_artifact"
+      ]
+    }
+  ]
+}

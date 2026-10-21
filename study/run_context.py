@@ -102,7 +102,8 @@ def compact_result(result):
         diagnostics['final_training_loss'] = losses[-1]
     # RF aliases and defaults matter scientifically; retain resolved differences,
     # excluding execution settings already recorded by fit diagnostics/allocated_cores.
-    actual = result.get('actual_effective_config', {}).get('params', {})
+    actual = {**(result.get('effective_config') or {}).get('params', {}),
+              **(result.get('actual_effective_config') or {}).get('params', {})}
     requested = result.get('config', {}).get('params', {})
     derived = {k: v for k, v in actual.items() if (k not in requested or v != requested[k])
                and k not in ('device', 'n_jobs', 'random_state', 'architecture')}

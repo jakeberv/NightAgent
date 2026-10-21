@@ -6,6 +6,7 @@ changes are warnings; missing or contradictory execution evidence is a failure.
 import hashlib
 import json
 import math
+from collections import Counter
 from pathlib import Path
 import re
 
@@ -26,6 +27,7 @@ class _Audit:
         self.errors, self.warnings, self.runs = [], [], []
         self.matched_pairs = []
         self.source_matches_current = None
+        self.test_cache = None
 
     def issue(self, code, message, scope='suite', *, warning=False):
         (self.warnings if warning else self.errors).append(
@@ -77,6 +79,16 @@ class _Audit:
             self.issue('schedule', str(error))
             return self.result()
         self.provenance(manifest)
+        cache_path = self.root/'evaluation/test-evaluation-cache.json'
+        if cache_path.exists():
+            cache = self.read(cache_path) or {}
+            self.test_cache = cache.get('artifacts', {})
+            if not self.check(isinstance(self.test_cache, dict), 'heldout',
+                              'Shared held-out cache must contain an artifact mapping'):
+                self.test_cache = {}
+            if manifest.get('postrun_policy') == 'validation_only':
+                self.check(not self.test_cache, 'heldout',
+                           'Validation-only suite contains shared held-out results or reservations')
         for entry in expected:
             run_config = config.for_run(entry['condition'], entry['repeat'],
                 supervisor_strategy=entry['supervisor_strategy'], lesson_memory=entry['lesson_memory'])
@@ -116,9 +128,25 @@ class _Audit:
         self.check(es[-1]['type'] == 'run_stopped' and es[-1].get('summary') == summary, 'summary', 'Summary must agree with the terminal journal record', name)
         for key in ('problem_hash', 'data_fingerprint', 'problem', 'objective', 'target_definitions'):
             self.check(manifest.get(key) is not None and summary.get(key) == manifest[key], 'identity', f'{key} differs from the suite', name)
+            if key in ('problem_hash', 'data_fingerprint', 'problem'):
+                self.check(es[0].get(key) == manifest.get(key), 'identity',
+                           f'Journal run_started {key} differs from the suite', name)
         self.check(summary.get('stop_reason') in ('deadline', 'trial_cap', 'dollar_cap') and bool(summary.get('best')),
                    'stop', 'Run must stop at an expected limit with a valid selected model', name)
         self.check(not any(e['type'] == 'failure' for e in es), 'failure', 'Journal contains a controller failure', name)
+        pending_call = None
+        for event in es:
+            if event['type'] == 'model_call_started':
+                identity = (event.get('role'), event.get('attempt'))
+                self.check(pending_call is None and identity[0] in ('researcher', 'supervisor', 'reflection')
+                           and type(identity[1]) is int and identity[1] >= 0,
+                           'model_call_order', 'Model call start is invalid or overlaps an unfinished call', name)
+                pending_call = identity
+            elif event['type'] == 'model_call':
+                self.check(pending_call is not None and pending_call == (event.get('role'), event.get('attempt')),
+                           'model_call_order', 'Model call completion lacks its matching role/attempt start', name)
+                pending_call = None
+        self.check(pending_call is None, 'model_call_order', 'Journal ends with an unfinished model call', name)
         accounting = Accounting(); calls = [e for e in es if e['type'] == 'model_call']
         for call in calls:
             accounting.add(call.get('usage'))
@@ -144,6 +172,10 @@ class _Audit:
         for fit in fits:
             self.check(fit.get('seed') == config.training_seed, 'fit_seed',
                        f"Trial {fit.get('trial_id')} used a different training seed", name)
+            actual = (fit.get('actual_effective_config') or {}).get('params') or {}
+            if 'random_state' in actual:
+                self.check(actual['random_state'] == config.training_seed, 'fit_seed',
+                           f"Trial {fit.get('trial_id')} worker recorded a different training seed", name)
             if not self.check(fit.get('status') == 'completed', 'fit', f"Trial {fit.get('trial_id')} did not complete", name):
                 continue
             self.metric(fit, manifest['objective']['metric'], name, f"Trial {fit.get('trial_id')}")
@@ -169,6 +201,10 @@ class _Audit:
                                math.isfinite(value.get('score', value.get('test_auc'))),
                                'heldout', f'{label} lacks a completed held-out result for its selected artifact', name)
                     self.metric(value, manifest['objective']['metric'], name, f'Held-out {label}', heldout=True)
+                    if self.test_cache is not None:
+                        cached = self.test_cache.get(selected.get('artifact_hash')) or {}
+                        self.check(cached.get('status') == 'completed' and cached == value,
+                                   'heldout', f'{label} differs from its shared held-out cache result', name)
         else:
             self.check(not (run/'test-results.json').exists(), 'heldout', 'Validation-only suite contains held-out results', name)
         self.runs.append({'run_id': name, 'arm': entry['arm'], 'repeat': entry['repeat'],
@@ -240,6 +276,7 @@ class _Audit:
     def interactions(self, es, config, n, name):
         advice = None; source = 'none'; lessons = []; contexts = 0; delivered = 0; updates = 0
         reflection = None; completed = 0; accepted = {}; invalid = {}; decision = None
+        completed_fits = 0; reviewed = set(); reflected = set()
         for event in es:
             kind = event['type']
             if kind.endswith('_contract'):
@@ -264,8 +301,11 @@ class _Audit:
                            'interaction_order', f'{kind} is out of order relative to completed fits', name)
             if kind in ('framing', 'review'):
                 advice = compact_feedback(event['contract']); source = 'initial_framing' if kind == 'framing' else 'review'
+                if kind == 'review':
+                    reviewed.add(completed)
             if kind == 'reflection':
                 reflection = compact_feedback(event['contract'])
+                reflected.add(completed)
             if kind == 'decision':
                 decision = event
             if kind == 'trial_started':
@@ -277,14 +317,22 @@ class _Audit:
                 decision = None
             if kind == 'trial_finished':
                 completed = event['result']['trial_id']
+                completed_fits += event['result'].get('status') == 'completed'
             if kind == 'lesson_memory':
                 lessons = compact_lessons(event['lessons']); updates += bool(lessons)
                 self.check(config.lesson_memory, 'memory', 'Disabled memory arm wrote a lesson register', name)
+                self.check(not lessons or completed_fits > 0, 'memory',
+                           'A nonempty lesson register must follow a completed fit in this run', name)
             if kind == 'model_call_started':
                 ctx = json.loads(event['messages'][1]['content']); contexts += 1
                 self.check((ctx.get('lessons') == lessons if config.lesson_memory else 'lessons' not in ctx),
                            'memory', 'Context memory must match the latest register and begin empty', name)
                 if event['role'] == 'researcher':
+                    self.check(not completed or not config.review_every or completed % config.review_every != 0
+                               or completed in reviewed, 'interaction_order',
+                               'Due review must finish before the next researcher call', name)
+                    self.check(not completed or not config.reflection or completed in reflected,
+                               'interaction_order', 'Due reflection must finish before the next researcher call', name)
                     delivered += bool(ctx.get('lessons'))
                     self.check(ctx.get('last_supervisor_feedback') == advice and
                                ctx.get('active_advice_source') == source and bool(advice) == bool(config.review_every),
@@ -299,6 +347,15 @@ class _Audit:
         self.check(sum(e['type'] == 'framing' for e in es) == int(bool(config.review_every)),
                    'contract_evidence', 'Initial framing must occur exactly once in supervised arms', name)
         self.check(contexts > 0, 'events', 'No model contexts recorded', name)
+        starts = Counter(e.get('role') for e in es if e['type'] == 'model_call_started')
+        finishes = Counter(e.get('role') for e in es if e['type'] == 'model_call')
+        successful = Counter(e.get('role') for e in es
+                             if e['type'] == 'model_call' and e.get('status') == 'completed')
+        required = {'researcher': n,
+                    'supervisor': sum(e['type'] in ('framing', 'review') for e in es),
+                    'reflection': sum(e['type'] == 'reflection' for e in es)}
+        self.check(starts == finishes and all(successful[role] >= count for role, count in required.items()),
+                   'role_coverage', 'Every fit, framing, review and reflection requires its completed model role', name)
         self.check(not config.lesson_memory or (updates > 0 and delivered > 0),
                    'memory', 'Memory arm must save a lesson and deliver it to a later researcher call', name)
         for kind, interval in (('review', config.review_every), ('reflection', 1 if config.reflection else 0)):

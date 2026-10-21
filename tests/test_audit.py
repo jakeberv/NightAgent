@@ -310,3 +310,111 @@ def test_audit_catches_a_selection_bug_even_when_production_selector_agrees(suit
     write(suite/'strategy-efficiency.json',{k:v['targets'] for k,v in report['conditions'].items()})
     result=audit(suite)
     assert any(e['code']=='selection' and e['scope']==run.name for e in result['errors']),result
+
+
+@pytest.mark.parametrize('field,value', [('problem_hash', 'different-problem'),
+    ('data_fingerprint', 'different-data'), ('problem', {'id': 'different-problem'})])
+def test_run_start_identity_must_match_the_frozen_suite(suite, field, value):
+    run = suite/'runs/r00-periodic'; es = events(run)
+    es[0][field] = value
+    save_events(run, es)
+    result = audit(suite)
+    assert not result['passed'] and 'identity' in codes(result), result
+
+
+@pytest.mark.parametrize('mutation', ['role', 'attempt', 'order'])
+def test_model_calls_must_pair_in_journal_order_by_role_and_attempt(suite, mutation):
+    run = suite/'runs/r00-periodic'; es = events(run)
+    i = next(i for i,e in enumerate(es) if e['type'] == 'model_call')
+    if mutation == 'role':
+        es[i]['role'] = 'researcher'
+    elif mutation == 'attempt':
+        es[i]['attempt'] = 1
+    else:
+        completion = es.pop(i)
+        start = next(i for i,e in enumerate(es) if e['type'] == 'model_call_started')
+        es.insert(start, completion)
+    save_events(run, es)
+    result = audit(suite)
+    assert not result['passed'] and 'model_call_order' in codes(result), result
+
+
+def test_worker_seed_cannot_contradict_the_controller_seed(suite):
+    run = suite/'runs/r00-periodic'; es = events(run)
+    fit = next(e['result'] for e in reversed(es) if e['type'] == 'trial_finished')
+    fit['actual_effective_config'] = {'params': {'random_state': 999}}
+    save_events(run, es)
+    result = audit(suite)
+    assert not result['passed'] and 'fit_seed' in codes(result), result
+
+
+def test_preloaded_memory_is_rejected_even_when_context_matches_the_register(suite):
+    run = suite/'runs/r00-periodic_reflection_memory'; es = events(run)
+    i = next(i for i,e in enumerate(es) if e['type'] == 'lesson_memory' and e['lessons'])
+    lesson_event = es[i]
+    from study.run_context import compact_lessons
+    for event in es[:i]:
+        if event['type'] == 'model_call_started':
+            ctx = json.loads(event['messages'][1]['content'])
+            ctx['lessons'] = compact_lessons(lesson_event['lessons'])
+            event['messages'][1]['content'] = json.dumps(ctx)
+    es.insert(1, lesson_event.copy())
+    save_events(run, es)
+    result = audit(suite)
+    assert not result['passed'] and 'memory' in codes(result), result
+
+
+@pytest.mark.parametrize('kind,arm', [('review', 'periodic'), ('reflection', 'periodic_reflection')])
+def test_due_treatment_must_precede_the_next_researcher_call(suite, kind, arm):
+    run = suite/'runs'/('r00-'+arm); es = events(run)
+    end = next(i for i,e in enumerate(es) if e['type'] == kind and e['after_trial'] == 3)
+    role = 'supervisor' if kind == 'review' else 'reflection'
+    begin = max(i for i in range(end) if es[i]['type'] == 'model_call_started' and es[i]['role'] == role)
+    prior = next(e for e in reversed(es[:begin])
+                 if e['type'] == 'model_call_started' and e['role'] == 'researcher')
+    previous_context = json.loads(prior['messages'][1]['content'])
+    phase = es[begin:end+1]; del es[begin:end+1]
+    next_start = next(i for i in range(begin, len(es))
+                      if es[i]['type'] == 'model_call_started' and es[i]['role'] == 'researcher')
+    ctx = json.loads(es[next_start]['messages'][1]['content'])
+    keys = ('last_supervisor_feedback', 'active_advice_source') if kind == 'review' else ('last_explicit_reflection',)
+    for key in keys:
+        ctx[key] = previous_context[key]
+    es[next_start]['messages'][1]['content'] = json.dumps(ctx)
+    next_end = next(i for i in range(next_start+1, len(es)) if es[i]['type'] == 'model_call')
+    es[next_end+1:next_end+1] = phase
+    save_events(run, es)
+    result = audit(suite)
+    assert not result['passed'] and 'interaction_order' in codes(result), result
+
+
+def test_relabelled_researcher_calls_cannot_certify_fits(suite):
+    run = suite/'runs/r00-researcher_alone'; es = events(run)
+    for event in es:
+        if event['type'] in ('model_call_started', 'model_call'):
+            event['role'] = 'supervisor'
+    save_events(run, es)
+    result = audit(suite)
+    assert not result['passed'] and 'role_coverage' in codes(result), result
+
+
+@pytest.mark.parametrize('heldout,status,score', [(False, 'in_progress', None),
+    (True, 'failed', None), (True, 'uncertain', None), (True, 'in_progress', None),
+    (True, 'completed', .1)])
+def test_shared_heldout_cache_cannot_contradict_policy_or_run_views(suite, heldout, status, score):
+    if heldout:
+        manifest = read(suite/'suite.json'); manifest['postrun_policy'] = 'heldout_and_report'
+        write(suite/'suite.json', manifest)
+        write(suite/'completion.json', {'postrun': {'evaluate': 'completed', 'report': 'completed'}})
+        for run in (suite/'runs').iterdir():
+            summary = read(run/'summary.json')
+            selected = {'best': summary['best'], **summary['target_selections']}
+            write(run/'test-results.json', {'selections': {name: {
+                'status': 'completed', 'artifact_hash': value['artifact_hash'], 'score': .9}
+                for name,value in selected.items() if value}})
+    digest = read(suite/'runs/r00-periodic/summary.json')['best']['artifact_hash']
+    cache = suite/'evaluation'; cache.mkdir(exist_ok=True)
+    write(cache/'test-evaluation-cache.json', {'artifacts': {digest: {
+        'artifact_hash': digest, 'status': status, 'score': score}}})
+    result = audit(suite)
+    assert not result['passed'] and 'heldout' in codes(result), result

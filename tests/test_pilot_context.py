@@ -250,3 +250,55 @@ def test_target_repair_does_not_mistake_past_experiment_for_target_attainment():
     result, _ = ground_contract(c, [], targets=[{
         'name': 'stretch', 'threshold': .85, 'sentence': 'The stretch target (0.85) has been reached.'}])
     assert 'Compare CNN with the MLP that has been tested.' in result['next_comparison']
+
+
+@pytest.mark.parametrize('field', ['recommendation', 'next_comparison', 'change'])
+@pytest.mark.parametrize('sentence,action', [
+    ('Compare batch sizes 64 and 128 because the stretch target has been reached.', 'Compare batch sizes 64 and 128.'),
+    ('The stretch target has not been reached, so increase batch_size to 256.', 'Increase batch_size to 256.'),
+    ('The stretch target has been reached; compare batch sizes 64 and 128.', 'Compare batch sizes 64 and 128.')])
+def test_target_status_clause_repair_preserves_actions_on_either_side(field, sentence, action):
+    from study.reasoning import ground_contract
+    result, _ = ground_contract({field: sentence}, [], targets=[{
+        'name': 'stretch', 'threshold': .85, 'sentence': 'The stretch target (0.85) has been reached.'}])
+    assert action in result[field]
+    assert 'The stretch target (0.85) has been reached.' in result[field]
+    assert 'has not been reached' not in result[field]
+
+
+@pytest.mark.parametrize('status', ['failed', 'timeout'])
+def test_unfitted_trial_context_keeps_known_constructor_science(status):
+    from study.run_context import compact_result
+    compact = compact_result({'status': status, 'config': {'model': 'torch_cnn', 'params': {}},
+        'effective_config': {'params': {'batch_size': 128, 'channels': 16,
+            'learning_rate': .001, 'random_state': 42, 'n_jobs': 4, 'device': 'cpu'}}})
+    assert compact['resolved_parameters'] == {'batch_size': 128, 'channels': 16, 'learning_rate': .001}
+
+
+@pytest.mark.parametrize('requested,effective,changed', [
+    ([{'epochs': 3}, {'epochs': 5, 'learning_rate': .001}],
+     [{'epochs': 3, 'learning_rate': .001}, {'epochs': 5, 'learning_rate': .001}], 'epochs'),
+    ([{}, {'C': 1.0}], [{'C': 1.0}, {'C': 1.0}], None),
+    ([{'max_features': .5}, {'max_features': 10}], [{'max_features': 10}, {'max_features': 10}], None)])
+def test_comparison_scope_uses_resolved_science_instead_of_request_spelling(requested, effective, changed):
+    from study.reasoning import observed_scope
+    history = [{'trial_id': i+1, 'status': 'completed',
+                'config': {'model': 'same-model', 'params': requested[i]},
+                'actual_effective_config': {'model': 'same-model', 'params': {
+                    **effective[i], 'device': ('cpu', 'mps')[i], 'n_jobs': i+1, 'random_state': i}}}
+               for i in range(2)]
+    scope = observed_scope([{'trial_id': 1}, {'trial_id': 2}], history)
+    assert 'confounded' not in scope
+    if changed:
+        assert changed in scope and 'learning_rate=' not in scope
+    else:
+        assert 'matching recorded configurations' in scope
+
+
+def test_legacy_comparison_does_not_call_an_unknown_default_an_intervention():
+    from study.reasoning import observed_scope
+    history = [{'trial_id': i+1, 'status': 'completed', 'config': {'model': 'torch_cnn', 'params': params}}
+               for i,params in enumerate([{'epochs': 3}, {'epochs': 5, 'learning_rate': .001}])]
+    scope = observed_scope([{'trial_id': 1}, {'trial_id': 2}], history)
+    assert 'epochs' in scope and 'learning_rate' not in scope and 'confounded' not in scope
+    assert 'unknown' in scope.lower()

@@ -1,0 +1,499 @@
+{
+  "schema_version": 1,
+  "mode": "offline_replay",
+  "suite": "fashion-targeted-preflight-20261020-222822",
+  "evidence_kind": "recorded_provider",
+  "strategy_evidence": false,
+  "real_model_records": true,
+  "identity": {
+    "problem_hash": "fade8c9ef8167a2c0a047e1d6d022dccb4122dc8b7937bfaeaa521dab3287984",
+    "data_fingerprint": "b97c237e8bf7014eccbdb25db6a48999ab5b01c19f22640021736bb3a098a104",
+    "objective": {
+      "metric": "accuracy",
+      "direction": "maximize"
+    }
+  },
+  "provider": {
+    "model": "anthropic/claude-sonnet-4.5",
+    "provider": "anthropic",
+    "source": "https://openrouter.ai/api/v1/models/anthropic/claude-sonnet-4.5/endpoints",
+    "timestamp": "2026-10-21T02:28:24.339191+00:00"
+  },
+  "audit": {
+    "status": "warning",
+    "warnings": [
+      {
+        "scope": "suite",
+        "code": "source_changed",
+        "message": "Current checkout differs from frozen source hashes; audit describes historical evidence."
+      },
+      {
+        "scope": "r00-periodic_reflection_memory",
+        "code": "contract_repaired",
+        "message": "Invalid reflection request at lesson_updates.0.scope: Use at most 240 characters (received 340); rewrite as short complete sentences."
+      }
+    ],
+    "source_matches_current": false,
+    "totals": {
+      "runs": 5,
+      "fits": 35,
+      "artifacts_verified": 35,
+      "calls": 68,
+      "cost": 1.665228
+    }
+  },
+  "arms": [
+    {
+      "arm": "frequent",
+      "run_id": "r00-frequent",
+      "repeat": 0,
+      "best_validation_score": 0.8603333333333333,
+      "fits": 7,
+      "calls": 14,
+      "known_cost": 0.34557,
+      "targets": {
+        "accuracy_85": {
+          "threshold": 0.85,
+          "reached": true,
+          "trial_id": "2",
+          "seconds": 45.020072291838005,
+          "known_cost": 0.07404000000000001,
+          "total_cost": 0.07404000000000001
+        },
+        "accuracy_88": {
+          "threshold": 0.88,
+          "reached": false,
+          "trial_id": null,
+          "seconds": null,
+          "known_cost": null,
+          "total_cost": null
+        },
+        "accuracy_90": {
+          "threshold": 0.9,
+          "reached": false,
+          "trial_id": null,
+          "seconds": null,
+          "known_cost": null,
+          "total_cost": null
+        }
+      }
+    },
+    {
+      "arm": "periodic_reflection_memory",
+      "run_id": "r00-periodic_reflection_memory",
+      "repeat": 0,
+      "best_validation_score": 0.854,
+      "fits": 7,
+      "calls": 17,
+      "known_cost": 0.44175299999999995,
+      "targets": {
+        "accuracy_85": {
+          "threshold": 0.85,
+          "reached": true,
+          "trial_id": "3",
+          "seconds": 64.23929629195482,
+          "known_cost": 0.121353,
+          "total_cost": 0.121353
+        },
+        "accuracy_88": {
+          "threshold": 0.88,
+          "reached": false,
+          "trial_id": null,
+          "seconds": null,
+          "known_cost": null,
+          "total_cost": null
+        },
+        "accuracy_90": {
+          "threshold": 0.9,
+          "reached": false,
+          "trial_id": null,
+          "seconds": null,
+          "known_cost": null,
+          "total_cost": null
+        }
+      }
+    },
+    {
+      "arm": "periodic_reflection",
+      "run_id": "r00-periodic_reflection",
+      "repeat": 0,
+      "best_validation_score": 0.875,
+      "fits": 7,
+      "calls": 17,
+      "known_cost": 0.39972,
+      "targets": {
+        "accuracy_85": {
+          "threshold": 0.85,
+          "reached": true,
+          "trial_id": "4",
+          "seconds": 93.20260183420032,
+          "known_cost": 0.18553199999999997,
+          "total_cost": 0.18553199999999997
+        },
+        "accuracy_88": {
+          "threshold": 0.88,
+          "reached": false,
+          "trial_id": null,
+          "seconds": null,
+          "known_cost": null,
+          "total_cost": null
+        },
+        "accuracy_90": {
+          "threshold": 0.9,
+          "reached": false,
+          "trial_id": null,
+          "seconds": null,
+          "known_cost": null,
+          "total_cost": null
+        }
+      }
+    },
+    {
+      "arm": "periodic",
+      "run_id": "r00-periodic",
+      "repeat": 0,
+      "best_validation_score": 0.874,
+      "fits": 7,
+      "calls": 13,
+      "known_cost": 0.32981399999999994,
+      "targets": {
+        "accuracy_85": {
+          "threshold": 0.85,
+          "reached": true,
+          "trial_id": "5",
+          "seconds": 110.79519495903514,
+          "known_cost": 0.21215699999999998,
+          "total_cost": 0.21215699999999998
+        },
+        "accuracy_88": {
+          "threshold": 0.88,
+          "reached": false,
+          "trial_id": null,
+          "seconds": null,
+          "known_cost": null,
+          "total_cost": null
+        },
+        "accuracy_90": {
+          "threshold": 0.9,
+          "reached": false,
+          "trial_id": null,
+          "seconds": null,
+          "known_cost": null,
+          "total_cost": null
+        }
+      }
+    },
+    {
+      "arm": "researcher_alone",
+      "run_id": "r00-researcher_alone",
+      "repeat": 0,
+      "best_validation_score": 0.874,
+      "fits": 7,
+      "calls": 7,
+      "known_cost": 0.148371,
+      "targets": {
+        "accuracy_85": {
+          "threshold": 0.85,
+          "reached": true,
+          "trial_id": "4",
+          "seconds": 54.04469991591759,
+          "known_cost": 0.077364,
+          "total_cost": 0.077364
+        },
+        "accuracy_88": {
+          "threshold": 0.88,
+          "reached": false,
+          "trial_id": null,
+          "seconds": null,
+          "known_cost": null,
+          "total_cost": null
+        },
+        "accuracy_90": {
+          "threshold": 0.9,
+          "reached": false,
+          "trial_id": null,
+          "seconds": null,
+          "known_cost": null,
+          "total_cost": null
+        }
+      }
+    }
+  ],
+  "selected_arm": "periodic_reflection_memory",
+  "selected_run": "r00-periodic_reflection_memory",
+  "selection_reason": "Feature coverage: periodic review, explicit reflection, and lesson memory; selection is independent of winning score.",
+  "chain": {
+    "selection_rule": "First chronological executed comparison whose baseline and result are cited together in a later lesson delivered to a researcher.",
+    "recommendation": {
+      "text": "Use trial 2 as baseline; increase epochs to 5, reduce weight_decay to 0.001, and increase channels to 16 to test whether more training improves CNN performance.",
+      "after_trial": 3,
+      "source": {
+        "path": "runs/r00-periodic_reflection_memory/events.jsonl",
+        "line": 55,
+        "type": "review"
+      }
+    },
+    "reflection": {
+      "text": "Test random_forest with preprocessing=standard, n_estimators=100, max_depth=20, min_samples_leaf=1, max_features=log2 to isolate the effect of max_features while holding other parameters constant against trial 3.",
+      "after_trial": 4,
+      "source": {
+        "path": "runs/r00-periodic_reflection_memory/events.jsonl",
+        "line": 80,
+        "type": "reflection"
+      }
+    },
+    "decision": {
+      "summary": "Test random forest with max_features=log2 versus trial 3's sqrt to isolate feature selection effect.",
+      "evidence": [
+        {
+          "trial_id": 3,
+          "metric": "accuracy",
+          "split": "validation",
+          "value": 0.854
+        },
+        {
+          "trial_id": 4,
+          "metric": "accuracy",
+          "split": "validation",
+          "value": 0.8386666666666667
+        }
+      ],
+      "hypothesis": "Changing max_features from sqrt to log2 may affect accuracy, though both select three features at each split with 784 inputs.",
+      "baseline_trial_id": 3,
+      "change": "Changed max_features from sqrt to log2 while holding n_estimators=100, max_depth=20, min_samples_leaf=1, preprocessing=standard constant.",
+      "expected_outcome": "Accuracy should remain near 0.854 since sqrt and log2 both select three candidate features with this input dimensionality.",
+      "supervisor_response": "modified",
+      "response_reason": "The supervisor recommended increasing CNN epochs to 5, which trial 4 already tested; I am instead following the reflection's suggestion to isolate max_features effect in random forest.",
+      "interpretation_status": "unverified",
+      "comparison_scope": "Validation trials 3, 4 differed in batch_size, channels, epochs, learning_rate, max_depth, max_features, min_samples_leaf, model, n_estimators, preprocessing, weight_decay. Multiple settings changed; effects are confounded.",
+      "source": {
+        "path": "runs/r00-periodic_reflection_memory/events.jsonl",
+        "line": 83,
+        "type": "decision_contract"
+      }
+    },
+    "baseline": {
+      "trial_id": 3,
+      "config": {
+        "model": "random_forest",
+        "preprocessing": "standard",
+        "params": {
+          "n_estimators": 100,
+          "max_depth": 20,
+          "min_samples_leaf": 1,
+          "max_features": "sqrt"
+        }
+      },
+      "score": 0.854,
+      "metrics": {
+        "accuracy": 0.854,
+        "macro_f1": 0.8513777978249305,
+        "roc_auc_ovr_macro": 0.9868327777777779
+      },
+      "seed": 42,
+      "elapsed_seconds": 64.23929629195482,
+      "artifact_hash": "57d2b05378516e05c38fd1148b6597ac701627649e50a9abd54c6fa2e47711c1",
+      "source": {
+        "path": "runs/r00-periodic_reflection_memory/events.jsonl",
+        "line": 48,
+        "type": "trial_finished"
+      }
+    },
+    "changes": [
+      {
+        "field": "params.max_features",
+        "before": "sqrt",
+        "after": "log2"
+      }
+    ],
+    "result": {
+      "trial_id": 5,
+      "config": {
+        "model": "random_forest",
+        "preprocessing": "standard",
+        "params": {
+          "n_estimators": 100,
+          "max_depth": 20,
+          "min_samples_leaf": 1,
+          "max_features": "log2"
+        }
+      },
+      "score": 0.8483333333333334,
+      "metrics": {
+        "accuracy": 0.8483333333333334,
+        "macro_f1": 0.8451632941321849,
+        "roc_auc_ovr_macro": 0.98651512345679
+      },
+      "seed": 42,
+      "elapsed_seconds": 136.30816966691054,
+      "artifact_hash": "3bfca5980a527dae440723466c6b9e026dc45aeec430140f37ce4b8832b5ad30",
+      "source": {
+        "path": "runs/r00-periodic_reflection_memory/events.jsonl",
+        "line": 90,
+        "type": "trial_finished"
+      }
+    },
+    "score_delta": -0.005666666666666598,
+    "lesson": {
+      "id": "rf_baseline_strong",
+      "status": "supported",
+      "summary": "On validation, trial 5 recorded accuracy=0.84833333; trial 3 recorded accuracy=0.854. Broader conclusions remain untested.",
+      "scope": "Validation trials 5, 3 compared max_features=\"log2\"/\"sqrt\". This split alone does not establish causality.",
+      "evidence": [
+        {
+          "trial_id": 5,
+          "metric": "accuracy",
+          "split": "validation",
+          "value": 0.8483333333333334
+        },
+        {
+          "trial_id": 3,
+          "metric": "accuracy",
+          "split": "validation",
+          "value": 0.854
+        }
+      ],
+      "interpretation_status": "unverified",
+      "elapsed_seconds": 144.11507504200563,
+      "source": {
+        "path": "runs/r00-periodic_reflection_memory/events.jsonl",
+        "line": 96,
+        "type": "lesson_memory"
+      }
+    },
+    "delivery": {
+      "role": "researcher",
+      "before_trial_id": 6,
+      "elapsed_seconds": 144.12085366691463,
+      "lesson_ids": [
+        "rf_baseline_strong"
+      ],
+      "delivered_lesson": {
+        "id": "rf_baseline_strong",
+        "status": "supported",
+        "summary": "On validation, trial 5 recorded accuracy=0.84833333; trial 3 recorded accuracy=0.854. Broader conclusions remain untested.",
+        "scope": "Validation trials 5, 3 compared max_features=\"log2\"/\"sqrt\". This split alone does not establish causality.",
+        "evidence": [
+          {
+            "trial_id": 5,
+            "metric": "accuracy",
+            "split": "validation",
+            "value": 0.8483333333333334
+          },
+          {
+            "trial_id": 3,
+            "metric": "accuracy",
+            "split": "validation",
+            "value": 0.854
+          }
+        ]
+      },
+      "source": {
+        "path": "runs/r00-periodic_reflection_memory/events.jsonl",
+        "line": 98,
+        "type": "model_call_started"
+      }
+    }
+  },
+  "first_lesson_seconds": 88.8450037499424,
+  "target_timing": [
+    {
+      "target": "accuracy_85",
+      "first_trial_id": "3",
+      "seconds": 64.23929629195482,
+      "before_first_lesson": true
+    }
+  ],
+  "reference": {
+    "config": {
+      "model": "logistic",
+      "params": {
+        "C": 1.0,
+        "max_iter": 300
+      },
+      "preprocessing": "standard"
+    },
+    "seed": 42,
+    "score": 0.8103333333333333,
+    "metrics": {
+      "accuracy": 0.8103333333333333,
+      "macro_f1": 0.8090350881956313,
+      "roc_auc_ovr_macro": 0.9733596296296296
+    },
+    "elapsed_seconds": 4.7435762078966945,
+    "artifact_hash": "2e59b778840c791b87183ec583c37b72a24f360f208deb2ca259b22a02c9a86b",
+    "source": {
+      "path": "result.json",
+      "sha256": "9aa9a5fdc1a6e87ea0fb58e56ac237a19852f08f4caee83ab1c69244c10f5082"
+    },
+    "provenance": {
+      "constructor": "tabular_adapter",
+      "constructor_version": 3,
+      "data_fingerprint": "b97c237e8bf7014eccbdb25db6a48999ab5b01c19f22640021736bb3a098a104",
+      "dataset": "fashion-mnist",
+      "diagnostics_version": 2,
+      "direction": "maximize",
+      "metric": "accuracy",
+      "n_features": 784,
+      "problem_hash": "fade8c9ef8167a2c0a047e1d6d022dccb4122dc8b7937bfaeaa521dab3287984",
+      "seed": 42,
+      "sklearn_version": "1.9.1",
+      "split": "validation",
+      "split_seed": 42,
+      "task": "tabular_classification"
+    },
+    "scope": "Separate fixed reference fit; not a matched agent arm or evidence of a strategy advantage."
+  },
+  "sources": [
+    {
+      "path": "suite.json",
+      "sha256": "095d63af6551923414fbcb713125d1aa8c904488c4a2f3926587f366fc5a9b32"
+    },
+    {
+      "path": "runs/r00-frequent/summary.json",
+      "sha256": "eada6af40b94f7579afd1e0fc134783feef507579431be6b60e09c7df36ea56c"
+    },
+    {
+      "path": "runs/r00-frequent/events.jsonl",
+      "sha256": "42217b31d18d023b7e050a0d943b256fb49ef57fefcd32788e904c2458035f4f"
+    },
+    {
+      "path": "runs/r00-periodic_reflection_memory/summary.json",
+      "sha256": "c2e053a842c11e6d3ac9c7518e06d2377069caf5b9e76af1993cf151fa726f92"
+    },
+    {
+      "path": "runs/r00-periodic_reflection_memory/events.jsonl",
+      "sha256": "4d8d8693c9b655992d27edf6a9224fcddf7ca92a22116cd5f8c4dab381ed6cc7"
+    },
+    {
+      "path": "runs/r00-periodic_reflection/summary.json",
+      "sha256": "ea6066eb7dd272554aabadbdf4a80bc186bc971ab5f98e3b5ca3a951278e1b25"
+    },
+    {
+      "path": "runs/r00-periodic_reflection/events.jsonl",
+      "sha256": "cfb5f1dc21a1250f401a23bc5b995956b63afb84d4670a11ad4facfa0dba7902"
+    },
+    {
+      "path": "runs/r00-periodic/summary.json",
+      "sha256": "9733cfbec9d46f5c5c75afc7a0b60315a48fc2d227ccd0b214cc0b59b932ebe0"
+    },
+    {
+      "path": "runs/r00-periodic/events.jsonl",
+      "sha256": "484a84e470b054a03524edea1b51c28db40e79a2e97aaec5af9906f007f20bca"
+    },
+    {
+      "path": "runs/r00-researcher_alone/summary.json",
+      "sha256": "6aff2cf916ccae59ff2199eff461a5cfb8c82f274a5e3f2f2e58924eaccda696"
+    },
+    {
+      "path": "runs/r00-researcher_alone/events.jsonl",
+      "sha256": "659a8abdba6c629381ac3c5dbb44ea26e8a8fd9c167a161ce9f612edd070684b"
+    }
+  ],
+  "caveats": [
+    "One matched repeat is a preflight observation; this replay is not evidence of a strategy advantage.",
+    "Planning and experiment selection run in every arm. Supervised arms share initial framing. Literature tools are disabled in this comparison.",
+    "Model recommendations, hypotheses, and expected outcomes are unverified statements. Measured scores and saved configurations establish what ran.",
+    "A saved lesson and its delivery establish context plumbing; they do not establish a memory benefit."
+  ]
+}

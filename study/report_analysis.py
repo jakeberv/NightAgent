@@ -196,7 +196,8 @@ def assign_analysis_groups(runs):
             return json.dumps(config_stratum(row), sort_keys=True)
         return json.dumps({key: (row.get("config") or {}).get(key)
                            for key in ("decision_protocol", "reasoning_policy", "context_policy", "supervisor_policy",
-                                       "supervisor_strategy", "comparison", "lesson_memory", "memory_limit")}, sort_keys=True)
+                                       "supervisor_strategy", "comparison", "lesson_memory", "memory_limit",
+                                       "deadline_policy")}, sort_keys=True)
     variants = defaultdict(set)
     for row in runs:
         variants[treatment_name(row)].add(variant(row))
