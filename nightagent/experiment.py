@@ -104,8 +104,8 @@ async def execute(exp: Path, jobs: int, passthrough: list[str]) -> None:
             c = condition(folder)
             print(f"  start {folder.name} ({c['relationship']}, seed {c['seed']})")
             with (exp / "logs" / f"{folder.name}.log").open("a") as out:
-                proc = await asyncio.create_subprocess_exec(
-                    sys.executable, str(run.CORE / "run.py"), str(folder), "--all", *passthrough,
+                proc = await asyncio.create_subprocess_exec(  # -u: unbuffered, so the log can be followed live
+                    sys.executable, "-u", str(run.CORE / "run.py"), str(folder), "--all", *passthrough,
                     stdout=out, stderr=asyncio.subprocess.STDOUT)
                 code = await proc.wait()
             print(f"  {'done ' if code == 0 else 'STOPPED'} {folder.name}" + ("" if code == 0 else
