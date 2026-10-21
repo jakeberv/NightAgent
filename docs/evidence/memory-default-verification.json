@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-21T00:45:50.703899-04:00",
+  "scope": "Offline engineering verification using scripted decisions and real local fits. No paid inference, Fashion held-out scoring, or strategy-benefit claim.",
+  "rehearsal": {
+    "source": "study-runs/memory-default-rehearsal-20261021-003417/suite",
+    "audit": {
+      "status": "warning",
+      "passed": true,
+      "warnings": [
+        {
+          "scope": "suite",
+          "code": "source_changed",
+          "message": "Current checkout differs from frozen source hashes; audit describes historical evidence."
+        }
+      ],
+      "totals": {
+        "runs": 15,
+        "fits": 240,
+        "artifacts_verified": 240,
+        "calls": 432,
+        "cost": 0.0
+      },
+      "matched_pairs": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "arms": {
+      "frequent": [
+        {
+          "repeat": 0,
+          "seed": 42,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 30,
+          "researcher_contexts_with_lessons": 15,
+          "empty_start_verified": true
+        },
+        {
+          "repeat": 1,
+          "seed": 43,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 30,
+          "researcher_contexts_with_lessons": 15,
+          "empty_start_verified": true
+        },
+        {
+          "repeat": 2,
+          "seed": 44,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 30,
+          "researcher_contexts_with_lessons": 15,
+          "empty_start_verified": true
+        }
+      ],
+      "periodic_reflection_no_memory": [
+        {
+          "repeat": 0,
+          "seed": 42,
+          "memory": false,
+          "fits": 16,
+          "lesson_updates": 0,
+          "researcher_contexts_with_lessons": 0,
+          "empty_start_verified": true
+        },
+        {
+          "repeat": 1,
+          "seed": 43,
+          "memory": false,
+          "fits": 16,
+          "lesson_updates": 0,
+          "researcher_contexts_with_lessons": 0,
+          "empty_start_verified": true
+        },
+        {
+          "repeat": 2,
+          "seed": 44,
+          "memory": false,
+          "fits": 16,
+          "lesson_updates": 0,
+          "researcher_contexts_with_lessons": 0,
+          "empty_start_verified": true
+        }
+      ],
+      "periodic_reflection": [
+        {
+          "repeat": 0,
+          "seed": 42,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 35,
+          "researcher_contexts_with_lessons": 15,
+          "empty_start_verified": true
+        },
+        {
+          "repeat": 1,
+          "seed": 43,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 35,
+          "researcher_contexts_with_lessons": 15,
+          "empty_start_verified": true
+        },
+        {
+          "repeat": 2,
+          "seed": 44,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 35,
+          "researcher_contexts_with_lessons": 15,
+          "empty_start_verified": true
+        }
+      ],
+      "periodic": [
+        {
+          "repeat": 0,
+          "seed": 42,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 20,
+          "researcher_contexts_with_lessons": 14,
+          "empty_start_verified": true
+        },
+        {
+          "repeat": 1,
+          "seed": 43,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 20,
+          "researcher_contexts_with_lessons": 14,
+          "empty_start_verified": true
+        },
+        {
+          "repeat": 2,
+          "seed": 44,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 20,
+          "researcher_contexts_with_lessons": 14,
+          "empty_start_verified": true
+        }
+      ],
+      "researcher_alone": [
+        {
+          "repeat": 0,
+          "seed": 42,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 15,
+          "researcher_contexts_with_lessons": 14,
+          "empty_start_verified": true
+        },
+        {
+          "repeat": 1,
+          "seed": 43,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 15,
+          "researcher_contexts_with_lessons": 14,
+          "empty_start_verified": true
+        },
+        {
+          "repeat": 2,
+          "seed": 44,
+          "memory": true,
+          "fits": 16,
+          "lesson_updates": 15,
+          "researcher_contexts_with_lessons": 14,
+          "empty_start_verified": true
+        }
+      ]
+    },
+    "changed_sources_since_start": [
+      "audit.py",
+      "reasoning.py"
+    ]
+  },
+  "final_confirmation": {
+    "source": "study-runs/memory-default-confirmation-20261021-004338/suite",
+    "audit": {
+      "status": "pass",
+      "passed": true,
+      "warnings": [],
+      "totals": {
+        "runs": 5,
+        "fits": 35,
+        "artifacts_verified": 35,
+        "calls": 63,
+        "cost": 0.0
+      },
+      "matched_pairs": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "source_matches_current": true
+    }
+  },
+  "fashion_mps": {
+    "source": "study-runs/memory-default-mps-20261021-003939",
+    "fits": 3,
+    "actual_devices": [
+      "mps",
+      "mps",
+      "mps"
+    ],
+    "artifact_hashes": [
+      "b797a88870a5fec997fd1cde15d17ba73f0e7484d6de9f5be30f13ff7a39cd16",
+      "c4efffd66934f5fc5ec9aa6173cbd3743915bac58ffa5be9996621dc855ab7f2",
+      "e58b97ce3f8d1c36564259bdf6d5c353ba16b66e8043fcf31403a3ae8f7c50af"
+    ],
+    "lesson_updates": 2,
+    "delivery_before_trial": 3,
+    "scripted_calls": 3,
+    "paid_model_calls": 0,
+    "known_cost": 0,
+    "heldout_scored": false
+  },
+  "regression": {
+    "passed": 947,
+    "elapsed_seconds": 154.23,
+    "command": ".venv/bin/python -m pytest -q"
+  }
+}

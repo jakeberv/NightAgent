@@ -57,10 +57,11 @@ def test_bad_evidence_repairs_within_existing_budget_before_training(tmp_path):
 
 def test_memory_is_run_local_survives_history_window_and_recovers(tmp_path):
     model = StructuredModel(memory=True)
-    config = StudyConfig(decision_protocol='structured_v1', lesson_memory=True, trial_cap=4, history_trials=1)
+    config = StudyConfig(decision_protocol='structured_v1', trial_cap=16)
     result = asyncio.run(run_one(config, tmp_path, tmp_path / 'run', model, trial_runner=trial, project={}))
     assert model.contexts[0]['lessons'] == []
-    assert model.contexts[-1]['recent_trials'][0]['trial_id'] == 3
+    assert result['trials'] == 16
+    assert [row['trial_id'] for row in model.contexts[-1]['recent_trials']] == list(range(4, 16))
     assert model.contexts[-1]['lessons'][0]['evidence'][0]['trial_id'] == 1
     assert result['lessons'][0]['id'] == 'baseline'
     (tmp_path / 'run/summary.json').unlink()
@@ -71,7 +72,19 @@ def test_memory_is_run_local_survives_history_window_and_recovers(tmp_path):
     other = StructuredModel()
     asyncio.run(run_one(StudyConfig(trial_cap=1, decision_protocol='structured_v1'), tmp_path,
         tmp_path / 'other', other, trial_runner=trial, project={}))
-    assert 'lessons' not in other.contexts[0]
+    assert other.contexts[0]['lessons'] == []
+
+
+def test_explicit_memory_opt_out_omits_register_and_updates(tmp_path):
+    model = StructuredModel()
+    result = asyncio.run(run_one(StudyConfig(lesson_memory=False, trial_cap=3),
+        tmp_path, tmp_path/'off', model, trial_runner=trial, project={}))
+    assert result['trials'] == 3
+    assert all('lessons' not in context for context in model.contexts)
+    assert 'lessons' not in result
+    assert not (tmp_path/'off/lessons.json').exists()
+    events = [json.loads(line) for line in (tmp_path/'off/events.jsonl').read_text().splitlines()]
+    assert not any(event['type'] == 'lesson_memory' for event in events)
 
 
 def test_invalid_review_is_not_accepted_as_feedback(tmp_path):

@@ -13,7 +13,7 @@
   "model_timeout_seconds": 60,
   "model_retries": 1,
   "allow_unknown_cost": false,
-  "lesson_memory": false,
+  "lesson_memory": true,
   "max_cores": 4,
   "device": "mps"
 }

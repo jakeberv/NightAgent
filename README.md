@@ -4,7 +4,7 @@ NightAgent studies how a research apprentice adapts bounded experiments using me
 
 ## Controlled experimental study
 
-The current demo is the [five-arm Fashion-MNIST comparison](docs/five-arm-overnight.md), run with `python -m study`. It compares researcher alone, frequent supervision, periodic supervision, periodic supervision plus reflection, and periodic supervision plus reflection and lesson memory. All supervised arms use Night Science reviews; literature is disabled. The launch recipe freezes three matched repeats, 600 seconds per run, the prepared data and targets, resource sharing, and an offline acceptance audit.
+The current demo is the [five-arm Fashion-MNIST comparison](docs/five-arm-overnight.md), run with `python -m study`. Researcher alone, frequent supervision, periodic supervision, and periodic supervision plus reflection all use run-local lesson memory. A fifth arm, `periodic_reflection_no_memory`, matches the fourth with memory disabled. The first three contrasts hold memory on; the memory contrast reports on minus off. All supervised arms use Night Science reviews; literature is disabled. The launch recipe freezes three matched repeats, 600 seconds per run, the prepared data and targets, resource sharing, and an offline acceptance audit.
 
 The [study runner](study/README.md) uses OpenRouter and fixed scientific tools. Agents choose bounded classification/regression experiments; the harness controls splits, timeouts, artifact verification, accounting, selection and held-out evaluation. Reviews and lessons cite recorded validation measurements. A supervisor's interpretation is not ground truth. Lessons start empty in every run; transfer between independent runs is not established.
 
@@ -14,6 +14,7 @@ The [study runner](study/README.md) uses OpenRouter and fixed scientific tools. 
 - [Measured fixed classifier reference](docs/fixed-reference.md)
 - [All configuration presets and their status](docs/configurations.md)
 - [Targeted five-arm preflight and evidence](docs/targeted-preflight.md)
+- [Memory defaults and the explicit no-memory control](docs/memory-default.md)
 - [Problem profiles, datasets, objectives and search spaces](docs/problem-definitions.md)
 - [Fashion-MNIST GPU calibration and earlier pilot recipes](docs/fashion-pilot.md)
 - [Offline verification and limitations](docs/study-verification.md) · [CI dependency checks](docs/ci.md)
@@ -48,7 +49,7 @@ Read the [prototype setup, permissions and provider notes](nightagent/README.md)
 
 The [workshop specification](SPEC.md), [current protocol](docs/workshop-protocol.md), and [shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z) describe the current Fashion-MNIST study. Earlier proposals remain in [design notes](NOTES.md) and historical shared tabs. Implemented profiles also cover MAGIC, multiclass CSV, MNIST and regression.
 
-As of 21 October 2026, MAGIC live pilots, Fashion-MNIST MPS calibration, the targeted five-arm live preflight and the fixed non-agent Fashion reference have run. The repeated five-arm overnight comparison remains pending. Passing offline checks or a short preflight does not establish strategy superiority or learning across independent runs.
+As of 21 October 2026, MAGIC live pilots, Fashion-MNIST MPS calibration, an earlier five-arm live preflight and the fixed non-agent Fashion reference have run. That preflight used the former memory policy and is [historical evidence](docs/targeted-preflight.md#historical-live-results--2026-10-20). Its [portable real replay](docs/evidence/fashion-demo/demo.md) remains available as a mechanism demonstration. The revised memory-default protocol needs a new bounded paid pilot before launch; the repeated five-arm overnight comparison remains pending. Passing offline checks or a short preflight does not establish strategy superiority or learning across independent runs.
 
 The project draws on [Night Science](https://night-science.org/) principles: explore alternatives, improve questions, connect across fields, and return to measured evidence. The study makes review behavior and advice uptake observable; these are evaluation targets, not claims of scientific understanding.
 

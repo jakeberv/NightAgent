@@ -1,49 +1,83 @@
 # Workshop readiness — 21 October 2026
 
-The current [specification](../SPEC.md) and [protocol](workshop-protocol.md) match
-the frozen Fashion-MNIST five-arm design. The shared document's current tabs
-match the protocol and measured reference; earlier concepts are marked historical.
-The native specification was exported and visually verified to fit one page.
+The current [specification](../SPEC.md), [protocol](workshop-protocol.md) and
+[launch recipe](five-arm-overnight.md) use the revised memory-default design.
+`researcher_alone`, `frequent`, `periodic` and `periodic_reflection` use lesson
+memory; `periodic_reflection_no_memory` is the matched memory-off control.
+The first three contrasts hold memory on; the fourth reports memory-on minus
+memory-off. Each independent repeat starts empty.
 
-## Delivered and checked
+## Current verification
 
-- [Eight named engineering cases](evaluation-cases.md): **8/8 pass, 51 underlying
-  checks**. [Portable acceptance receipt](evidence/workshop-acceptance.json).
-- Full regression suite: **863 passed in 151.78 seconds**, up from the clean
-  791-test baseline. Compilation, deliverable links, whitespace and launch-script
-  syntax checks pass.
-- [Fixed reference](fixed-reference.md): **81.03% validation accuracy in 4.74s**,
-  verified artifact and frozen identities, no model calls or held-out scoring.
-- [Demo script](../DEMO.md) and [portable real replay](evidence/fashion-demo/demo.md):
-  verified against 11 input hashes and seven exact journal citations. Available
-  from a fresh clone without the ignored model binaries.
-- [Sixteen recent Copilot findings](copilot-review-followup.md) resolved across
-  PRs #5–#12, with regressions for important code failures. Fresh independent
-  review found and fixed adaptive-reference mislabeling; no important issues remain.
-- Prior 15-run/240-fit offline rehearsal passes the strengthened audit, with one
-  expected warning that its frozen source differs from current code. The real
-  preflight passes with historical-source and repaired-contract warnings.
+The revision is ready for PR review and is deliberately **not merged**. Main
+retains the earlier memory policy until review and integration.
 
-## Launch assessment
+- Full regression: **947 passed in 154.23 seconds** on the combined change.
+- [Eight engineering cases](evaluation-cases.md): **8/8 passed, 52 underlying
+  checks**. [Portable acceptance receipt](evidence/memory-default-acceptance.json).
+- New 15-run rehearsal: **240 real synthetic-data CPU fits**, 432 scripted calls,
+  240 verified artifacts, all trial-cap stops and three pairs per contrast.
+  All four enabled arms wrote lessons and delivered them to later researcher
+  contexts; the control wrote none. Every repeat started empty. Its retained
+  source warning identifies code changes during the validation pass.
+- Final five-arm confirmation after all fixes: **35 real CPU fits**, 63 scripted
+  calls, **audit PASS with zero errors/warnings** and current source hashes.
+- Fashion-MNIST solo check: **three real MPS fits**, verified artifact hashes,
+  two lesson updates and a saved lesson delivered before trial 3. No test scoring.
+- [Portable verification receipt](evidence/memory-default-verification.json)
+  records run locations, arm-level memory coverage, hashes and audit results.
+- Compilation, 114 local links, whitespace and launch-script syntax pass. The
+  shared current tabs match the revised text, unrelated historical tabs are
+  preserved, and the native spec was visually verified on one page.
+- Independent review found and fixed an audit gap accepting forbidden updates
+  in the memory-off control, including empty update fields. Twelve regressions
+  cover all roles and successful repair of invalid attempts. A new
+  [Copilot finding on PR13](copilot-review-followup.md#new-pr-13-finding--included-in-the-memory-default-pr)
+  about double-counted preprocessing metadata is also fixed with full-config
+  contract/lesson regressions. Re-review found no important remaining issues.
 
-No remaining engineering blocker was found. Keep the scientific settings frozen
-and use the [existing two-hour launch recipe](five-arm-overnight.md). The key's
-remaining allowance exceeds a rough **$18.12** projection obtained by summing each
-preflight arm's observed cost/elapsed time × 600 seconds × 3 repeats. This seven-attempt
-extrapolation is not a ceiling: longer histories, model decisions, retries and
-concurrent resource contention can change spending. The fifteen $5 guards sum to
-$75 and permit an in-flight overrun; the measured projection does not fund that
-worst case.
+All decisions in these new runs are scripted fixtures. These checks establish
+implementation behavior, not model strategy or memory benefit. No paid inference,
+held-out Fashion scoring or overnight launch occurred. Fresh read-only credit
+and host checks remain separate from engineering acceptance.
 
-The read-only key check succeeded, but the account-balance endpoint returned 403; the
-[provider reference](https://openrouter.ai/docs/api/api-reference/credits/get-credits)
-documents a management-key requirement. Key allowance is not proof of underlying
-account funds. Verify account funding with its owner and recheck the key before
-starting paid work. Do not publish credentials or raw key metadata. Local numeric
-receipts are under `study-runs/workshop-readiness-20261021/`.
+## Retained historical evidence
 
-The host was on AC power at 100% charge with about 1.8 TiB free. The overnight suite
-has **not launched** and Fashion-MNIST held-out data remains unscored. After launch,
-require complete accounting and independent audit acceptance before making
-comparative claims. Three matched repeats support a workshop pilot; observed
-lesson delivery does not establish memory benefit or learning between runs.
+- The [fixed reference](fixed-reference.md) measured **81.03% validation accuracy
+  in 4.74 seconds**, with a verified artifact and frozen identities, no model
+  calls and no held-out scoring. Its scientific settings are unchanged.
+- The [portable real replay](evidence/fashion-demo/demo.md) and
+  [evidence JSON](evidence/fashion-demo/demo.json) remain available from a fresh
+  clone. They record the former memory policy and are historical mechanism
+  evidence, not a preflight of the revised mapping.
+- The [earlier paid preflight](targeted-preflight.md#historical-live-results--2026-10-20)
+  completed 35 fits and 68 calls for $1.665228, with best validation accuracies
+  of 85.4%–87.5%. Retain its historical-source and repaired-contract warnings.
+- The earlier **863-test regression**, **8/8 acceptance cases with 51 underlying
+  checks**, [portable receipt](evidence/workshop-acceptance.json), and prior
+  15-run/240-fit rehearsal describe the previous checkout. They must not be
+  relabeled as fresh verification of this correction.
+
+## Paid launch assessment
+
+A new bounded paid pilot is required before the
+[two-hour overnight recipe](five-arm-overnight.md). The approximately **$18.12**
+projection previously extrapolated from seven-attempt preflight costs and times
+is historical only. Enabling memory in four main arms changes prompt usage;
+that projection is no longer a reliable planning estimate. Preserve the
+600-second allowances, Fashion data/targets, fit limits and resource policy.
+The fifteen $5 guards sum to $75 and permit an in-flight overrun; they are not a
+billing ceiling.
+
+Recheck current key allowance, account funding, AC power and available storage
+immediately before paid work. The read-only key check was refreshed at 00:41 Toronto on 21 October; numeric
+receipts remain ignored locally under study-runs/memory-default-readiness-20261021.
+The account balance remains unverified. Key allowance does not establish underlying account
+funding; the earlier account-balance request returned 403. Keep credentials and
+raw key metadata out of documents and Git.
+
+The overnight suite has **not launched** and Fashion-MNIST held-out data remains
+unscored. After launch, require complete accounting, verified artifacts, frozen
+held-out selection and independent audit acceptance before comparative claims.
+Three matched repeats support a workshop pilot; delivery of lessons does not
+establish a memory benefit or learning between runs.

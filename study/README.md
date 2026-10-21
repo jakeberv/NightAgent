@@ -2,9 +2,11 @@
 
 This application uses direct OpenRouter Chat Completions and bounded scientific
 tools. The **current demo** is the [five-arm overnight Fashion-MNIST comparison](../docs/five-arm-overnight.md):
-researcher alone, frequent supervision, periodic supervision, periodic supervision
-plus reflection, and periodic supervision plus reflection and run-local lesson
-memory. All supervised arms use Night Science; literature is disabled. Use
+researcher alone, frequent supervision, periodic supervision, and periodic
+supervision plus reflection all use run-local lesson memory. The explicit fifth
+arm, `periodic_reflection_no_memory`, matches the fourth with memory disabled.
+The first three contrasts hold memory on; the memory contrast is on minus off.
+All supervised arms use Night Science; literature is disabled. Use
 [`fashion-five-arm-overnight-config.json`](fashion-five-arm-overnight-config.json)
 with the linked recipe's three repeats, resource policy, deadline and `--audit`.
 The [preset index](../docs/configurations.md) lists every configuration, its actual
@@ -13,8 +15,11 @@ comparison mode, budgets and status.
 The earlier five-schedule literature and three-arm supervisor-style comparisons
 remain available below. This runner is separate from the
 [conversational Claude SDK prototype](../nightagent/README.md) in `nightagent/run.py`.
-The older `SPEC.md` three-condition memory design and six-analysis budget are
-historical proposals, not this application's protocol.
+Earlier three-condition memory proposals and six-analysis budgets are historical.
+The [current specification](../SPEC.md) and [memory-default contract](../docs/memory-default.md)
+describe this application's five-arm protocol. The
+[saved real replay](../docs/evidence/fashion-demo/demo.md) used the former memory
+policy and remains historical mechanism evidence, not validation of this revision.
 
 [Source design](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.60m8hjogcisp)
 · [Retrieved source](../docs/experimental-design-source.txt)
@@ -225,11 +230,13 @@ reporting; `study audit --output ROOT` reruns the offline check independently.
 It writes `audit-summary.json` without making model calls or evaluating data.
 
 For the smaller demo comparison, use the [targeted five-arm preflight](../docs/targeted-preflight.md)
-and `study/fashion-targeted-preflight-config.json`: researcher alone, frequent
-supervision, periodic supervision, periodic plus reflection, and periodic plus
-reflection and memory. Its `apprentice_interactions` mode fixes Night Science style,
-disables literature, and reports only the four adjacent contrasts, including the
-explicit memory contrast. Other frozen configuration differences remain separate.
+and `study/fashion-targeted-preflight-config.json`: `researcher_alone`, `frequent`,
+`periodic`, and `periodic_reflection` with memory on, plus the otherwise identical
+`periodic_reflection_no_memory` control. Its `apprentice_interactions` mode fixes
+Night Science style, disables literature, and reports supervision/cadence/reflection
+with memory held on and memory-on minus memory-off. Other frozen configuration
+differences remain separate. The earlier paid preflight results are historical;
+a new bounded paid pilot is required before the revised overnight launch.
 
 ```bash
 .venv/bin/python -m study suite \
@@ -245,7 +252,9 @@ explicit memory contrast. Other frozen configuration differences remain separate
 This allows 105 seconds per arm in two waves, with 45 seconds reserved for reporting
 and approximately 45 seconds of startup/scheduling slack. Each arm has a $1 spending
 guard and a 12-trial safety cap (raised from six to avoid premature pilot stops).
-An in-flight call may exceed the dollar guard. Lesson memory is off for all arms.
+An in-flight call may exceed the dollar guard. The runnable preset now enables
+lesson memory in all three arms; pass `--no-lesson-memory` for an explicit opt-out.
+Earlier recorded runs keep their frozen memory setting.
 The pilot checks operation and initial efficiency; use multiple matched repeats
 and a higher trial cap for overnight comparisons. Keep the prepared data and
 search space fixed across arms; the held-out test set is untouched by this command.
@@ -267,8 +276,8 @@ and the number of iterations actually trained. They do not establish underfittin
 or convergence. Prompts require claims to stay scoped to tested settings and the
 current split; citation validation alone cannot guarantee sound interpretation.
 
-Add `--lesson-memory` to `run`, `suite`, or `smoke` to enable a bounded lesson
-register. It holds six lessons by default (`memory_limit`, from 1 to 12), each with
+Lesson memory is on by default in `StudyConfig` and all runnable presets. The
+bounded register holds six lessons by default (`memory_limit`, from 1 to 12), each with
 an ID, scope, complete-sentence finding, validation citations, and status:
 `supported`, `inconclusive`, or `superseded`. Reusing an ID revises that lesson;
 least recently updated entries are evicted at the cap. Up to two updates may be
@@ -322,17 +331,23 @@ prepared directory if later held-out evaluation is needed. Do not refresh a data
 directory while a run is using it. A genuinely changed source or problem still
 requires a separate prepared directory.
 
-Memory is **off by default**. In `schedules` and `supervisor_strategies`,
-`--lesson-memory`/`--no-lesson-memory` selects the same memory setting independently
-for every arm; reports keep those variants separate. In `apprentice_interactions`,
-suite construction fixes memory off for the first four arms and on for the final
-arm, so the final adjacent contrast explicitly tests memory. Review cadence stays
-fixed. No model-weight training or adaptive treatment scheduling is introduced.
+Memory is **on by default**, including for the researcher-alone arm, which can
+write lessons without supervision or explicit reflection. In `run`, `schedules`
+and `supervisor_strategies`, `--no-lesson-memory` explicitly opts out and
+`--lesson-memory` explicitly enables the register; reports keep those variants
+separate. In `apprentice_interactions`, suite construction fixes memory on for
+`researcher_alone`, `frequent`, `periodic` and `periodic_reflection`, and off for
+`periodic_reflection_no_memory`. The fourth and fifth arms share supervision,
+reflection and all other settings. The memory contrast reports on minus off;
+supervision, cadence and reflection contrasts hold memory on. CLI flags do not
+redefine this fixed five-arm suite mapping. Every independent repeat starts
+empty; recovery within a run retains its lessons. Review cadence stays fixed.
+No model-weight training or adaptive treatment scheduling is introduced.
 
 The offline demonstration exercises the same contracts with real local fits:
 
 ```bash
-.venv/bin/python -m study smoke --lesson-memory --quiet \
+.venv/bin/python -m study smoke --quiet \
   --output "study-runs/workshop-smoke-$(date +%Y%m%d-%H%M%S)"
 ```
 
@@ -353,6 +368,8 @@ contrast. Other configuration, protocol and memory differences are not pooled.
 Duplicate units and unknown identities are excluded explicitly. Tables retain all-run counts, stop reasons,
 unmatched runs and matched pairs missing a valid score. Numerical differences use
 complete pairs and are always condition B minus A; consult metric direction.
+For the memory contrast, A is `periodic_reflection_no_memory` and B is
+`periodic_reflection`, so differences are memory-on minus memory-off.
 For two or more complete pairs, the report gives a two-sided 95% Student-t interval
 for the mean paired difference; with fewer pairs, no interval is produced. These
 exploratory intervals assume independent repeats and approximately normal paired
@@ -575,9 +592,10 @@ are rejected. Search abstracts can be absent; failed or unhelpful searches are
 retained. Trace records link query/evidence, feedback, researcher response,
 and the resulting trial ID.
 
-Memory is rebuilt from the same bounded recent-trial window, current best,
-initial framing, and latest condition-specific feedback/reflection on every call. It never
-resets because a review occurred. Each run starts fresh. No arbitrary code,
+Context is rebuilt from the bounded recent-trial window, current best, initial
+framing, latest condition-specific feedback/reflection, and the enabled lesson
+register on every call. Lessons survive history truncation and do not reset when
+a review occurs. Each independent run starts fresh. No arbitrary code,
 shell, agent-chosen paths, or generated pipelines are executed.
 
 ## Overnight suite

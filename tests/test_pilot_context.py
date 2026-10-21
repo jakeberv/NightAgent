@@ -302,3 +302,41 @@ def test_legacy_comparison_does_not_call_an_unknown_default_an_intervention():
     scope = observed_scope([{'trial_id': 1}, {'trial_id': 2}], history)
     assert 'epochs' in scope and 'learning_rate' not in scope and 'confounded' not in scope
     assert 'unknown' in scope.lower()
+
+
+@pytest.mark.parametrize('change_c', [False, True], ids=['preprocessing-only', 'preprocessing-and-C'])
+def test_grounded_preprocessing_scope_counts_independent_settings_with_full_diagnostics(change_c):
+    from study.diagnostics import describe_experiment, pipeline_effective_config
+    from study.reasoning import LessonMemory, ground_contract, resolve_contract_evidence, validate_contract
+    from study.science import build_pipeline
+
+    history = []
+    for trial_id, preprocessing, c, score in [(1, 'none', 1., .8),
+                                              (2, 'standard', 2. if change_c else 1., .81)]:
+        config = {'model': 'logistic', 'preprocessing': preprocessing, 'params': {'C': c}}
+        pipeline = build_pipeline(config, seed=42).fit([[-2, 0], [-1, 1], [1, -1], [2, 0]], [0, 0, 1, 1])
+        history.append({'trial_id': trial_id, 'status': 'completed', 'config': config,
+            'metrics': {'roc_auc': score},
+            **describe_experiment(config, problem=None, project={'n_features': 2}, seed=42),
+            'actual_effective_config': pipeline_effective_config(pipeline, config, n_features=2)})
+    evidence = [{'trial_id': trial_id, 'metric': 'roc_auc'} for trial_id in (1, 2)]
+    contract = resolve_contract_evidence({
+        'summary': 'The cited trials recorded validation measurements.',
+        'what_changed': 'The preprocessing choice changed between the trials.',
+        'uncertainty': 'A validation comparison alone does not establish causality.',
+        'next_comparison': 'Repeat the comparison with a different model setting.',
+        'evidence': evidence,
+        'lesson_updates': [{'id': 'scaling', 'status': 'supported',
+            'summary': 'The preprocessing settings were compared.',
+            'scope': 'Only the cited validation trials were observed.', 'evidence': evidence}]}, history)
+
+    grounded, _ = ground_contract(contract, history)
+    assert not validate_contract(grounded, 'reflection', history, memory=True)
+    memory = LessonMemory()
+    memory.update(grounded['lesson_updates'], history)
+    for scope in (grounded['comparison_scope'], grounded['lesson_updates'][0]['scope'],
+                  memory.snapshot()[0]['scope']):
+        assert 'preprocessing=' in scope
+        assert 'preprocessing_params' not in scope
+        assert ('confounded' in scope) is change_c
+        assert ('C=' in scope) is change_c

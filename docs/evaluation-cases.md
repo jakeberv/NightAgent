@@ -27,11 +27,25 @@ includes all its parametrized children.
 | `artifact-data-isolation` | Reproducible, disjoint splits; a verified real artifact produced without test data; worker input and environment isolation. |
 | `proposal-repair-and-citations` | Invalid evidence repaired within the existing budget before training; model-supplied measurements rejected; recorded validation citations attached to accepted contracts. |
 | `feedback-schedule` | Expected review/reflection cadence, including failed trials, continued search after target attainment, and no terminal review. |
-| `memory-isolation-and-history` | Run-local lessons survive history truncation and recovery; older evidence remains available across roles. |
+| `memory-isolation-and-history` | Memory-enabled researchers, including solo researchers, retain and receive run-local lessons across history truncation and recovery; the explicit memory-off control has no register or lesson updates; independent repeats reset memory. |
 | `budget-and-deadline` | Cost/trial limits and insufficient remaining time prevent additional work. |
 | `late-results-and-selection` | Results recorded before selection; failed, timed-out, late and nonfinite results excluded; earliest ties and named target crossings retained. |
 | `heldout-separation` | Held-out data hidden from agent context; frozen selections scored once; interrupted scoring reservations retained as uncertain. |
 | `audit-integrity` | Complete evidence passes without mutation; missing, inconsistent, corrupt or tampered evidence and artifacts fail independent checks. |
+
+The current five-arm contract enables memory in `researcher_alone`, `frequent`,
+`periodic` and `periodic_reflection`; `periodic_reflection_no_memory` matches the
+fourth arm with memory off. Supervision, cadence and reflection comparisons hold
+memory on; memory differences report `periodic_reflection` minus
+`periodic_reflection_no_memory`. A fresh 15-run offline rehearsal with enough
+attempts to cross the 12-trial history window complements these named cases.
+It uses scripted decisions and real synthetic-data CPU fits, with zero paid
+model calls. Its completed receipts establish coverage, not strategy efficacy.
+
+The checked-in [earlier acceptance receipt](evidence/workshop-acceptance.json) and
+[real preflight replay](evidence/fashion-demo/demo.md) are historical records from
+the former memory policy. They do not establish that this revised protocol has
+passed a new run. Keep new receipts separate and report their actual counts.
 
 To run a subset, repeat `--case`. The whole subprocess has a configurable
 300-second timeout:

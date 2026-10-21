@@ -228,7 +228,8 @@ cost/tokens/time to target, and final validation accuracy together. Do not inven
 convergence budgets for targets that were never reached.
 
 All arms use the same provider/model, four-core ceiling and serialized MPS fits.
-Lesson memory, explicit reflection and literature retrieval remain off, as in the
-validated three-strategy pilot. GPU contention is part of the shared hardware
+The runnable preset now enables lesson memory in every arm; explicit reflection
+and literature retrieval remain off. The recorded earlier three-strategy pilot
+used memory off and does not validate this changed memory policy. GPU contention is part of the shared hardware
 policy; this is not a study with dedicated equal hardware per arm. The full
 five-schedule/literature workflow is a separate experiment.

@@ -62,7 +62,9 @@ def test_strategies_share_initial_framing_and_permissions_but_change_later_revie
         review = next(e['contract'] for e in events if e['type'] == 'review')
         assert ('alternative_explanations' in review) == (strategy == 'night_science')
         assert ('cross_field_connection' in review) == (strategy == 'night_science')
-        assert model.calls[3][1]['last_supervisor_feedback'] == review
+        assert model.calls[3][1]['last_supervisor_feedback'] == {
+            key: value for key, value in review.items() if key != 'lesson_updates'}
+        assert model.calls[3][1]['lessons'] and 'lesson_updates' not in model.calls[3][1]['last_supervisor_feedback']
         assert result['config']['supervisor_strategy'] == strategy
         observations[strategy] = model.calls
     assert observations['standard'][0][0] == observations['night_science'][0][0]

@@ -94,12 +94,15 @@ def test_cli_exports_portable_replay_and_explicitly_labels_offline_evidence(suit
     assert demo['evidence_kind'] == 'offline_fixture'
     assert demo['strategy_evidence'] is False
     assert len(demo['arms']) == 5
+    assert demo['selected_arm'] == 'periodic_reflection'
+    assert demo['selected_run'] == 'r00-periodic_reflection'
     assert demo['chain']['baseline']['trial_id'] == 1
     assert demo['chain']['result']['trial_id'] == 2
     assert demo['chain']['changes'] == [{'field': 'params.C', 'before': 1, 'after': 2}]
     assert demo['chain']['result']['score'] == .94
     assert demo['chain']['delivery']['role'] == 'researcher'
     assert demo['chain']['delivery']['before_trial_id'] == 3
+    assert {citation['trial_id'] for citation in demo['chain']['lesson']['evidence']} == {1, 2}
     assert str(suite) not in (output / 'demo.json').read_text()
     assert 'not evidence of a strategy advantage' in (output / 'demo.md').read_text()
     assert {p.relative_to(suite): p.read_bytes() for p in suite.rglob('*') if p.is_file()} == before
@@ -108,7 +111,7 @@ def test_cli_exports_portable_replay_and_explicitly_labels_offline_evidence(suit
 @pytest.mark.parametrize('mutation', ['missing_journal', 'corrupt_journal', 'artifact', 'context'])
 def test_replay_rejects_missing_or_tampered_evidence_before_creating_output(suite, tmp_path, mutation):
     from study.demo import generate_demo
-    run = suite / 'runs/r00-periodic_reflection_memory'
+    run = suite / 'runs/r00-periodic_reflection'
     journal = run / 'events.jsonl'
     if mutation == 'missing_journal':
         journal.unlink()

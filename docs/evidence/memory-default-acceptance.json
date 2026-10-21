@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "kind": "engineering_acceptance",
+  "started_at": "2026-10-21T04:43:38.704450+00:00",
+  "elapsed_seconds": 17.82384325005114,
+  "passed": true,
+  "pytest_exit_code": 0,
+  "timed_out": false,
+  "errors": [],
+  "cases": [
+    {
+      "id": "artifact-data-isolation",
+      "status": "passed",
+      "checks": 3,
+      "missing_nodes": []
+    },
+    {
+      "id": "proposal-repair-and-citations",
+      "status": "passed",
+      "checks": 4,
+      "missing_nodes": []
+    },
+    {
+      "id": "feedback-schedule",
+      "status": "passed",
+      "checks": 6,
+      "missing_nodes": []
+    },
+    {
+      "id": "memory-isolation-and-history",
+      "status": "passed",
+      "checks": 5,
+      "missing_nodes": []
+    },
+    {
+      "id": "budget-and-deadline",
+      "status": "passed",
+      "checks": 5,
+      "missing_nodes": []
+    },
+    {
+      "id": "late-results-and-selection",
+      "status": "passed",
+      "checks": 6,
+      "missing_nodes": []
+    },
+    {
+      "id": "heldout-separation",
+      "status": "passed",
+      "checks": 3,
+      "missing_nodes": []
+    },
+    {
+      "id": "audit-integrity",
+      "status": "passed",
+      "checks": 20,
+      "missing_nodes": []
+    }
+  ],
+  "underlying_checks": 52,
+  "command": ".venv/bin/python -m study.workshop_eval --output study-runs/memory-default-readiness-20261021/evaluation-ready"
+}

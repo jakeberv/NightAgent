@@ -35,3 +35,15 @@ Independent review also found that the new demo could mislabel an adaptive trial
 as its fixed reference. The exporter now requires separate validation provenance,
 the frozen adapter's exact reference configuration, and matching identity and
 artifact hash. Six new cases reproduce those failures before the fix.
+
+## New PR #13 finding — included in the memory-default PR
+
+[Preprocessing metadata](https://github.com/jakeberv/NightAgent/pull/13#discussion_r4333016538)
+was a valid new finding: changing `none` to `standard` also changed the derived
+`preprocessing_params` dictionary and was falsely counted as two independent
+settings. Both bounded constructors fix scaler defaults rather than exposing
+them as tunable choices. The scope calculation now excludes that derived
+metadata. Regressions use full diagnostic and fitted-pipeline configurations
+through grounded contracts and stored lessons: preprocessing alone is one
+factor, while preprocessing plus a changed `C` remains confounded. RED was
+reproduced; the 93-test affected reasoning/diagnostics group passes.

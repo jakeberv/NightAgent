@@ -144,9 +144,10 @@ def build_demo(root, *, reference=None):
         raise ValueError(f'Suite audit failed: {errors}')
     report = build_report_data(root)
     manifest = _read(root / 'suite.json')
-    selected = next((entry for entry in manifest['schedule'] if entry['arm'] == 'periodic_reflection_memory'), None)
+    selected = next((entry for entry in manifest['schedule']
+                     if entry['arm'] == 'periodic_reflection' and entry['lesson_memory'] is True), None)
     if selected is None:
-        raise ValueError('Suite lacks the periodic_reflection_memory demonstration arm')
+        raise ValueError('Suite lacks the memory-enabled periodic_reflection demonstration arm')
     journals = {entry['run_id']: load_events(root / 'runs' / entry['run_id'] / 'events.jsonl', policy='strict')
                 for entry in manifest['schedule']}
     events = journals[selected['run_id']]

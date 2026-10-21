@@ -183,10 +183,10 @@ def test_structured_tool_schema_keeps_anthropic_compatible_root():
     assert schema["type"] == "object"
     assert not {"oneOf", "allOf", "anyOf"} & schema.keys()
     assert "intent" in schema["required"]
-    assert "lesson_updates" not in schema["properties"]["intent"]["properties"]
-    config = StudyConfig(decision_protocol="structured_v1", lesson_memory=True)
-    schema = model_tools.tools_for("researcher", config)[0]["function"]["parameters"]
     assert "lesson_updates" in schema["properties"]["intent"]["properties"]
+    config = StudyConfig(decision_protocol="structured_v1", lesson_memory=False)
+    schema = model_tools.tools_for("researcher", config)[0]["function"]["parameters"]
+    assert "lesson_updates" not in schema["properties"]["intent"]["properties"]
 
 
 def test_structured_contract_is_default_and_legacy_runtime_is_rejected():

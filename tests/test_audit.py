@@ -88,8 +88,119 @@ def test_complete_five_arm_repeats_pass_without_modifying_evidence(suite):
     assert {str(p):p.read_bytes() for p in suite.rglob('*') if p.is_file()}==before
 
 
+@pytest.mark.parametrize('arm', ['researcher_alone', 'frequent', 'periodic', 'periodic_reflection'])
+@pytest.mark.parametrize('mutation', ['missing_updates', 'missing_delivery'])
+def test_every_memory_enabled_arm_requires_saved_and_later_delivered_lessons(suite, arm, mutation):
+    run = suite/'runs'/('r00-'+arm); es = events(run)
+    if mutation == 'missing_updates':
+        es = [event for event in es if event['type'] != 'lesson_memory']
+    for event in es:
+        if event['type'] == 'model_call_started' and (mutation == 'missing_updates' or event['role'] == 'researcher'):
+            context = json.loads(event['messages'][1]['content'])
+            if 'lessons' in context:
+                context['lessons'] = []
+            event['messages'][1]['content'] = json.dumps(context)
+    save_events(run, es)
+    result = audit(suite)
+    assert any(error['code'] == 'memory' and error['scope'] == run.name for error in result['errors']), result
+
+
+@pytest.mark.parametrize('mutation', ['register', 'context', 'schedule', 'register_file', 'summary'])
+def test_matched_memory_off_control_rejects_memory_tampering(suite, mutation):
+    run = suite/'runs/r00-periodic_reflection_no_memory'
+    if mutation == 'schedule':
+        manifest = read(suite/'suite.json')
+        next(entry for entry in manifest['schedule'] if entry['run_id'] == run.name)['lesson_memory'] = True
+        write(suite/'suite.json', manifest)
+    elif mutation == 'register_file':
+        write(run/'lessons.json', {'scope': 'this run only', 'lessons': []})
+    else:
+        es = events(run)
+        if mutation == 'register':
+            es.insert(1, {'type': 'lesson_memory', 'lessons': []})
+        elif mutation == 'summary':
+            summary = read(run/'summary.json'); summary['lessons'] = []
+            write(run/'summary.json', summary); es[-1]['summary'] = summary
+        else:
+            event = next(event for event in es if event['type'] == 'model_call_started')
+            context = json.loads(event['messages'][1]['content'])
+            context['lessons'] = []
+            event['messages'][1]['content'] = json.dumps(context)
+        save_events(run, es)
+    result = audit(suite)
+    assert not result['passed'] and ('schedule' if mutation == 'schedule' else 'memory') in codes(result), result
+
+
+@pytest.mark.parametrize('kind', ['decision_contract', 'supervisor_contract', 'reflection_contract'])
+@pytest.mark.parametrize('nonempty', [False, True])
+def test_memory_off_control_rejects_lesson_updates_in_accepted_contracts(suite, kind, nonempty):
+    run = suite/'runs/r00-periodic_reflection_no_memory'; es = events(run)
+    event = next(event for event in reversed(es) if event['type'] == kind and event['valid'])
+    original = event['contract']
+    updates = read(suite/'runs/r00-periodic_reflection/lessons.json')['lessons'] if nonempty else []
+    changed = {**original, 'lesson_updates': updates}
+    # Preserve accepted-contract equality so the forbidden treatment field is
+    # the only contradiction, even when no register or later delivery exists.
+    for record in es:
+        if record.get('contract') == original:
+            record['contract'] = changed
+        if record.get('intent') == original:
+            record['intent'] = changed
+    save_events(run, es)
+    result = audit(suite)
+    assert any(error['code'] == 'memory' and error['scope'] == run.name for error in result['errors']), result
+
+
+@pytest.mark.parametrize('kind', ['decision_contract', 'supervisor_contract', 'reflection_contract'])
+@pytest.mark.parametrize('nonempty', [False, True])
+def test_memory_off_forbidden_lesson_update_attempt_can_be_repaired(suite, kind, nonempty):
+    run = suite/'runs/r00-periodic_reflection_no_memory'; es = events(run)
+    index = next(index for index, event in enumerate(es) if event['type'] == kind and event['valid'])
+    accepted = es[index]
+    updates = read(suite/'runs/r00-periodic_reflection/lessons.json')['lessons'] if nonempty else []
+    es.insert(index, {**accepted, 'valid': False,
+        'contract': {**accepted['contract'], 'lesson_updates': updates},
+        'errors': ['lesson_updates is forbidden when lesson memory is disabled']})
+    save_events(run, es)
+    result = audit(suite)
+    assert result['passed'] and result['status'] == 'warning', result
+    assert any(warning['code'] == 'contract_repaired' and warning['scope'] == run.name
+               for warning in result['warnings']), result
+
+
+@pytest.mark.parametrize('arm', ['researcher_alone', 'frequent', 'periodic', 'periodic_reflection'])
+@pytest.mark.parametrize('mutation', ['missing_file', 'stale_file', 'stale_summary'])
+def test_enabled_memory_snapshots_must_match_the_final_journal_register(suite, arm, mutation):
+    run = suite/'runs'/('r00-'+arm)
+    if mutation == 'missing_file':
+        (run/'lessons.json').unlink(missing_ok=True)
+    elif mutation == 'stale_file':
+        write(run/'lessons.json', {'scope': 'this run only', 'lessons': []})
+    else:
+        summary = read(run/'summary.json'); summary['lessons'] = []
+        write(run/'summary.json', summary)
+        es = events(run); es[-1]['summary'] = summary; save_events(run, es)
+    result = audit(suite)
+    assert any(error['code'] == 'memory' and error['scope'] == run.name for error in result['errors']), result
+
+
+def test_old_memory_as_fifth_treatment_cannot_certify_the_new_protocol(suite):
+    manifest = read(suite/'suite.json')
+    manifest['config']['lesson_memory'] = False
+    old_arms = [('researcher_alone', 'researcher_alone', False),
+                ('frequent', 'frequent', False), ('periodic', 'periodic', False),
+                ('periodic_reflection', 'periodic_reflection', False),
+                ('periodic_reflection_memory', 'periodic_reflection', True)]
+    manifest['schedule'] = [{'arm': arm, 'condition': condition, 'lesson_memory': memory,
+        'supervisor_strategy': 'night_science', 'repeat': repeat, 'run_id': f'r{repeat:02d}-{arm}'}
+        for repeat in range(3) for arm, condition, memory in old_arms]
+    write(suite/'suite.json', manifest)
+    result = audit(suite)
+    assert not result['passed'] and 'schedule' in codes(result), result
+
+
 def test_repaired_contract_is_warning_not_failed_coverage(suite):
-    run=suite/'runs/r00-periodic_reflection_memory';es=events(run)
+    run=suite/'runs/r00-periodic_reflection';es=events(run)
     i=next(i for i,e in enumerate(es) if e['type']=='reflection_contract' and e['valid'])
     es.insert(i,{**es[i],'valid':False,'errors':['scope exceeds maximum length']});save_events(run,es)
     result=audit(suite)
@@ -105,7 +216,7 @@ def test_repaired_contract_is_warning_not_failed_coverage(suite):
     ('heldout_missing','postrun'),('corrupt_events','events'),('failed_fit','fit'),
     ('missing_source','provenance'),('no_literature','literature')])
 def test_incomplete_or_inconsistent_evidence_fails(suite,mutation,expected):
-    run=suite/'runs/r00-periodic_reflection_memory';es=events(run)
+    run=suite/'runs/r00-periodic_reflection';es=events(run)
     if mutation=='missing_run': (run/'summary.json').unlink()
     elif mutation=='artifact': Path(next(e['result']['artifact'] for e in es if e['type']=='trial_finished')).write_bytes(b'tampered')
     elif mutation=='incomplete_call':
@@ -116,7 +227,7 @@ def test_incomplete_or_inconsistent_evidence_fails(suite,mutation,expected):
                 c=json.loads(e['messages'][1]['content']);c['lessons']=[];e['messages'][1]['content']=json.dumps(c)
         save_events(run,es)
     elif mutation=='memory_leak':
-        run=suite/'runs/r00-periodic';es=events(run)
+        run=suite/'runs/r00-periodic_reflection_no_memory';es=events(run)
         e=next(e for e in es if e['type']=='model_call_started');c=json.loads(e['messages'][1]['content']);c['lessons']=[];e['messages'][1]['content']=json.dumps(c);save_events(run,es)
     elif mutation in ('review','reflection'):
         save_events(run,[e for e in es if e['type']!=mutation or e['after_trial']!=3])
@@ -224,7 +335,7 @@ def test_cli_warning_exits_successfully_and_writes_summary(suite):
     ('missing_targets','selection'),('selected_path','selection'),('selected_score','selection'),
     ('fit_seed','fit_seed'),('call_status','events')])
 def test_audit_rejects_contradictions_despite_consistent_summary_and_reports(suite,mutation,expected):
-    run=suite/'runs/r00-periodic_reflection_memory';es=events(run);summary=read(run/'summary.json')
+    run=suite/'runs/r00-periodic_reflection';es=events(run);summary=read(run/'summary.json')
     if mutation=='missing_contracts': es=[e for e in es if not e['type'].endswith('_contract')]
     elif mutation=='reflection_delivery':
         for e in es:
@@ -255,7 +366,7 @@ def test_audit_rejects_contradictions_despite_consistent_summary_and_reports(sui
 
 @pytest.mark.parametrize('reason',['deadline_admission','equivalent'])
 def test_repaired_decision_without_executed_trial_is_warning(suite,reason):
-    run=suite/'runs/r00-periodic_reflection_memory';es=events(run)
+    run=suite/'runs/r00-periodic_reflection';es=events(run)
     contract=next(e for e in es if e['type']=='decision_contract' and e['valid'])
     es[-1:-1]=[{**contract,'trial_id':8,'valid':False,'errors':['repair this decision']},
                {**contract,'trial_id':None,'valid':True,'executed':False,'not_executed_reason':reason}]
@@ -266,7 +377,7 @@ def test_repaired_decision_without_executed_trial_is_warning(suite,reason):
 
 @pytest.mark.parametrize('heldout,inconsistent',[(False,False),(False,True),(True,False),(True,True)])
 def test_invalid_or_contradictory_metrics_fail_even_for_unselected_fits(suite,heldout,inconsistent):
-    run=suite/'runs/r00-periodic_reflection_memory'
+    run=suite/'runs/r00-periodic_reflection'
     if heldout:
         manifest=read(suite/'suite.json');manifest['postrun_policy']='heldout_and_report';write(suite/'suite.json',manifest)
         write(suite/'completion.json',{'postrun':{'evaluate':'completed','report':'completed'}})
@@ -288,7 +399,7 @@ def test_audit_catches_a_selection_bug_even_when_production_selector_agrees(suit
     """Fault injection: a last-trial-wins selector must not become the audit oracle."""
     from study.events import Accounting
     from study import selection
-    run=suite/'runs/r00-periodic_reflection_memory';es=events(run)
+    run=suite/'runs/r00-periodic_reflection';es=events(run)
     last=next(e['result'] for e in reversed(es) if e['type']=='trial_finished')
     account=Accounting()
     for e in es:
@@ -348,8 +459,9 @@ def test_worker_seed_cannot_contradict_the_controller_seed(suite):
     assert not result['passed'] and 'fit_seed' in codes(result), result
 
 
-def test_preloaded_memory_is_rejected_even_when_context_matches_the_register(suite):
-    run = suite/'runs/r00-periodic_reflection_memory'; es = events(run)
+@pytest.mark.parametrize('arm', ['researcher_alone', 'frequent', 'periodic', 'periodic_reflection'])
+def test_preloaded_memory_is_rejected_even_when_context_matches_the_register(suite, arm):
+    run = suite/'runs'/('r00-'+arm); es = events(run)
     i = next(i for i,e in enumerate(es) if e['type'] == 'lesson_memory' and e['lessons'])
     lesson_event = es[i]
     from study.run_context import compact_lessons

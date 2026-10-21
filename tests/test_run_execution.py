@@ -8,6 +8,7 @@ import pytest
 from study.config import StudyConfig
 from study.model_calls import ModelCalls
 from study.problem import legacy_problem
+from study.reasoning import LessonMemory
 from study.run_context import build_context
 from study.run_state import RunState, StopRun
 from study.trial_execution import TrialExecutor
@@ -67,7 +68,7 @@ def test_context_preserves_old_evidence_outside_recent_window_and_role_fields(ro
     state.initial_framing = state.feedback = {'summary': 'Initial advice.', 'lesson_updates': []}
     state.reflection = {'summary': 'A measured reflection.', 'lesson_updates': []}
     context = json.loads(build_context(state, project={'name': 'fixture'},
-        permitted_experiments={'type': 'object'}, memory=None, role=role))
+        permitted_experiments={'type': 'object'}, memory=LessonMemory(6), role=role))
     assert [row['trial_id'] for row in context['recent_trials']] == [3]
     assert context['evidence_metrics_by_trial'] == {'1': ['roc_auc'], '3': ['roc_auc']}
     assert context['active_advice_source'] == 'initial_framing'
@@ -75,7 +76,7 @@ def test_context_preserves_old_evidence_outside_recent_window_and_role_fields(ro
     assert context['last_explicit_reflection'] == {'summary': 'A measured reflection.'}
     assert ('permitted_experiments' in context) == (role != 'researcher')
     assert ('supervisor_stage' in context) == (role == 'supervisor')
-    assert 'lessons' not in context
+    assert context['lessons'] == []
 
 
 def test_model_retry_refreshes_context_and_accounts_each_attempt():
