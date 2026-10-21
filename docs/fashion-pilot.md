@@ -2,10 +2,10 @@
 
 This pilot predicts ten clothing categories from 28 × 28 grayscale images.
 The primary metric is **accuracy**; macro-F1 and macro one-vs-rest ROC-AUC are
-secondary checks. Accuracy targets of 0.80 and 0.85 are provisional calibration
-thresholds. Measure runtime, failure rate and validation outcomes before freezing
-budgets or treating either threshold as a useful attainment target. No measured
-timing or performance claim is implied by these settings.
+secondary checks. The active profile freezes accuracy targets at **0.85, 0.88 and
+0.90**. The 0.85 target was reached by all three strategies in the latest short
+pilot; 0.88 and 0.90 are exploratory and are not guaranteed attainable within
+the fixed search bounds. Earlier 0.80/0.85 pilots retain their own frozen definitions.
 
 ## Prepare the fixed source
 
@@ -18,7 +18,7 @@ Run from the NightAgent repository:
 
 .venv/bin/python -m study prepare \
   --problem study/problems/fashion-mnist.yaml \
-  --output study-data/fashion-pilot
+  --output study-data/fashion-mnist
 ```
 
 The source builder downloads the four official gzip IDX files from
@@ -41,6 +41,12 @@ separate namespace. It also records the selection parameters, package versions,
 profile split and NPZ SHA-256. The prepared data directory has its own frozen
 partition manifest and hashes. Its train/validation row IDs index the selected pool: use the
 source sidecar's `selected_source_indices` to map them to official training IDs.
+The active prepared directory is `study-data/fashion-mnist`. Older
+`study-data/fashion-pilot` data belongs to the previous target definition and is
+retained for its historical runs; do not pass it with the updated profile.
+Preparing the updated definition from the same source preserves all three
+partition hashes while assigning a new problem identity.
+
 Prepared test row IDs start at the selected pool size (15,000); subtract that
 offset to obtain the official test row index.
 
@@ -83,7 +89,7 @@ Repeat local calibration without any paid model calls:
 ```bash
 .venv/bin/python -m study.calibrate \
   --configs study/fashion-calibration-configs.json \
-  --data study-data/fashion-pilot \
+  --data study-data/fashion-mnist \
   --output "study-runs/fashion-calibration-$(date +%Y%m%d-%H%M%S)" \
   --device mps --max-cores 4 --trial-timeout 45
 ```
@@ -98,7 +104,7 @@ For the supervised paid pilot, use the dedicated configuration:
   --config study/fashion-pilot-config.json \
   --env-file ../AgenticAI2026_Tutorial-3/.env \
   --problem study/problems/fashion-mnist.yaml \
-  --data study-data/fashion-pilot \
+  --data study-data/fashion-mnist \
   --output "study-runs/fashion-pilot-$(date +%Y%m%d-%H%M%S)" \
   --device mps --max-cores 4 --lesson-memory
 ```
@@ -137,7 +143,7 @@ report without touching test labels:
   --config study/fashion-pilot-config.json \
   --env-file ../AgenticAI2026_Tutorial-3/.env \
   --problem study/problems/fashion-mnist.yaml \
-  --data study-data/fashion-pilot \
+  --data study-data/fashion-mnist \
   --output "study-runs/fashion-all-strategies-$(date +%Y%m%d-%H%M%S)" \
   --repeats 1 --validation-only --reserve-seconds 120 \
   --deadline "$(.venv/bin/python -c 'from datetime import datetime,timedelta; print((datetime.now().astimezone()+timedelta(minutes=20)).isoformat())')"
@@ -172,8 +178,54 @@ in 21.78 seconds, with no API calls and no test-set scoring.
 
 All neural records confirm `device: mps`; saved artifacts use CPU inference.
 These are one-seed calibration observations, not independent estimates of test
-accuracy or evidence that one interaction strategy wins. The 0.80 target is a
-basic attainment check and 0.85 is already reachable by a default-like forest.
-Reassess target difficulty after the pilot, then freeze targets before overnight
-comparisons. Runtime varies with machine load, warm-up and chosen parameters.
+accuracy or evidence that one interaction strategy wins. The earlier 0.80 target
+was a basic attainment check; 0.85 is already reachable by a default-like forest.
+The active profile now retains 0.85 and adds exploratory 0.88/0.90 targets, with
+all model bounds and dataset partitions held fixed. Runtime varies with machine load, warm-up and chosen parameters.
 Machine-local evidence: `study-runs/fashion-calibration-final-20261020/calibration.json`.
+
+
+## Frozen overnight comparison
+
+Use `study/fashion-overnight-config.json` with the same active problem and prepared
+partitions as the five-minute preflight. The only differences from
+`study/fashion-five-minute-config.json` are the per-run allowance (900 seconds),
+trial safety cap (1000), and API spending guard ($5). Keep these fixed across arms.
+The suite recipe uses **five matched repeats** of researcher alone, standard
+supervision and Night Science supervision: **15 runs** total. Training seeds are
+42–46, matched across arms within each repeat; the data split remains seed 42.
+The seeded schedule randomizes arm order within each repeat. These are repeated
+searches on one fixed split, not independent dataset splits.
+
+```bash
+.venv/bin/python -m study suite \
+  --config study/fashion-overnight-config.json \
+  --env-file ../AgenticAI2026_Tutorial-3/.env \
+  --problem study/problems/fashion-mnist.yaml \
+  --data study-data/fashion-mnist \
+  --device mps --max-cores 4 --repeats 5 --order-seed 2026 \
+  --reserve-seconds 1800 \
+  --deadline "$(.venv/bin/python -c 'from datetime import datetime,timedelta; print((datetime.now().astimezone()+timedelta(hours=3)).isoformat())')" \
+  --output "study-runs/fashion-overnight-$(date +%Y%m%d-%H%M%S)"
+```
+
+Two concurrent runs require at most eight 15-minute search waves, about two hours
+of search. The three-hour window includes a 30-minute evaluation/report reserve
+and another 30 minutes of setup/scheduling slack. The 15 per-run guards sum to
+**$75**; this is a spending guard, not a billing guarantee, because a final
+in-flight API call can exceed its run's guard. Earlier caps or deadline admission
+may shorten runs. Do not interpret unused wall time as an unobserved improvement.
+
+Unlike the validation-only short pilot, this command evaluates the selected best
+and first-target artifacts on the official test partition **after all search is
+frozen**, deduplicating selected artifacts. Held-out scores are for final
+confirmation and must not be used to tune subsequent search. Reports preserve
+nonattainment, incomplete accounting and failed runs; compare reach fractions,
+cost/tokens/time to target, and final validation accuracy together. Do not invent
+convergence budgets for targets that were never reached.
+
+All arms use the same provider/model, four-core ceiling and serialized MPS fits.
+Lesson memory, explicit reflection and literature retrieval remain off, as in the
+validated three-strategy pilot. GPU contention is part of the shared hardware
+policy; this is not a study with dedicated equal hardware per arm. The full
+five-schedule/literature workflow is a separate experiment.

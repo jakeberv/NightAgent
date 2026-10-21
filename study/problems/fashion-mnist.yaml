@@ -1,7 +1,7 @@
 schema_version: 1
-id: fashion-mnist-pilot
+id: fashion-mnist
 task: tabular_classification
-brief: Classify ten clothing categories from 28 by 28 grayscale Fashion-MNIST images. Optimize validation accuracy, with macro-F1 and macro one-vs-rest ROC-AUC as secondary metrics. Training and validation use a fixed stratified subset of the official training set. The 0.80 and 0.85 accuracy targets are provisional calibration thresholds, not established benchmark guarantees. Neural models use preprocessing none and fixed pixel scaling internally.
+brief: Classify ten clothing categories from 28 by 28 grayscale Fashion-MNIST images. Optimize validation accuracy, with macro-F1 and macro one-vs-rest ROC-AUC as secondary metrics. Training and validation use the fixed 12000/3000 stratified subset of the official training set. Track first attainment of 0.85, 0.88 and 0.90 accuracy; the two higher targets are exploratory and may not be reached within the frozen search bounds. Neural models use preprocessing none and fixed pixel scaling internally.
 dataset:
   format: npz
   path: ../../study-data/fashion-source/fashion-pilot.npz
@@ -15,8 +15,9 @@ evaluation:
   objective: {metric: accuracy, direction: maximize}
   additional_metrics: [macro_f1, roc_auc_ovr_macro]
 targets:
-  - {name: calibration_milestone, value: 0.80}
-  - {name: calibration_stretch, value: 0.85}
+  - {name: accuracy_85, value: 0.85}
+  - {name: accuracy_88, value: 0.88}
+  - {name: accuracy_90, value: 0.90}
 search_space:
   preset: tabular_classification_small
   models: [logistic, random_forest, torch_mlp, torch_cnn]
