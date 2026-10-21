@@ -184,11 +184,18 @@ was explicitly enabled; valid models and the report remain available.
 For a five-minute, validation-only comparison of researcher alone, standard
 supervision and Night Science supervision on the prepared Fashion-MNIST subset:
 
+The active profile uses 0.85, 0.88 and 0.90 accuracy targets. Prepare it once with
+`.venv/bin/python -m study prepare --problem study/problems/fashion-mnist.yaml --output study-data/fashion-mnist`.
+The previous `fashion-pilot` directory remains bound to its earlier targets and
+must not be used with this updated definition. The partitions and model bounds
+are unchanged. For the five-repeat overnight recipe and its $75 sum of spending
+guards, see [the frozen overnight comparison](../docs/fashion-pilot.md#frozen-overnight-comparison).
+
 ```bash
 .venv/bin/python -m study suite \
   --config study/fashion-five-minute-config.json \
   --env-file ../AgenticAI2026_Tutorial-3/.env \
-  --problem study/problems/fashion-mnist.yaml --data study-data/fashion-pilot \
+  --problem study/problems/fashion-mnist.yaml --data study-data/fashion-mnist \
   --device mps --max-cores 4 --repeats 1 --validation-only \
   --reserve-seconds 45 \
   --deadline "$(.venv/bin/python -c 'from datetime import datetime,timedelta; print((datetime.now().astimezone()+timedelta(minutes=5)).isoformat())')" \
