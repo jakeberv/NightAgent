@@ -9,6 +9,9 @@ The current demo is the [five-arm Fashion-MNIST comparison](docs/five-arm-overni
 The [study runner](study/README.md) uses OpenRouter and fixed scientific tools. Agents choose bounded classification/regression experiments; the harness controls splits, timeouts, artifact verification, accounting, selection and held-out evaluation. Reviews and lessons cite recorded validation measurements. A supervisor's interpretation is not ground truth. Lessons start empty in every run; transfer between independent runs is not established.
 
 - [Current launch and acceptance criteria](docs/five-arm-overnight.md)
+- [Workshop specification](SPEC.md) · [Current protocol and milestones](docs/workshop-protocol.md)
+- [Named evaluation cases](docs/evaluation-cases.md) · [Demo script](DEMO.md)
+- [Measured fixed classifier reference](docs/fixed-reference.md)
 - [All configuration presets and their status](docs/configurations.md)
 - [Targeted five-arm preflight and evidence](docs/targeted-preflight.md)
 - [Problem profiles, datasets, objectives and search spaces](docs/problem-definitions.md)
@@ -43,9 +46,9 @@ Read the [prototype setup, permissions and provider notes](nightagent/README.md)
 
 ## Design history and status
 
-The [original workshop proposal](SPEC.md), [design notes](NOTES.md), and [shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z) preserve the project's development history. Their proposed three-condition memory experiment and six-analysis budget do not define the current study. Implemented profiles now cover MAGIC, multiclass CSV, MNIST, Fashion-MNIST and regression.
+The [workshop specification](SPEC.md), [current protocol](docs/workshop-protocol.md), and [shared design document](https://docs.google.com/document/d/1tBVSIyVEs3PdngYK7uHr1yEs5l3R0f5kC1OOjMMFqqA/edit?tab=t.tbzfgy1tsr0z) describe the current Fashion-MNIST study. Earlier proposals remain in [design notes](NOTES.md) and historical shared tabs. Implemented profiles also cover MAGIC, multiclass CSV, MNIST and regression.
 
-As of 21 October 2026, MAGIC live pilots, Fashion-MNIST MPS calibration and the targeted five-arm live preflight have run. The repeated five-arm overnight comparison remains pending. Passing offline checks or a short preflight does not establish strategy superiority or learning across independent runs.
+As of 21 October 2026, MAGIC live pilots, Fashion-MNIST MPS calibration, the targeted five-arm live preflight and the fixed non-agent Fashion reference have run. The repeated five-arm overnight comparison remains pending. Passing offline checks or a short preflight does not establish strategy superiority or learning across independent runs.
 
 The project draws on [Night Science](https://night-science.org/) principles: explore alternatives, improve questions, connect across fields, and return to measured evidence. The study makes review behavior and advice uptake observable; these are evaluation targets, not claims of scientific understanding.
 

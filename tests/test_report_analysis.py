@@ -116,6 +116,16 @@ def test_grounded_policy_runs_are_not_pooled_with_historical_reasoning(tmp_path)
     assert len(data['conditions']) == 2
 
 
+def test_legacy_and_current_deadline_policies_have_separate_outcome_aggregates(tmp_path):
+    paired_run(tmp_path, 'legacy', 'periodic', score=.94)
+    paired_run(tmp_path, 'current', 'periodic', score=.8, deadline_policy='observed_v1')
+    data = build_report_data(tmp_path)
+    assert len(data['conditions']) == 2
+    assert {group['run_count'] for group in data['conditions'].values()} == {1}
+    assert {group['best_score_mean'] for group in data['conditions'].values()} == {.8, .94}
+    assert {group['targets']['milestone']['fraction'] for group in data['conditions'].values()} == {0, 1}
+
+
 @pytest.mark.parametrize("change", [{"training_seed": 999}, {"model": "other"},
                                      {"decision_protocol": "legacy"}, {"lesson_memory": True},
                                      {"reasoning_policy": "grounded_v1"}])

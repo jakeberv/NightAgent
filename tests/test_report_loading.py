@@ -74,3 +74,43 @@ def test_missing_trial_evidence_is_unknown_even_when_summary_selects_a_model(tmp
     assert row['trial_outcomes']['Other / unknown'] == 2
     assert any('trial' in warning.lower() and 'evidence' in warning.lower()
                for warning in data['warnings'])
+
+
+@pytest.mark.parametrize('metric', ['accuracy', 'roc_auc'])
+@pytest.mark.parametrize('threshold', [.75, .9])
+def test_heldout_scores_require_the_observed_selected_artifact(tmp_path, metric, threshold):
+    summary, result = write_current_run(tmp_path)
+    summary.update(objective={'metric': metric, 'direction': 'maximize'},
+                   target_definitions=[{'name': 'stretch', 'value': threshold}])
+    result.update(artifact_hash='observed-artifact', metrics={metric: .8})
+    selected = {**result, 'trial_id': 2, 'score': .99,
+                'artifact_hash': 'missing-artifact', 'metrics': {metric: .99}}
+    summary.update(best=selected, target_selections={'stretch': selected})
+    (tmp_path / 'summary.json').write_text(json.dumps(summary))
+    (tmp_path / 'events.jsonl').write_text(json.dumps(
+        {'type': 'trial_finished', 'result': result}) + '\n')
+    (tmp_path / 'test-results.json').write_text(json.dumps({'selections': {
+        name: {'status': 'completed', 'artifact_hash': 'missing-artifact',
+               'score': .97, 'metrics': {metric: .97}} for name in ('best', 'stretch')}}))
+    data = build_report_data(tmp_path)
+    row, = data['runs']
+    assert row['best_score'] == .8
+    assert row['best_test_score'] is None and row['best_test_metrics'] == {}
+    assert row['targets']['stretch']['test_score'] is None
+    assert row['targets']['stretch']['test_metrics'] == {}
+    if metric == 'roc_auc':
+        assert row['best_test_auc'] is None and row['stretch_test_auc'] is None
+    assert any('held-out' in warning.lower() and 'artifact' in warning.lower()
+               for warning in data['warnings'])
+
+
+@pytest.mark.parametrize('definitions', [None, {}, 'missing'])
+def test_report_rejects_missing_or_nonlist_frozen_target_definitions(tmp_path, definitions):
+    summary, _ = write_current_run(tmp_path)
+    if definitions == 'missing':
+        summary.pop('target_definitions')
+    else:
+        summary['target_definitions'] = definitions
+    (tmp_path / 'summary.json').write_text(json.dumps(summary))
+    with pytest.raises(ValueError, match='target_definitions'):
+        build_report_data(tmp_path)

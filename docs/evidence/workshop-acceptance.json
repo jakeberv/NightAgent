@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "kind": "engineering_acceptance",
+  "started_at": "2026-10-21T04:16:04.475046+00:00",
+  "elapsed_seconds": 14.582270333077759,
+  "passed": true,
+  "pytest_exit_code": 0,
+  "timed_out": false,
+  "errors": [],
+  "command": ".venv/bin/python -m study.workshop_eval --output study-runs/workshop-readiness-20261021/evaluation-final",
+  "cases": [
+    {
+      "id": "artifact-data-isolation",
+      "status": "passed",
+      "pytest_nodes": [
+        "tests/test_science.py::test_split_is_reproducible_disjoint_and_stratified",
+        "tests/test_science.py::test_trial_completes_without_test_partition_and_saves_verified_artifact",
+        "tests/test_science.py::test_worker_environment_excludes_secrets_and_receives_no_test_path"
+      ],
+      "missing_nodes": [],
+      "checks": 3
+    },
+    {
+      "id": "proposal-repair-and-citations",
+      "status": "passed",
+      "pytest_nodes": [
+        "tests/test_reasoning_controller.py::test_bad_evidence_repairs_within_existing_budget_before_training",
+        "tests/test_reasoning_controller.py::test_model_supplied_review_measurement_requires_repair_even_when_correct",
+        "tests/test_reasoning_controller.py::test_default_offline_model_exercises_all_contract_roles_and_optional_memory"
+      ],
+      "missing_nodes": [],
+      "checks": 4
+    },
+    {
+      "id": "feedback-schedule",
+      "status": "passed",
+      "pytest_nodes": [
+        "tests/test_controller.py::test_exact_cadence_continues_after_threshold_and_skips_terminal_review",
+        "tests/test_controller.py::test_failed_trials_count_towards_review_cadence"
+      ],
+      "missing_nodes": [],
+      "checks": 6
+    },
+    {
+      "id": "memory-isolation-and-history",
+      "status": "passed",
+      "pytest_nodes": [
+        "tests/test_reasoning_controller.py::test_memory_is_run_local_survives_history_window_and_recovers",
+        "tests/test_run_execution.py::test_context_preserves_old_evidence_outside_recent_window_and_role_fields"
+      ],
+      "missing_nodes": [],
+      "checks": 4
+    },
+    {
+      "id": "budget-and-deadline",
+      "status": "passed",
+      "pytest_nodes": [
+        "tests/test_run_execution.py::test_state_safeguards_are_enforced_before_more_work",
+        "tests/test_run_execution.py::test_model_admission_does_not_call_or_charge_provider",
+        "tests/test_deadline_admission.py::test_slow_decision_does_not_start_a_fit_that_no_longer_fits"
+      ],
+      "missing_nodes": [],
+      "checks": 5
+    },
+    {
+      "id": "late-results-and-selection",
+      "status": "passed",
+      "pytest_nodes": [
+        "tests/test_run_execution.py::test_trial_executor_records_result_before_selection_and_checkpoint",
+        "tests/test_controller.py::test_generic_selection_rejects_failed_late_and_nonfinite_results",
+        "tests/test_controller.py::test_minimize_objective_selects_named_targets_and_earliest_ties"
+      ],
+      "missing_nodes": [],
+      "checks": 6
+    },
+    {
+      "id": "heldout-separation",
+      "status": "passed",
+      "pytest_nodes": [
+        "tests/test_science.py::test_local_magic_parser_and_agent_info_hide_test",
+        "tests/test_science.py::test_test_evaluation_deduplicates_and_survives_reinvocation",
+        "tests/test_science.py::test_reserved_evaluation_is_not_repeated_after_crash"
+      ],
+      "missing_nodes": [],
+      "checks": 3
+    },
+    {
+      "id": "audit-integrity",
+      "status": "passed",
+      "pytest_nodes": [
+        "tests/test_audit.py::test_complete_five_arm_repeats_pass_without_modifying_evidence",
+        "tests/test_audit.py::test_incomplete_or_inconsistent_evidence_fails",
+        "tests/test_audit.py::test_audit_catches_a_selection_bug_even_when_production_selector_agrees",
+        "tests/test_science.py::test_evaluation_rejects_modified_artifact"
+      ],
+      "missing_nodes": [],
+      "checks": 20
+    }
+  ],
+  "underlying_checks": 51,
+  "scope": "Engineering acceptance only. Full raw JUnit, collected nodes and logs remain in the local output directory; no paid calls or held-out Fashion scoring."
+}

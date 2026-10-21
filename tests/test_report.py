@@ -144,14 +144,15 @@ def test_event_results_use_frozen_completion_time_and_test_results_stay_separate
     from study.report import build_report_data
     folder = write_run(tmp_path, "events", events=[
         {"type": "trial_finished", "trial_id": "one", "elapsed_seconds": 8,
-         "result": {"status": "completed", "validation_auc": .96, "elapsed_seconds": 8, "duration_seconds": 2}},
+         "result": {"status": "completed", "validation_auc": .96, "elapsed_seconds": 8, "duration_seconds": 2,
+                    "artifact_hash": "observed"}},
         {"type": "trial_finished", "trial_id": "two", "elapsed_seconds": 9,
          "result": {"status": "failed", "validation_auc": .99}},
         {"type": "trial_finished", "trial_id": "late", "elapsed_seconds": 101,
          "result": {"status": "completed", "validation_auc": .999}},
     ])
-    (folder / "test-results.json").write_text(json.dumps({"selections": {"best": {"status": "completed", "score": .87},
-                                                         "milestone": {"status": "completed", "score": .87}}}))
+    (folder / "test-results.json").write_text(json.dumps({"selections": {"best": {"status": "completed", "score": .87, "artifact_hash": "observed"},
+                                                         "milestone": {"status": "completed", "score": .87, "artifact_hash": "observed"}}}))
     row = build_report_data(tmp_path)["runs"][0]
     assert row["best_validation_auc"] == .96
     assert row["milestone_seconds"] == 8
@@ -258,10 +259,10 @@ def test_interrupted_trial_keeps_training_time_labeled_as_subtotal(tmp_path):
 
 def test_nested_science_results_and_postrun_metering(tmp_path):
     from study.report import build_report_data
-    folder = write_run(tmp_path, "nested", trials=[trial("one", 20, .94)], training_seconds=7)
+    folder = write_run(tmp_path, "nested", trials=[{**trial("one", 20, .94), "artifact_hash": "abc"}], training_seconds=7)
     (folder / "test-results.json").write_text(json.dumps({
-        "selections": {"best": {"status": "completed", "score": .88},
-                       "milestone": {"status": "uncertain", "error": "interrupted"}},
+        "selections": {"best": {"status": "completed", "score": .88, "artifact_hash": "abc"},
+                       "milestone": {"status": "uncertain", "error": "interrupted", "artifact_hash": "abc"}},
         "artifacts": {"abc": {"status": "completed", "score": .88}}}))
     (folder / "postrun.json").write_text(json.dumps({"evaluation_seconds": 3.5}))
     row = build_report_data(tmp_path)["runs"][0]
@@ -370,7 +371,7 @@ def test_generic_suite_includes_unstarted_runs_and_shared_partial_test_cache(tmp
     cache = tmp_path / "evaluation"
     cache.mkdir()
     (cache / "test-evaluation-cache.json").write_text(json.dumps({"artifacts": {
-        "done": {"status": "completed", "score": 3.5, "metrics": {"rmse": 3.5}}}}))
+        "done": {"artifact_hash": "done", "status": "completed", "score": 3.5, "metrics": {"rmse": 3.5}}}}))
     data = build_report_data(tmp_path)
     done, missing = data["runs"]
     assert done["best_test_score"] == 3.5
@@ -385,11 +386,11 @@ def test_generic_suite_includes_unstarted_runs_and_shared_partial_test_cache(tmp
 
 def test_multiclass_accuracy_report_labels_and_csv_are_generic(tmp_path):
     from study.report import generate_report
-    folder = write_run(tmp_path, "multiclass", trials=[generic_trial("one", 10, .96, "accuracy")],
+    folder = write_run(tmp_path, "multiclass", trials=[generic_trial("one", 10, .96, "accuracy", artifact_hash="multiclass")],
         **generic_summary("accuracy", "maximize", "mnist", target_definitions=[{"name": "publish", "value": .95}]))
     (folder / "test-results.json").write_text(json.dumps({"selections": {
-        "best": {"status": "completed", "score": .94, "metrics": {"accuracy": .94, "macro_f1": .93}},
-        "publish": {"status": "uncertain", "score": .97}}}))
+        "best": {"status": "completed", "score": .94, "metrics": {"accuracy": .94, "macro_f1": .93}, "artifact_hash": "multiclass"},
+        "publish": {"status": "uncertain", "score": .97, "artifact_hash": "multiclass"}}}))
     output = generate_report(tmp_path)
     html = output.read_text()
     assert "accuracy" in html and "maximize" in html and "publish" in html

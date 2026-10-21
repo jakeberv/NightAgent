@@ -54,7 +54,7 @@ def scripted_contract(role, context):
                         "No completed trials yet distinguish these hypotheses."),
             unresolved_question="Would another model capacity improve validation performance?",
             recommendation="Compare another bounded model configuration.",
-            expected_outcome="A higher score would support testing that capacity further on this split.")
+            expected_outcome="Improved validation performance would support testing that capacity further on this split.")
         if context.get('supervisor_stage') == 'framing':
             common.update(motivation="Compare model capacity to guide the use of this run's limited budget.",
                           hypothesis="A different model capacity may improve validation performance.")
@@ -63,7 +63,7 @@ def scripted_contract(role, context):
                 alternative_explanations=["Model capacity may limit validation performance.",
                                           "Differences may reflect variability on this fixed split."],
                 cross_field_connection="Bias-variance reasoning suggests a capacity test; its applicability remains untested.",
-                falsifying_outcome="An equal or lower score would weaken the capacity prediction on this split.",
+                falsifying_outcome="Unchanged or worse validation performance would weaken the capacity prediction on this split.",
                 resource_check="Use one permitted fit within the remaining time and trial cap, reserving API overhead.")
     else:
         common.update(what_changed="The latest trial added a validation observation.",

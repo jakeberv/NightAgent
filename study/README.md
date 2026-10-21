@@ -89,8 +89,11 @@ validation, and test partitions with row IDs and SHA-256 fingerprints:
 Prepared data cannot be overwritten with a different source or seed. Reusing
 it verifies fingerprints. Agents receive feature names, train/validation counts,
 and the classifier schema; neither test records nor test statistics are exposed.
-The reference is a fixed histogram gradient boosting configuration, outside
-the five experimental conditions. `reference` reports validation AUC only.
+For legacy MAGIC data without a profile, the reference is fixed histogram gradient
+boosting and reports validation AUC. Profile-backed data use the adapter's fixed
+reference and declared validation metrics; Fashion-MNIST uses standard-scaled
+logistic regression. References stay outside the five experimental conditions.
+See the [measured Fashion reference](../docs/fixed-reference.md).
 
 MAGIC, one fixed holdout validation partition, and the bounded classifier menu
 are **pilot choices**. The implementation does not assert that they are the final

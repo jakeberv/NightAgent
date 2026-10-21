@@ -1,3 +1,6 @@
+HISTORICAL SNAPSHOT — superseded by docs/workshop-protocol.md and SPEC.md on 21 October 2026.
+This saved MAGIC/MNIST/literature design records earlier provenance; it does not define the current Fashion-MNIST five-arm memory study.
+
 Experimental design
 Working outline · Overnight comparison · 20 October 2026
 Research question: Under equal wall-time allowances, which agent interaction strategy achieves the highest completed validation ROC-AUC by the deadline? Track time to a 0.93 milestone and attainment of a 0.95 stretch goal, with token use and monetary cost alongside performance. AUC measures ranking performance, not the percentage of predictions classified correctly.

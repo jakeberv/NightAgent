@@ -81,7 +81,7 @@ def _unfinished_json(error, line):
     """Conservatively recognize truncated tokens, never closed/interior errors."""
     if not isinstance(error, json.JSONDecodeError):
         return False
-    text = line.rstrip()
+    text = line
     if error.msg.startswith('Unterminated string'):
         return True
     if error.msg == 'Extra data':

@@ -1,39 +1,36 @@
 # NightAgent — Team 5
 
 Josef Osumeje, Ben Moseley, Jake Berv, Guido Herrera-R, Weiwei Chen.
-Repository: https://github.com/jakeberv/NightAgent
+Repository: https://github.com/jakeberv/NightAgent · Updated 21 October 2026.
 
 ## 1. Task
-For scientists, one researcher explores classification approaches; one supervisor frames/revises questions and reviews evidence. Humans set the broad brief and execution limits; discoveries remain open-ended.
-Example: labeled dataset + “Which approaches work well, and why?” → classifier, evidence-linked findings, browser report. Dataset/approaches unchosen; access unchecked.
+
+Scientists ask which classification approaches work and why. Humans freeze brief, data and limits; an apprentice chooses bounded experiments. Outputs: verified classifiers, evidence-linked decisions, scoped lessons and an HTML comparison.
 
 ## 2. Why agents?
-Does supervision help? The researcher adaptively chooses configurations, comparisons, replications, or stopping. Roles share one language model/harness: Tutorial 1’s tools/traces plus Tutorial 2’s reflection. Cross-run learning is untested.
+
+Test whether supervision improves experimentation enough to justify its time and cost. Tutorial 1 supplies tools/traces; Tutorial 2 supplies reflection and run-local memory. Every researcher plans; supervised arms also receive initial framing. Hypotheses and feedback require measured support.
 
 ## 3. Tools and data
 
-- inspect_project: project → schema, methods, constraints.
-- run_analysis: approved classifier/parameters → run ID, validation metrics, artifacts.
-- read_results: run IDs → results, history, provenance.
-- save_report: evidence-linked findings → Markdown/HTML report.
+Fashion-MNIST is prepared and verified: 12,000 training images, 3,000 validation images, untouched official test set. Primary objective: validation accuracy; secondary: macro-F1 and macro one-vs-rest ROC-AUC. Targets: 85%, 88%, 90%.
 
-Fix one dataset, 2–3 approved approaches, parameter bounds, train/validation/test splits, and metric. Fit preprocessing on training only. Agents cannot alter evaluation or access tests during search.
-Loop: framing → researcher → training/validation → review. Cite runs, revise hypotheses, record uncertainty, recommend one action/stop. Replicate within budget or report inconclusive evidence; no prescribed winner.
-JSONL records questions/revisions, configurations, results, and reviews. Memory retains scoped, evidence-linked lessons; suggestions remain hypotheses until supported.
+The researcher's `run_analysis` tool accepts bounded logistic, random-forest, MLP or CNN configurations and returns validation measurements and artifact references. The harness supplies project/history context, enforces training-only preprocessing, validates citations/contracts, records JSONL provenance, selects artifacts and generates reports. Agents cannot alter evaluation or inspect test labels. Literature is disabled.
 
 ## 4. Baseline — Tuesday, 5 PM
-Fixed classifier plus one model summary; localhost server displays plots/metrics.
+
+A predeclared standard-scaled logistic classifier provides a measured, non-agent validation reference outside the five treatments. Researcher alone is the adaptive agent baseline. Unequal search effort prevents attributing differences solely to agency.
 
 ## 5. Evaluation — Wednesday, 11 AM
-Six cases, two repeats per condition: fixed baseline, researcher alone, researcher plus supervisor. Match briefs, models, tools, splits, history, experiment/model-call/token budgets. Reset memory; freeze evaluation.
-Process: read-only post-run LLM scores question alignment, experimental design, evidence use, interaction quality, and uncertainty 0–2 with event citations. Mark inapplicable interactions N/A; compare shared criteria separately. Code checks claims against results, references, budgets/stopping. Audit sample ratings; judge scores are estimates. Trace overlap optional.
-Outcomes: validation selects classifiers; fixed code scores untouched tests using predeclared accuracy/macro-F1. Report reproducibility, uncertainty, cost/runtime, and separate process/outcome scorecards. Evaluate supported conclusions, not prescribed discoveries. Hide test scores from the trace judge.
+
+Eight named executable acceptance cases test artifacts/data isolation, proposal repair/citations, feedback timing, memory isolation/history, deadlines/accounting, late-result selection, held-out separation and audit integrity. These engineering cases are distinct from the scientific design: one dataset × five arms × three matched repeats, seeds 42–44.
+
+Compare researcher alone; frequent supervision; periodic supervision; periodic plus reflection; periodic plus reflection and memory. Hold model, data, tools and 600-second allowances fixed. Report four adjacent contrasts, validation performance/target attainment, cost/runtime, feedback uptake and uncertainty. Score held-out selections only after search freezes. Deterministic checks and human trace review support process claims; no LLM judge is implemented.
 
 ## 6. Demo — Wednesday, 1 PM
-Launch once; display questions, experiments, reviews, revisions, classifier comparisons, and trace scores without human intervention.
+
+Replay a real recommendation → configuration → measurement → scoped lesson, then show the comparison report. Save evidence as fallback. Delivery of a lesson does not establish benefit; three repeats support a workshop pilot.
 
 ## 7. Risks, limits, roles
-Risks: unavailable data, leakage, unsupported lessons. Tuesday-noon fallback: fixed baseline/report.
-Search caps: ≤3 research/review rounds, ≤6 analyses, ≤60 seconds/analysis, ≤15 model calls including framing, ≤30,000 tokens. Harness enforces limits.
-Meter post-run evaluation separately within the proposed $5 total evaluation cap; pilot against available credits.
-Assign owners: harness/memory, tools/data, evaluation/report. Defer generated tools, web/GitHub automation, parallel agents, chat UI.
+
+Limits: 1,000-attempt safety cap, 45-second fits, $5/run guards; in-flight calls can overrun. Verify credits before launch. Four shared cores, two runs, serialized MPS; queue time counts. Reset lessons each run; cross-run learning is untested. Maintainer coordinates integration; component ownership needs confirmation. Defer RL, generated tools and broader automation.

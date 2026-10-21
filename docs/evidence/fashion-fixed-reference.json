@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "declared_at": "2026-10-21T00:04:33.115643-04:00",
+  "command": ".venv/bin/python -m study reference --data study-data/fashion-mnist --problem study/problems/fashion-mnist.yaml --output study-runs/fashion-fixed-reference-20261021-000433/trial --seed 42 --timeout 120",
+  "status": "completed",
+  "config": {
+    "model": "logistic",
+    "params": {
+      "C": 1.0,
+      "max_iter": 300
+    },
+    "preprocessing": "standard"
+  },
+  "seed": 42,
+  "allocated_cores": 1,
+  "elapsed_seconds": 4.7435762078966945,
+  "metrics": {
+    "accuracy": 0.8103333333333333,
+    "macro_f1": 0.8090350881956313,
+    "roc_auc_ovr_macro": 0.9733596296296296
+  },
+  "score": 0.8103333333333333,
+  "provenance": {
+    "constructor": "tabular_adapter",
+    "constructor_version": 3,
+    "data_fingerprint": "b97c237e8bf7014eccbdb25db6a48999ab5b01c19f22640021736bb3a098a104",
+    "dataset": "fashion-mnist",
+    "diagnostics_version": 2,
+    "direction": "maximize",
+    "metric": "accuracy",
+    "n_features": 784,
+    "problem_hash": "fade8c9ef8167a2c0a047e1d6d022dccb4122dc8b7937bfaeaa521dab3287984",
+    "seed": 42,
+    "sklearn_version": "1.9.1",
+    "split": "validation",
+    "split_seed": 42,
+    "task": "tabular_classification"
+  },
+  "effective_config": {
+    "estimator": "sklearn.linear_model._logistic.LogisticRegression",
+    "model": "logistic",
+    "params": {
+      "C": 1.0,
+      "class_weight": null,
+      "dual": false,
+      "fit_intercept": true,
+      "intercept_scaling": 1,
+      "l1_ratio": 0.0,
+      "max_iter": 300,
+      "n_jobs": null,
+      "penalty": "deprecated",
+      "random_state": 42,
+      "solver": "lbfgs",
+      "tol": 0.0001,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "preprocessing": "standard",
+    "preprocessing_params": {
+      "copy": true,
+      "with_mean": true,
+      "with_std": true
+    }
+  },
+  "artifact_hash": "2e59b778840c791b87183ec583c37b72a24f360f208deb2ca259b22a02c9a86b",
+  "artifact_hash_verified": true,
+  "paid_model_calls": 0,
+  "heldout_scored": false,
+  "raw_result_path": "study-runs/fashion-fixed-reference-20261021-000433/trial/result.json",
+  "initial_setup_failure": "The declaration directory already existed; the initial attempt stopped before fitting. One successful fit ran in the fresh trial child directory."
+}

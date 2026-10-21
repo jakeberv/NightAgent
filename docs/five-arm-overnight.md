@@ -35,6 +35,7 @@ AC power. Use an app/terminal session that will remain open for the run.
 ```bash
 bash <<'SH'
 set -uo pipefail
+mkdir -p study-runs || exit 1
 run_root="study-runs/fashion-five-arm-overnight-$(date +%Y%m%d-%H%M%S)"
 deadline="$(.venv/bin/python -c 'from datetime import datetime,timedelta; print((datetime.now().astimezone()+timedelta(hours=2)).isoformat())')"
 caffeinate -is .venv/bin/python -m study suite \

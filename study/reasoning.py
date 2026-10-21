@@ -258,18 +258,33 @@ def observed_summary(evidence):
 
 
 def observed_scope(evidence, history):
-    """Identify cited configurations and confounding using recorded inputs only."""
+    """Compare known scientific settings, preferring recorded fitted values."""
     ids = list(dict.fromkeys(item['trial_id'] for item in evidence))
     records = {row.get('trial_id'): row for row in (history or []) if row.get('status') == 'completed'}
-    configs = [records.get(trial_id, {}).get('config') for trial_id in ids]
+    configs = []; unresolved = False
+    excluded = {'device', 'n_jobs', 'random_state', 'architecture', 'estimator'}
+    for trial_id in ids:
+        row = records.get(trial_id, {})
+        config = {}; params = {}
+        sources = [row.get(key) for key in ('config', 'effective_config', 'actual_effective_config')]
+        for source in sources:
+            if isinstance(source, dict):
+                config.update({key: value for key, value in source.items() if key != 'params'})
+                params.update(source.get('params') or {})
+        params.update(row.get('resolved_parameters') or {})
+        configs.append({key: value for key, value in {**config, **params}.items() if key not in excluded})
+        unresolved |= not any(isinstance(source, dict) and source for source in sources[1:])
     prefix = ('Validation trial ' if len(ids) == 1 else 'Validation trials ') + ', '.join(map(str, ids))
     fallback = "Only the cited configurations on this run's validation split were observed; parameter effects are not established."
+    if not configs:
+        return fallback
     if any(not isinstance(config, dict) or not config for config in configs):
         result = prefix + (' was' if len(ids) == 1 else ' were') + ' observed; configuration details are unavailable, so parameter effects are not established.'
         return result if len(result) <= 240 else fallback
-    flattened = [{**{key: value for key, value in config.items() if key != 'params'},
-                  **config.get('params', {})} for config in configs]
-    keys = sorted(set().union(*(config.keys() for config in flattened)))
+    flattened = configs
+    known_keys = set.intersection(*(set(config) for config in flattened))
+    unknown = unresolved or known_keys != set.union(*(set(config) for config in flattened))
+    keys = sorted(known_keys)
     values = {key: [json.dumps(config[key], sort_keys=True, separators=(',', ':'))
                     if key in config else 'unspecified' for config in flattened] for key in keys}
     changed = [key for key in keys if len(set(values[key])) > 1]
@@ -279,13 +294,16 @@ def observed_scope(evidence, history):
         caveat = ' This split alone does not establish causality.'
     else:
         caveat = ' No parameter effect was isolated.'
+    if unknown:
+        caveat += ' Unrecorded settings remain unknown.'
     if changed:
         details = '; '.join(key + '=' + '/'.join(values[key]) for key in changed)
         result = prefix + ' compared ' + details + '.' + caveat
         if len(result) > 240:
             result = prefix + ' differed in ' + ', '.join(changed) + '.' + caveat
     elif len(configs) > 1:
-        result = prefix + ' used matching recorded configurations.' + caveat
+        result = prefix + (' matched on the recorded settings.' if unknown else
+                           ' used matching recorded configurations.') + caveat
     else:
         details = '; '.join(key + '=' + values[key][0] for key in keys)
         result = prefix + ' used ' + details + '.' + caveat
@@ -344,6 +362,7 @@ def ground_contract(contract, history, *, targets=(), capacity=None):
     def normalize_targets(text, field):
         sentences = re.split(r'(?<=[.!?])\s+', text)
         normalized = []
+        status_pattern = r'\b(?:(?:still need to|yet to) (?:reach|achieve|meet)|(?:has|have)(?: not)? (?:yet )?(?:been )?(?:reached|achieved|met)|(?:not yet|already) (?:reached|achieved|met))\b'
         for sentence in sentences:
             matches = []
             for target in targets:
@@ -354,7 +373,7 @@ def ground_contract(contract, history, *, targets=(), capacity=None):
                 target_language = re.search(r'\b(target|threshold|goal|milestone|stretch)\b', sentence, re.I)
                 if (named and target_language) or (number and re.search(r'\b(target|reach|approach|gap|headroom)\w*\b', sentence, re.I)):
                     matches.append(target['sentence'])
-            factual_status = re.search(r'\b(?:(?:still need to|yet to) (?:reach|achieve|meet)|(?:has|have)(?: not)? (?:yet )?(?:been )?(?:reached|achieved|met)|(?:not yet|already) (?:reached|achieved|met))\b', sentence, re.I)
+            factual_status = re.search(status_pattern, sentence, re.I)
             purpose = None
             if matches and field in ('recommendation', 'next_comparison', 'summary', 'change'):
                 # Keep an action before a target-purpose clause, e.g. "Test X
@@ -362,6 +381,16 @@ def ground_contract(contract, history, *, targets=(), capacity=None):
                 purpose = re.search(r'\s+(?:(?:to|and)\s+(?:reach|approach|meet|exceed|achieve|attain)\w*|towards?)\s+(?:the\s+)?(?=(?:\d|stretch|milestone|calibration))', sentence, re.I)
                 if purpose and not factual_status:
                     normalized.append(sentence[:purpose.start()].rstrip(' ,;:.') + '.')
+            if matches and factual_status:
+                clauses = re.split(r'\s*(?:;\s*|,\s*(?:so|and|but|therefore)\s+|\s+(?:because|since|so|therefore)\s+)\s*',
+                                   sentence, flags=re.I)
+                for clause in clauses:
+                    if not re.search(status_pattern, clause, re.I):
+                        action = clause.strip(' ,;:.')
+                        if action:
+                            normalized.append(action[0].upper() + action[1:] + '.')
+                normalized.extend(matches)
+                continue
             # A target mention alone is not a factual attainment assertion.
             # Preserve proposed actions and questions without a separable clause.
             normalized.extend(matches if matches and (purpose or factual_status) else [sentence])

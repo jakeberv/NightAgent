@@ -110,12 +110,14 @@ def _target_efficiency(rows, name):
             'attainment_by_budget': curves}
 
 
-def aggregate_run(artifacts: RunArtifacts) -> dict:
+def aggregate_run(artifacts: RunArtifacts, warnings: list[str]) -> dict:
     summary, events = artifacts.summary, artifacts.events
     objective = _objective(summary)
     metric, direction = objective["metric"], objective["direction"]
     maximize = direction == "maximize"
-    definitions = summary.get("target_definitions", [])
+    definitions = summary.get("target_definitions")
+    if not isinstance(definitions, list):
+        raise ValueError("Report requires frozen target_definitions as a list")
     selected_results = selections(summary)
     allowance = _number(summary.get("allowance_seconds"))
     trials = trials_from_events(events, selected_results)
@@ -136,8 +138,13 @@ def aggregate_run(artifacts: RunArtifacts) -> dict:
         curve.append((allowance, curve[-1][1]))
     tests = artifacts.tests
 
-    def test_result(name):
+    def test_result(name, observed):
         result = tests.get(name) or {}
+        digest = (observed or {}).get('artifact_hash')
+        if result and (not digest or result.get('artifact_hash') != digest):
+            warnings.append(f"Held-out {name} result in {artifacts.folder} does not match "
+                            "an observed selected artifact; test outcome remains unknown.")
+            return {'test_score': None, 'test_metrics': {}, 'test_status': 'unknown'}
         score = _number(result.get("score"))
         if score is None:
             score = _number((result.get("metrics") or {}).get(metric))
@@ -170,7 +177,7 @@ def aggregate_run(artifacts: RunArtifacts) -> dict:
     def measured_total(values):
         known = [value for value in values if value is not None and value >= 0]
         return sum(known) if known else None
-    best_test = test_result("best")
+    best_test = test_result("best", best)
     row = {
         "run_id": summary.get("run_id", artifacts.folder.name),
         "condition": str(summary.get("condition", "unknown")),
@@ -228,7 +235,7 @@ def aggregate_run(artifacts: RunArtifacts) -> dict:
         details.update({"threshold": threshold, "reached": crossing is not None,
                         "seconds": float(crossing["elapsed_seconds"]) if crossing else None,
                         **_accounting(crossing_account),
-                        **test_result(name)})
+                        **test_result(name, crossing)})
         row["targets"][name] = details
         if metric == "roc_auc" and name in ("milestone", "stretch"):
             row.update({name + "_auc": threshold, name + "_reached": details["reached"],
@@ -237,7 +244,8 @@ def aggregate_run(artifacts: RunArtifacts) -> dict:
     if metric == "roc_auc":
         row["best_validation_auc"] = row["best_score"]
         for name in ("best", "milestone", "stretch"):
-            result = test_result(name)
+            result = best_test if name == 'best' else row['targets'].get(name, {
+                'test_score': None, 'test_status': 'not evaluated'})
             row[name + "_test_auc"] = result["test_score"]
             row[name + "_test_status"] = result["test_status"]
     return row
@@ -247,7 +255,7 @@ def build_report_data(root: Path) -> dict:
     """Read frozen artifacts offline, retaining every scheduled run in denominators."""
     artifacts = load_report(Path(root))
     metadata, warnings = artifacts.metadata, artifacts.warnings
-    runs = [aggregate_run(run) for run in artifacts.runs]
+    runs = [aggregate_run(run, warnings) for run in artifacts.runs]
     identities = {(r["objective"]["metric"], r["objective"]["direction"], r["problem_hash"],
                    json.dumps(r["problem"], sort_keys=True), r["data_fingerprint"]) for r in runs}
     if metadata and artifacts.is_suite:
