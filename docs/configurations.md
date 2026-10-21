@@ -2,11 +2,17 @@
 
 The active demo uses [`fashion-five-arm-overnight-config.json`](../study/fashion-five-arm-overnight-config.json) and the [five-arm launch recipe](five-arm-overnight.md). Earlier presets remain runnable inputs for their documented experiments; a filename containing “overnight” or “smoke” does not select the current protocol or make model calls free.
 
+The [README's full MAGIC command](../README.md#run-the-complete-comparison) reuses
+the same five-arm preset with `--device cpu` and the MAGIC profile. The profile
+supplies its classical classifiers and ROC-AUC targets; the preset supplies
+interaction schedules, limits and shared CPU resources. The [MAGIC guide](magic-pilot.md)
+records the successful 35-fit CPU rehearsal, with no GPU or PyTorch required.
+
 This index covers every `study/*config.json`. Values below are per run, before CLI overrides. `run` executes the preset's single `condition`; `suite` expands its `comparison` into matched arms. All runnable presets and `StudyConfig` default to lesson memory on. All presets use OpenRouter model `anthropic/claude-sonnet-4.5`, serving provider `anthropic`, temperature 0, 2,048 maximum output tokens, base training seed 42, a 12-trial recent-history window and one model retry. Night Science supervision is the default unless a comparison selects a different strategy. Unknown billing stops execution in all presets.
 
 | Preset | Purpose / status | `suite` comparison | `run` condition | Time / attempts / API guard | Fit timeout; model timeout | Resources; lesson memory |
 |---|---|---|---|---|---|---|
-| [`fashion-five-arm-overnight-config.json`](../study/fashion-five-arm-overnight-config.json) | **Current design; corrected solo validation passed**; review/merge and final host/budget gates in [recipe](five-arm-overnight.md) | `apprentice_interactions` (5 arms) | `researcher_alone` | 600 s / 1,000 / $5 | 45 s; 60 s | MPS, 4 shared cores; first four on, explicit control off |
+| [`fashion-five-arm-overnight-config.json`](../study/fashion-five-arm-overnight-config.json) | **Current design; overnight acceptance failed**; reliability correction and new pilot gates in [readiness](workshop-readiness.md) | `apprentice_interactions` (5 arms) | `researcher_alone` | 600 s / 1,000 / $5 | 45 s; 60 s | MPS by default, 4 shared cores; first four on, explicit control off |
 | [`fashion-targeted-preflight-config.json`](../study/fashion-targeted-preflight-config.json) | Reusable full preflight recipe; [original failure](revised-preflight-results.md) and [corrected solo-only PASS](solo-memory-revalidation.md) remain separate | `apprentice_interactions` (5 arms) | `researcher_alone` | 300 s / 7 / $2 | 45 s; 60 s | MPS, 4 shared cores; first four on, explicit control off |
 | [`fashion-comprehensive-smoke-config.json`](../study/fashion-comprehensive-smoke-config.json) | Earlier broad **paid**, validation-only coverage recipe; [four-suite recipe](comprehensive-smoke.md) overrides comparison/memory | `schedules` (5 arms) | `researcher_alone` | 300 s / 4 / $2 | 45 s; 60 s | MPS, 4 shared cores; on by default |
 | [`fashion-five-minute-config.json`](../study/fashion-five-minute-config.json) | Earlier short, three-arm validation-only pilot; [command](study-reference.md#earlier-fashion-supervisor-style-pilot) | `supervisor_strategies` (3 arms) | `researcher_alone` | 105 s / 12 / $1 | 45 s; 60 s | MPS, 4 shared cores; on |

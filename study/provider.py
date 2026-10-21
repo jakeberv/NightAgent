@@ -82,6 +82,21 @@ class ProviderError(RuntimeError):
         self.details = details
 
 
+def _reject_nonfinite_json(value):
+    raise ValueError(f"Non-finite JSON number: {value}")
+
+
+def _finite_json_float(value):
+    number = float(value)
+    if not math.isfinite(number):
+        _reject_nonfinite_json(value)
+    return number
+
+
+def _response_json(body):
+    return json.loads(body, parse_float=_finite_json_float, parse_constant=_reject_nonfinite_json)
+
+
 class OpenRouter:
     def __init__(self, model, provider, temperature=0, max_tokens=2048,
                  api_key=None, transport=None):
@@ -148,7 +163,7 @@ class OpenRouter:
                             content.extend(chunk)
                         body = bytes(content)
                     try:
-                        raw = self._redact(json.loads(body))
+                        raw = self._redact(_response_json(body))
                     except (ValueError, UnicodeError):
                         details["response_text"] = self._redact(body[:4096].decode("utf-8", errors="replace"))
                         raise ProviderError("Provider metadata is not valid JSON", details) from None
@@ -189,50 +204,169 @@ class OpenRouter:
         if tools:
             payload["tools"] = completion_tools(tools)
         details = {"usage": None, "accounting_unknown": True,
+                   "accounting_origin": "unknown",
                    "requested_model": self.model, "requested_provider": self.provider,
                    "request_tools": payload.get("tools", []),
                    "request_metadata": {}}
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        # Reconciliation is part of this attempt's caller budget, never extra time.
+        reserve = min(5.0, timeout * .1)
+        failure = None
         try:
-            # The outer timer includes pool wait, upload, headers and full body.
-            async with asyncio.timeout(timeout):
-                response = await self._client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {self._api_key}"},
-                    json=payload, timeout=timeout,
-                )
-                details["status_code"] = response.status_code
-                details["request_metadata"] = self._redact({
-                    key: response.headers[key] for key in
-                    ("x-request-id", "request-id", "x-generation-id", "cf-ray")
-                    if key in response.headers
-                })
+            # One authoritative total deadline covers both the POST and receipt.
+            async with asyncio.timeout_at(deadline):
                 try:
-                    raw = self._redact(response.json())
-                except ValueError:
-                    details["response_text"] = self._redact(response.text[:4096])
-                    raise ProviderError("Provider returned invalid JSON", details) from None
-                details["raw"] = raw
-                if isinstance(raw, dict):
-                    details.update({key: raw.get(key) for key in ("id", "provider", "model")})
-                    details["usage"] = raw.get("usage") if isinstance(raw.get("usage"), dict) else None
-                    usage = details["usage"]
-                    details["accounting_unknown"] = usage is None or usage.get("cost") is None
-                if not 200 <= response.status_code < 300 or not isinstance(raw, dict) or raw.get("error"):
-                    raise ProviderError("Provider request failed", details)
-                try:
-                    message = raw["choices"][0]["message"]
-                    if not isinstance(message, dict) or message.get("role") != "assistant":
-                        raise ValueError
-                except (KeyError, IndexError, TypeError, ValueError):
-                    raise ProviderError("Provider returned no assistant message", details) from None
-                return {"message": message, "usage": details["usage"],
-                        "id": raw.get("id"), "provider": raw.get("provider"),
-                        "model": raw.get("model"), "raw": raw,
-                        "request_tools": details["request_tools"],
-                        "request_metadata": details["request_metadata"]}
+                    async with asyncio.timeout_at(deadline - reserve):
+                        message = await self._completion_response(payload, details, timeout)
+                except (TimeoutError, httpx.HTTPError) as error:
+                    details["error_type"] = type(error).__name__
+                    failure = "Provider request timed out or failed in transport"
+                except ProviderError as error:
+                    failure = str(error)
+                if details["accounting_unknown"]:
+                    await self._reconcile(details, min(deadline, loop.time() + reserve))
+                if failure:
+                    raise ProviderError(failure, details)
+                return {"message": message, **details}
+        except asyncio.CancelledError as error:
+            # Preserve cancellation, while the caller can journal received evidence.
+            error.details = details
+            raise
         except (TimeoutError, httpx.HTTPError) as error:
             details["error_type"] = type(error).__name__
+            reconciliation = details.get("accounting_reconciliation")
+            if reconciliation and reconciliation["status"] == "pending":
+                reconciliation["status"] = "timeout"
             raise ProviderError("Provider request timed out or failed in transport", details) from None
+
+    @staticmethod
+    def _known_cost(usage):
+        cost = usage.get("cost") if isinstance(usage, dict) else None
+        try:
+            return type(cost) in (int, float) and math.isfinite(cost) and cost >= 0
+        except OverflowError:
+            return False
+
+    async def _completion_response(self, payload, details, timeout):
+        # HTTP streaming retains headers before a slow body; the API remains
+        # stream:false JSON. OpenRouter documents X-Generation-Id on all endpoints:
+        # https://github.com/OpenRouterTeam/docs/blob/main/api_reference/streaming.mdx
+        async with self._client.stream(
+            "POST", "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+            json=payload, timeout=timeout,
+        ) as response:
+            details["status_code"] = response.status_code
+            details["request_metadata"] = self._redact({
+                key: response.headers[key] for key in
+                ("x-request-id", "request-id", "x-generation-id", "cf-ray")
+                if key in response.headers
+            })
+            details["id"] = details["request_metadata"].get("x-generation-id")
+            body = bytearray()
+            try:
+                async for chunk in response.aiter_bytes():
+                    body.extend(chunk)
+            except BaseException:
+                details["response_text"] = self._redact(body[:4096].decode("utf-8", errors="replace"))
+                raise
+            try:
+                raw = self._redact(_response_json(body))
+            except (ValueError, UnicodeError):
+                details["response_text"] = self._redact(body[:4096].decode("utf-8", errors="replace"))
+                raise ProviderError("Provider returned invalid JSON", details) from None
+            details["raw"] = raw
+            if isinstance(raw, dict):
+                details.update({key: raw.get(key) for key in ("provider", "model")})
+                if raw.get("id") is not None:
+                    if details["id"] is not None and details["id"] != raw["id"]:
+                        details["generation_id_mismatch"] = True
+                    else:
+                        details["id"] = raw["id"]
+                details["usage"] = raw.get("usage") if isinstance(raw.get("usage"), dict) else None
+                details["accounting_unknown"] = not self._known_cost(details["usage"])
+                if not details["accounting_unknown"]:
+                    details["accounting_origin"] = "completion_usage"
+            if not 200 <= response.status_code < 300 or not isinstance(raw, dict) or raw.get("error"):
+                raise ProviderError("Provider request failed", details)
+            try:
+                message = raw["choices"][0]["message"]
+                if not isinstance(message, dict) or message.get("role") != "assistant":
+                    raise ValueError
+            except (KeyError, IndexError, TypeError, ValueError):
+                raise ProviderError("Provider returned no assistant message", details) from None
+            return message
+
+    async def _reconcile(self, details, deadline):
+        """Accept only a finalized receipt for this exact generation and model.
+
+        https://openrouter.ai/docs/api/api-reference/generations/get-generation
+        No key/balance aggregate, price estimate or failed-call zero is evidence.
+        """
+        generation_id = details.get("id")
+        if not isinstance(generation_id, str) or not generation_id.strip():
+            return
+        evidence = details["accounting_reconciliation"] = {
+            "source": "https://openrouter.ai/api/v1/generation",
+            "generation_id": generation_id, "status": "pending",
+        }
+        if details.get("generation_id_mismatch"):
+            evidence["status"] = "generation_id_mismatch"
+            return
+        try:
+            async with asyncio.timeout_at(deadline):
+                response = await self._client.get(evidence["source"], params={"id": generation_id},
+                    headers={"Authorization": f"Bearer {self._api_key}"},
+                    timeout=max(.001, deadline - asyncio.get_running_loop().time()))
+                evidence["status_code"] = response.status_code
+                # Keep malformed/nonstandard JSON as text, so NaN/Infinity cannot
+                # leak into the durable journal's strict JSON accounting records.
+                try:
+                    raw = self._redact(_response_json(response.content))
+                except (ValueError, UnicodeError):
+                    evidence.update(status="invalid_json", response_text=self._redact(response.text[:4096]))
+                    return
+                evidence["raw"] = raw
+                if not 200 <= response.status_code < 300:
+                    evidence["status"] = "unavailable"
+                    return
+                data = raw.get("data") if isinstance(raw, dict) else None
+                if not isinstance(data, dict) or raw.get("error"):
+                    evidence["status"] = "invalid_receipt"
+                    return
+                if data.get("id") != generation_id or data.get("model") != self.model:
+                    evidence["status"] = "receipt_mismatch"
+                    return
+                finish_reason = data.get("finish_reason")
+                if not isinstance(finish_reason, str) or finish_reason not in {
+                    "stop", "length", "tool_calls", "function_call", "content_filter", "error"
+                }:
+                    evidence["status"] = "not_final"
+                    return
+                usage = {"cost": data.get("total_cost"),
+                         "prompt_tokens": data.get("native_tokens_prompt"),
+                         "completion_tokens": data.get("native_tokens_completion")}
+                token_fields = ("native_tokens_prompt", "native_tokens_completion",
+                                "native_tokens_cached", "native_tokens_reasoning")
+                if not self._known_cost(usage) or any(
+                    type(data.get(key)) is not int or data[key] < 0 for key in token_fields
+                    if key in token_fields[:2] or data.get(key) is not None
+                ):
+                    evidence["status"] = "invalid_accounting"
+                    return
+                for source, detail, target in (
+                    ("native_tokens_cached", "prompt_tokens_details", "cached_tokens"),
+                    ("native_tokens_reasoning", "completion_tokens_details", "reasoning_tokens"),
+                ):
+                    if data.get(source) is not None:
+                        usage[detail] = {target: data[source]}
+                details.update(usage=usage, accounting_unknown=False, accounting_origin="generation_receipt")
+                evidence["status"] = "resolved"
+        except TimeoutError:
+            evidence["status"] = "timeout"
+        except httpx.HTTPError as error:
+            evidence.update(status="transport_failure", error_type=type(error).__name__)
 
     async def aclose(self):
         await self._client.aclose()

@@ -13,7 +13,7 @@ Test whether supervision justifies its time and cost. Tutorial 1 supplies tools/
 
 ## 3. Tools and data
 
-Fashion-MNIST: 12,000 training images, 3,000 validation images, untouched official test set. Primary objective: accuracy; secondary: macro-F1 and macro one-vs-rest ROC-AUC. Targets: 85%, 88%, 90%.
+Fashion-MNIST: 12,000 training images, 3,000 validation images, official test set scored after search freezes. Primary objective: accuracy; secondary: macro-F1 and macro one-vs-rest ROC-AUC. Targets: 85%, 88%, 90%.
 
 One bounded `run_analysis` interface accepts logistic, random-forest, MLP or CNN settings and returns validation metrics and artifacts. The harness supplies context, fits preprocessing on training data, validates citations, enforces limits, selects artifacts and reports. Agents cannot alter evaluation or inspect test labels. Literature is disabled.
 
@@ -33,4 +33,4 @@ Show recommendation → configuration → measurement → lesson → later deliv
 
 ## 7. Risks, limits, roles
 
-Main risk: unsupported conclusions. Reset lessons each run; cross-run learning is untested. Four shared cores, two runs, serialized MPS; queue time counts. Limits: 1,000 attempts, 45-second fits, 2,048 output tokens/call. Fifteen $5 guards total $75, with possible overrun. Solo memory revalidation passed. Provisional spend: $18.38; key allowance covers reserve, account balance unavailable. Maintainer coordinates integration; component owners need confirmation. Defer RL/generated tools.
+Main risk: unsupported conclusions. Reset lessons each run; cross-run learning is untested. Four shared cores, two runs, serialized MPS; queue time counts. Limits: 1,000 attempts, 45-second fits, 2,048 output tokens/call. Fifteen $5 guards total $75, with possible overrun. Overnight known spend: $22.44; two timeout charges unknown. Acceptance failed; recorded mechanism demo remains available. Maintainer coordinates integration; component owners need confirmation. Defer RL/generated tools.

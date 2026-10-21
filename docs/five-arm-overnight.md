@@ -1,17 +1,13 @@
 # Five-arm overnight run
 
-This is the current demo comparison. It uses
-[`fashion-five-arm-overnight-config.json`](../study/fashion-five-arm-overnight-config.json),
-not the older three-arm `fashion-overnight-config.json` or the seven-attempt
-preflight. The [saved live preflight](targeted-preflight.md#historical-live-results--2026-10-20)
-used the former memory policy and is historical evidence. The
-[revised 21 October paid preflight](revised-preflight-results.md) failed solo
-lesson-memory coverage; its failed receipt remains intact. The corrected contract
-passed [targeted paid solo revalidation](solo-memory-revalidation.md). The other
-four arms were not rerun, and no combined current-source five-arm pass is claimed.
-Launch the reviewed correction from merged `main` after the final host and
-operational budget checks below pass. Autonomous launch is authorized without
-further intervention when these conditions hold.
+This is the frozen scientific recipe using
+[`fashion-five-arm-overnight-config.json`](../study/fashion-five-arm-overnight-config.json).
+The [21 October overnight run](overnight-results.md) completed searches and
+held-out reporting, but failed acceptance after two timeout/accounting stops
+and an abandoned final review. Its original audit remains unchanged. Current
+[readiness](workshop-readiness.md) records the reliability correction, review/CI
+status and remaining validation. A new paid comparison needs a fresh operational
+preflight, cost measurement and budget decision; this recipe does not launch it.
 
 ## Frozen protocol
 
@@ -39,22 +35,18 @@ empty in each independent run and never transfer across repeats.
 
 ## Launch on the tested Mac
 
-Verify fresh Copilot review and merge of the corrected source, then use the
-updated `main`. The [solo revalidation](solo-memory-revalidation.md) passed with
-seven fits, seven calls and a clean audit. Its cost/time rate replaces the
-original solo rate for a **$18.38** planning projection, or **$23.89 with a 30%
-reserve**. The other four rates come from the original five-arm run; this combines
-cost planning inputs only. The earlier $18.48/$24.03 and $18.12 projections are
-historical, and the reserve is not a billing ceiling.
+Use the reviewed correction after passing CI and merge, then verify the launch
+checkout and operational preflight. The old $18.38/$23.89 planning estimate has
+been superseded by **$22.444005 known overnight charges**, a lower bound with
+two calls' billing unknown. The completed-configuration context can increase
+prompt tokens; remeasure before extrapolating another matrix.
 
-Immediately before launch, confirm AC power, adequate free space and available
-MPS. Refresh the provider key allowance and effective budget; both must cover
-the buffered forecast, with successful billed pilot calls already verified.
-Retain the $5 per-run guards, provider key cap and unknown-cost stops. Account-wide
-balance remains unavailable through the inference key (403); the authorized
-operational gate does not require independent balance visibility. Do not purchase
-credits or raise limits. The [readiness ledger](workshop-readiness.md) and dated
-run logs retain checks and actual launch status.
+Immediately before any new paid launch, confirm AC power, free space and MPS,
+and refresh key allowance/effective budget. Retain the $5 per-run guards,
+provider key cap and unknown-cost safeguards. Account-wide balance remains
+unavailable through the inference key. No credits are purchased or limits raised.
+The run logs retain actual launch status and the [readiness ledger](workshop-readiness.md)
+separates a recorded mechanism demo from a fresh accepted comparison.
 
 From the repository root, use the existing virtual environment and credential
 file. This command starts paid model calls. It retains a console log and exit
@@ -110,7 +102,11 @@ attempts in every arm to cover reviews after attempts three and six.
   contrasts agree with saved reports; declared postrun work is complete.
 - **Warning (exit 0):** coverage passed, but a contract needed a successful repair,
   a recorded model call failed with complete accounting and the run recovered,
-  or a final review/reflection had no subsequent fit. Changed source hashes are
+  or a final review/reflection had no subsequent fit. An explicitly recorded,
+  rejected terminal review abandoned at deadline is also a warning only when the
+  audit verifies the skipped repair, matching invalid contract, terminal deadline
+  stop and absence of later calls, fits or delivery. Initial framing remains
+  mandatory; unmarked or nonterminal invalid contracts still fail. Changed source hashes are
   also a warning when auditing historical evidence: hashes identify the frozen
   source but cannot reconstruct or validate historical source contents.
 - **Fail (exit 2):** evidence is missing/corrupt/inconsistent, an artifact fails

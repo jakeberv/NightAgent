@@ -1,4 +1,10 @@
-# Workshop demo: current protocol and recorded fallback
+# Workshop demo: recorded evidence and acceptance limits
+
+**A recorded mechanism demo is available.** The [21 October overnight suite](docs/overnight-results.md)
+failed audit, so it cannot supply an accepted strict export or a performance
+benefit claim. Use the portable historical replay below, or the labeled manual
+overnight trace showing an inconclusive result and later lesson delivery. A new
+full paid comparison is not required for this scoped presentation.
 
 The current five-arm comparison makes lesson memory standard in
 `researcher_alone`, `frequent`, `periodic`, and `periodic_reflection`. The explicit
@@ -41,9 +47,10 @@ verify this pipeline. Present it as engineering rehearsal, not language-model
 strategy evidence. The [revised paid preflight](docs/revised-preflight-results.md)
 completed but failed solo-memory acceptance; strict demo export must reject that
 suite. The [corrected solo revalidation](docs/solo-memory-revalidation.md) passed,
-but does not supply a new accepted five-arm suite. Use the historical fallback
-until an overnight suite passes audit; consult [readiness](docs/workshop-readiness.md)
-for operational status.
+but does not supply a new accepted five-arm suite. The
+[overnight suite](docs/overnight-results.md) has now run and failed audit; strict
+export must also reject it. Use the recorded options here and consult
+[readiness](docs/workshop-readiness.md) for correction and rerun status.
 
 ## Historical real replay available from a fresh clone
 
@@ -76,10 +83,36 @@ Retain the historical-source and repaired-contract warnings. This is one matched
 repeat and a mechanism demonstration. A delivered lesson shows what entered a
 later context; it does not prove that the lesson caused an action or improved
 performance. The approximately $18.12 projection once derived from this preflight
-is historical only. The corrected solo revalidation refreshes the provisional cost estimate and
-resolves the observed coverage failure; it does not establish a memory benefit.
+is historical only. The corrected solo revalidation resolved that earlier
+coverage failure. The overnight run now provides $22.444005 known cost as a lower bound, with two calls
+missing billing; neither result establishes a memory benefit.
 
 If services or compute fail during the workshop, show the saved real replay and
 identify it as historical. Do not recreate missing real artifacts or substitute
 a scripted fixture as a real run. Three repeats on one split would support a
 workshop pilot, not a general ranking or learning across independent runs.
+
+## Manual trace from the failed overnight suite
+
+Label this as a **valid local mechanism trace within a failed suite**, not an
+accepted strict export. The [result and portable receipt](docs/overnight-results.md#a-valid-local-mechanism-trace)
+provide the saved configurations, accuracy measurements, hashes and journal
+locations for `r02-periodic_reflection`:
+
+1. The supervisor's review after trial 9 recommends learning rate 0.007 against
+   the 0.005 baseline (journal line 184).
+2. The researcher follows the recommendation in executed trial 10 (line 193).
+   Both CNN configurations use five epochs, batch size 256, 16 channels, weight
+   decay 0.001 and seed 44.
+3. Validation accuracy falls from **87.0333% to 86.6667%**, a drop of **0.3667
+   percentage points** (line 200).
+4. The saved `cnn_learning_rate_boost` lesson is marked `inconclusive` and cites
+   the measured trials (line 206). It enters the next researcher context
+   (line 208). Delivery does not establish an effect on the following choice.
+
+The suite's aggregate scores include two early stops. All four reported paired
+validation-accuracy intervals include zero. Present the trace as a visible
+feedback–experiment–measurement–memory loop, with no claim that memory or
+supervision improved accuracy. Full independent trace revalidation needs the
+original ignored journals and hashed artifacts; the portable receipt remains
+readable from a fresh clone.

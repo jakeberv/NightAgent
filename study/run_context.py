@@ -135,12 +135,65 @@ def agent_project(project):
     return dict(project)
 
 
-def build_context(state, *, project, permitted_experiments, memory, role=None, framing=False):
+def completed_configurations(history, *, problem, project):
+    """Compact execution bookkeeping for every completed effective configuration.
+
+    Share one parameter base per model, then encode only differences. Bases are
+    recorded constructor settings, including resolved defaults, rather than a
+    proposed next experiment. The diagnostic gate remains the reuse authority.
+    """
+    from .diagnostics import describe_experiment
+
+    bases, groups, unresolved = {}, {}, []
+    execution_parameters = {'device', 'n_jobs', 'random_state', 'architecture'}
+    for row in history:
+        if row.get('status') != 'completed':
+            continue
+        config = row.get('config') or {}
+        provenance = row.get('provenance') or {}
+        seed = row.get('seed', provenance.get('seed'))
+        effective = row.get('effective_config')
+        if not effective and type(seed) is int:
+            try:
+                resolved = describe_experiment(config, problem=problem, project=project, seed=seed)
+                effective, provenance = resolved['effective_config'], resolved['provenance']
+            except (KeyError, TypeError, ValueError):
+                pass
+        if (type(seed) is not int or not isinstance(effective, dict)
+                or not isinstance(effective.get('params'), dict)
+                or not effective.get('model') or not effective.get('preprocessing')):
+            # Historical incomplete evidence cannot establish equivalence. Keep
+            # its existence visible without inventing defaults or a seed.
+            unresolved.append({'trial_id': row['trial_id'], 'config': deepcopy(config), 'seed': seed})
+            continue
+        model = effective['model']
+        parameters = {key: deepcopy(value) for key, value in effective['params'].items()
+                      if key not in execution_parameters}
+        base = bases.setdefault(model, parameters)
+        key = json.dumps({'effective_config': effective, 'seed': seed,
+                          'provenance': provenance}, sort_keys=True, allow_nan=False)
+        if key not in groups:
+            groups[key] = {'model': model, 'preprocessing': effective['preprocessing'],
+                'params': {name: value for name, value in parameters.items()
+                           if name not in base or value != base[name]},
+                'seed': seed, 'trial_ids': []}
+        groups[key]['trial_ids'].append(row['trial_id'])
+    return {'scope': 'execution bookkeeping, available in every arm',
+            'encoding': 'Merge parameter_bases[model] with entry.params for resolved parameters; entries include completed trials only.',
+            'parameter_bases': bases, 'entries': list(groups.values()),
+            **({'unresolved_trials': unresolved} if unresolved else {})}
+
+
+def build_context(state, *, project, permitted_experiments, memory, role=None, framing=False,
+                  reuse_feedback=None):
     """Render current budgets and observations; retain all-trial citation visibility."""
     config, summary, history = state.config, state.summary, state.history
     return json.dumps({
         'project': agent_project(project),
         'recent_trials': [compact_result(row) for row in history[-config.history_trials:]],
+        'completed_configurations': completed_configurations(history, problem=state.problem, project=project),
+        'reused_proposals': (reuse_feedback or {}).get('count', 0),
+        'last_reused_proposal': (reuse_feedback or {}).get('latest'),
         **({'permitted_experiments': permitted_experiments} if role in ('supervisor', 'reflection') else {}),
         **({'supervisor_strategy': 'standard' if framing else config.supervisor_strategy,
             'supervisor_stage': 'framing' if framing else 'review'} if role == 'supervisor' else {}),

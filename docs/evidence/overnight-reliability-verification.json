@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "scope": "Offline reliability correction only; not a new paid five-arm scientific result.",
+  "full_regression": {
+    "passed": 1060,
+    "seconds": 159.45,
+    "exit_code": 0,
+    "log": "study-runs/overnight-reliability-fix-20261021/full-after-phase-review.log"
+  },
+  "source_sha256": {
+    "worker.py": "35fc5f789cac8258dc2f16f53d78f0596ba249c8f40352c380616c5c400c1146",
+    "live_log.py": "ecf3ac79b97f9990aa8230c6a018a59fcf43a309609834ef34ceda23b69ea127",
+    "findings.py": "7c0df96eeb388f68ffe0c64e53daaaecf7d6de5059b2909983b65a397edb4196",
+    "run_state.py": "b9468e079e7c3b9f6f06c81c1a0118947b281eacdcec529d9a4e3cd8d6e57757",
+    "controller.py": "d480c0e905daa862ba2ccf7e1d61f45d358b97ebd46274a341b7742abb1cbe6a",
+    "tasks.py": "044205d355132c65579fcc975206ac078a9556213822a854dac8fc3495259910",
+    "config.py": "5cccc9e7464773f7d8bf7a74c45f1ff977aa4b345b468a8bb6307411e296e3bb",
+    "suite.py": "4ecc828521b595350f8036eb2f6c596dc01f814d1ccf60f3829f90b872fb3951",
+    "audit.py": "70895d423ce7d3a995a3b68af1384552dbeb9f1bb43d896d950045178fbb5ca4",
+    "recovery.py": "b751b6da217015eb7eaabc0b9d6e3bbfc4eb35ae7d3683b81d1b0b87d6f66374",
+    "fake.py": "ae916f6f4fd0bedbd0c4fbdffcb2967424eccd1863409909598cd642f1209b04",
+    "provider.py": "8bae924843480e68f0a31fb64577c6f7c56c54f87cd947b392f186959dbebeed",
+    "report_rendering.py": "4b9c53572ad8734710b6620d4cc761ab74ee202c4ce8675ab14da3ecda99a7f5",
+    "terminal.py": "ce470934d6356f9d58c46b7ce752d39311fc747dc39028ceffeaedabbd642ac3",
+    "credentials.py": "13f2302f99cbea0bc0415a0c68fcd8d785d921ff146337b623ce7a172c156c2d",
+    "trial_execution.py": "f4a955d949d320c9ce48507beac49fe0efe5290fe88b41478b345930311e2d7f",
+    "events.py": "3582eea47d2addceae49a54c90bceceb02cc710988874f0bec05a514bdc21d6a",
+    "diagnostics.py": "1f448189913e85c0d5890b574b43aa2120b7343ed38c1f987b7899bdd666d8b3",
+    "records.py": "b8b2281eee0bed67435e78433db564b741c9cfe8d9333d210cf7a109ae5602c2",
+    "cpu.py": "b8f05bc171e5cfa2a1be89eb64cd1adcdc4c1e42bda6eb0fb8f8d1105e6d26c2",
+    "report_data.py": "1927322c2484e133c1c2531ee117d78b9180879da9696528c1ff44491b069a4b",
+    "live_lessons.py": "d2d779a601292c7c2c1758ac51efe7993d201eb54c6fbdc551832ef5b594c15c",
+    "__init__.py": "afaea6f0c4215b7810ae852456250fde893cb008b248e7540f368b823104e5c4",
+    "model_calls.py": "15c4370e5ea5b6816931d7b0c2770ff9e409e2ef7a00ad53ea234ef5d957f3ae",
+    "prompts.py": "1c21dd1631bbf946a1bbfb3fe265af668d41f32554c5f37ef1450c02389c3712",
+    "report_graphics.py": "13fed79c9b06c09c7da9b30a9699176e11add2fe4a07b9b2f67007e19bc1686c",
+    "fashion_data.py": "32a7fa1dec37b73ceec7188fcca4b11a09ddb0492c53fb7f120e7245a3a3e9f0",
+    "problem.py": "cfbb1b5ed0dc0c4cd64eb1d51ca147c65152924c5c46336f6e4b912cd2cc2e2a",
+    "report_loading.py": "38fe4cad101d0d17afab4df34a42eb4bb72eac5044402b78d25116470bed6ba6",
+    "run_context.py": "8cc43f793294479377ef19339c620c6d393a59f074664f1d2385845534eba922",
+    "workshop_eval.py": "f2e4f3a15d0d47d410049e0608843d013ec7b5aac9c6874d09e898c8f6f6386c",
+    "report_analysis.py": "6b77389bc20ee33913aea90cf05ae90b82a7e7d62b0c0f2c031a6be4693437af",
+    "live_chart.py": "6793570d7dd62c1228f0ccdd9394b0174f7ee80ecd69e036b341e462cd286fee",
+    "science.py": "abc12e50ad9693ccfbff0222581e5811d3d61cb0b32ed8249c30881c2707f6f1",
+    "reasoning.py": "c58c18a3c46889c63c82c7b66712cad1f7fbc91e165788f49cb6395f1ac56f21",
+    "resources.py": "3d0575bc972b03f44128dfa8101f5899359ca91b26a72a7143ee362097b46d06",
+    "literature_check.py": "4580a5d42a8053c46d98b58814bdf28a07e4d0f18c75fa28512910448b4d9ddb",
+    "selection.py": "e4163412fce63d2dcc9206e5db64b1673c2ef7766a3d88a5c7703f21039c3edc",
+    "literature.py": "6a37514ff28050f6273956c0a2abd85c8611230a7c36c81dbf2fdcfd3f59cccf",
+    "calibrate.py": "f8aa7583885b3c558175fe21ec85bfa6438fd9cdf0b6b97bb3b8325a01af5ef6",
+    "progress.py": "95a2177c79456e2aeb82efbf324739a9a7b5ea428b2cb60e75b2fa2e45715303",
+    "model_tools.py": "38f1d3e32dd02a0d97c5bed106e2a64d9b8a5e67081178facd263a5d1dd1dbd9",
+    "demo.py": "8ad040c6d0d424351194f25b0f2ac998a3590f6346780e376af0517bfb8517cc",
+    "__main__.py": "6619b74ff709a2521d4e639bcbb8689cf7cd19f53727a7f6ea4e27777791fb1a",
+    "report.py": "23e40a9ca3d8db55f9849758ad920b18002d495897490ae0078fd96fe62c7168",
+    "lab.py": "d8c095c3a7b606963901269aa5dc89c1a26ae3ad9d4835c753858eb5cdda3bae",
+    "focus.py": "2e7fc86d23f14f14a51b7ccc9801764425b8119ae302c2ff93af91bcfd7fafc8",
+    "torch_models.py": "33cfe629953385d0e6293a0342d3336eaf292848db6f596652aa532817646ef1",
+    "keyboard.py": "9272686fe95f5826b9deccc48990e57df79f5ed617a717fd2944a84e070cca81"
+  },
+  "targeted_regressions": {
+    "audit": {
+      "passed": 140,
+      "source": "study-runs/overnight-reliability-fix-20261021/copilot-audit-green.log"
+    },
+    "timeout_accounting": {
+      "passed": 101,
+      "source": "study-runs/overnight-reliability-fix-20261021/timeout-accounting-exponent-green.log"
+    },
+    "controller_context": {
+      "passed": 120,
+      "source": "study-runs/overnight-reliability-fix-20261021/terminal-duplicates-green.txt"
+    },
+    "controller_billed_repair": {
+      "passed": 15,
+      "source": "study-runs/overnight-reliability-fix-20261021/terminal-duplicates-billed-repair-green.txt"
+    },
+    "complete_rejected_review_phase": {
+      "passed": 4,
+      "source": "study-runs/overnight-reliability-fix-20261021/copilot-phase-multiple-green.log",
+      "scope": "Repeated invalid replies with known billed retries; intervening lesson writes must fail."
+    }
+  },
+  "historical_overnight_audit": {
+    "remains_failed": true,
+    "errors": 7,
+    "original_unchanged": true,
+    "source": "study-runs/overnight-reliability-fix-20261021/historical-audit-replay.json"
+  },
+  "paid_calls_in_this_pass": 0,
+  "new_heldout_scoring": false,
+  "live_duplicate_reduction_verified": false,
+  "live_timeout_reconciliation_verified": false,
+  "named_cases": {
+    "passed": 8,
+    "total": 8,
+    "underlying_checks": 52,
+    "seconds": 11.686255875043571,
+    "source": "study-runs/overnight-reliability-fix-20261021/workshop-evaluation-final/results.json"
+  },
+  "copilot_findings_fixed": [
+    "Contiguous known-billing failed repair attempts before deadline-abandoned review",
+    "Oversized skipped-repair budgets produce a failed audit verdict instead of OverflowError",
+    "Validate the entire repair sequence from the first pending rejected review; no intervening writes or deliveries may be hidden by a later rejection."
+  ],
+  "related_accounting_guard": "Unrepresentable costs remain unknown and do not lose the accounting record.",
+  "earlier_full_regressions": [
+    {
+      "passed": 1041,
+      "seconds": 155.72,
+      "exit_code": 0,
+      "log": "study-runs/overnight-reliability-fix-20261021/full.log"
+    },
+    {
+      "passed": 1056,
+      "seconds": 158.62,
+      "exit_code": 0,
+      "log": "study-runs/overnight-reliability-fix-20261021/full-after-copilot.log"
+    }
+  ],
+  "magic_cpu_verification": {
+    "scope": "Scripted controller and real CPU train/validation fits; workflow feasibility only, not evidence of an LLM or scientific winner.",
+    "source": "study-runs/overnight-reliability-fix-20261021/magic-cpu-verification.json",
+    "receipt_sha256": "4f05b17cfc63306f3593eec9918263e16126ed95b808d3b5b90463fc6533ff2c",
+    "source_data": {
+      "page": "https://archive.ics.uci.edu/dataset/159/magic+gamma+telescope",
+      "data_sha256": "e9314b7ebd4b4b59a3b3d65f7316663963777b16a46786877651dbbaa640b36a",
+      "event_origin": "CORSIKA Monte Carlo simulated gamma/hadron telescope events, per magic04.names",
+      "rows": 19020,
+      "features": 10
+    },
+    "problem": {
+      "path": "study/problems/magic.yaml",
+      "sha256": "d20ede36489751a9a1fe80dc419e58ac63274dd67fe4a6dd8209bb0c0d22a895",
+      "fingerprint": "c9992258cdaf079122fdc58d600b7b9e975d5b53b4251742ad40f1861eb1e31e",
+      "validated_by_cli": true,
+      "objective": {
+        "metric": "roc_auc",
+        "direction": "maximize"
+      }
+    },
+    "prepared_data": {
+      "path": "study-runs/overnight-reliability-fix-20261021/magic-cpu-check-data",
+      "data_fingerprint": "a7a701476c0eb47a143901bec53b5a4791e42654d194a985ecb7c22b904da069",
+      "partitions": {
+        "test": {
+          "rows": 3804,
+          "sha256": "e42b3e880deb6cfebea435145a2473c9debbca90d07f1cc29bb95609a5914421"
+        },
+        "train": {
+          "rows": 11412,
+          "sha256": "9d0adeba668e73c73259380798cd6096cddb6c164b259f470da6cbc2f0492915"
+        },
+        "validation": {
+          "rows": 3804,
+          "sha256": "02663547dbadc4be4e599dc657f1ba46576019700e5010a2027f50630470b55b"
+        }
+      },
+      "split_protocol": {
+        "method": "stratified_holdout",
+        "seed": 42,
+        "test": 0.2,
+        "train": 0.6,
+        "validation": 0.2
+      }
+    },
+    "suite": {
+      "path": "study-runs/overnight-reliability-fix-20261021/magic-cpu-check-suite",
+      "arm_count": 5,
+      "repeats": 1,
+      "fits": 35,
+      "device": "cpu",
+      "max_cores": 4,
+      "validation_only": true,
+      "audit_passed": true,
+      "audit_errors": [],
+      "audit_warnings": [],
+      "postrun": {
+        "evaluate": "skipped_validation_only",
+        "report": "completed"
+      },
+      "seconds": 48.56932504102588
+    },
+    "raw_evidence_sha256": {
+      "suite.json": "0feed22ac85afc692d6e47ae3558fa8322f048e4ccc1f040ef9d4c0ce2e9f86b",
+      "audit-summary.json": "1c0f6f3e4ce4c78872505544cdba393e1a8359ea6ce45648f7d310a0389ac183",
+      "completion.json": "f120f01231dd5510b56a387a73f65608613a69623b0a88188a87278935ab48e0",
+      "summary.csv": "1366b7e8e459a3cca2a43e3577e32638be36fc198421249afa50756142ba142f"
+    },
+    "neural_dependency_check": {
+      "passed": true,
+      "method": "Fresh parent process import hook rejects torch/study.torch_models; import CLI/controller, resolve MAGIC execution config, construct all seven pipelines and diagnostic descriptions. Static worker dispatch imports torch only for torch_ model names.",
+      "blocked_import_attempts": [],
+      "torch_imported": false,
+      "resolved_device_from_inherited_mps_config": "cpu",
+      "classical_estimators": {
+        "logistic": "sklearn.linear_model._logistic.LogisticRegression",
+        "random_forest": "sklearn.ensemble._forest.RandomForestClassifier",
+        "histogram_gradient_boosting": "sklearn.ensemble._hist_gradient_boosting.gradient_boosting.HistGradientBoostingClassifier"
+      },
+      "real_fit_actual_estimators_verified": [
+        "sklearn.ensemble._forest.RandomForestClassifier",
+        "sklearn.ensemble._hist_gradient_boosting.gradient_boosting.HistGradientBoostingClassifier",
+        "sklearn.linear_model._logistic.LogisticRegression"
+      ],
+      "resource_records_checked": 105,
+      "additional_fits": 0
+    },
+    "historical_source_and_data_unchanged": true,
+    "paid_calls": 0,
+    "heldout_scored": false
+  }
+}
