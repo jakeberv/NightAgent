@@ -165,6 +165,8 @@ def test_repeated_reuse_uses_existing_no_progress_bound_and_failed_fit_can_retry
     assert len([e for e in events if e['type'] == 'trial_started']) == 2
     reuses = [event for event in events if event['type'] == 'experiment_reused']
     assert len(reuses) == 3 and all(event['matched_trial_ids'] == [2] for event in reuses)
+    assert all([row['trial_id'] for row in event['result']['completed_model_configurations']] == [2]
+               for event in reuses)  # The failed trial remains eligible for retry.
 
 
 @pytest.mark.parametrize('role,condition', [('supervisor', 'frequent'), ('reflection', 'periodic_reflection')])

@@ -33,6 +33,14 @@ and recent results are already supplied in the refreshed context. Equivalent
 configurations reuse existing evidence without fitting or consuming a trial slot;
 choose a distinct configuration when this happens. Give a concise rationale, respond to any latest
 supervisor recommendation, and call run_analysis.
+Before calling, compare the complete proposed settings against the completed
+registry, including preprocessing and resolved defaults. Check the numeric bounds:
+increasing a value already at its maximum is not an available experiment.
+After a reuse, the tool's completed_model_configurations lists the recorded
+requests for that model in full. Check that list as well as the effective registry;
+changing back to a different completed trial is still a duplicate. Identify an
+actual permitted difference in your rationale before submitting the next call.
+Do not use run_analysis as a novelty check; it consumes model-call time and cost.
 last_supervisor_feedback contains the latest advice, which may already be tested.
 recommendation_completed_trial_ids and reflection_completed_trial_ids identify
 fulfilled suggestions. Treat those as history; choose a new informative action.
